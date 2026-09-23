@@ -5,6 +5,8 @@ const CONFIG = Object.freeze({
   // Wooden walls (woodWalls, placed after the stone ones) block like stone but lose HP to bullets from either side and woodBlast to
   // every explosion that reaches them; a destroyed one is removed from the map.
   world: { width: 1800, height: 1200, grid: 30, walls: 11, wallWidth: [72, 128], wallHeight: [48, 88], woodWalls: 5, woodHp: 150, woodBlast: 80, ponds: { clusters: 4, pieces: [2, 4], size: [80, 130] }, bushes: { clusters: 8, pieces: [3, 6], size: [72, 118] }, clusterReach: 0.62, terrainGap: 20, spawnClearance: 200, borderMargin: 16, placementMargin: 42, spawnMargin: 65, terrainSpawnPadding: 12, chestSpacing: 65, placementAttempts: 250, spawnAttempts: 400, burnSeconds: 25 },
+  // Environmental fire, enemy crossfire and water interaction; player fire damage remains harsh-only.
+  environment: { fireSeconds: 6, fireSpreadInterval: 1.5, fireSpreadRange: 125, fireTick: 0.8, fireDamage: 9, playerFireDamage: 8, enemyBulletDamage: 0.5, enemyBlastDamage: 0.5 },
   // Shield recharges only while hidden in grass (not firing) and unharmed for shieldRegenDelay seconds.
   player: { hp: 100, radius: 15, speed: 245, invulnerability: 0.65, pickupRadius: 40, waterMultiplier: 0.5, revealSeconds: 2.4, shieldRegenDelay: 3, shieldRegenRate: 4.5, switchDelay: 0.25 },
   // Shared weapon upgrades scale every gun: damage/rate/range are fractions of the gun's base value per level.
@@ -27,7 +29,7 @@ const CONFIG = Object.freeze({
     drone: { icon: '⌬', max: 3, gold: 35, scrap: 3, goldStep: 25, scrapStep: 2, damage: [10, 14, 18], rate: [1.8, 2.4, 3], range: 380, orbit: 34, orbitSpeed: 2.2, bulletSpeed: 700 },
     blades: { icon: '✢', max: 3, gold: 30, scrap: 2, goldStep: 22, scrapStep: 2, damage: [12, 16, 20], count: [2, 3, 4], radius: 62, size: 9, spin: 3.2, hitCooldown: 0.45 },
     missile: { icon: '➹', max: 3, gold: 45, scrap: 4, goldStep: 30, scrapStep: 2, damage: [30, 40, 52], interval: [2.4, 1.9, 1.5], range: 520, blast: 70, speed: 360, turn: 4.5, life: 3 },
-    tesla: { icon: 'ϟ', max: 3, gold: 40, scrap: 3, goldStep: 28, scrapStep: 2, damage: [16, 21, 27], interval: [1.5, 1.25, 1], range: 190, chains: [2, 3, 4], chainRange: 130 }
+    tesla: { icon: 'ϟ', max: 3, gold: 40, scrap: 3, goldStep: 28, scrapStep: 2, damage: [16, 21, 27], interval: [1.5, 1.25, 1], range: 190, chains: [2, 3, 4], chainRange: 130, wetChainRange: 1.5 }
   },
   enemies: {
     melee: { hp: 48, speed: 125, radius: 16, sight: 305, reach: 30, damage: 9, cooldown: 1.05, wanderSpeed: 0.45, bounty: 1, color: '#e99c77' },
@@ -46,18 +48,33 @@ const CONFIG = Object.freeze({
     flare: { hp: 44, speed: 100, radius: 15, sight: 360, reach: 290, damage: 7, cooldown: 2.1, projectileSpeed: 300, projectileRadius: 5, retreatRatio: 0.5, retreatSpeed: 0.6, flareEvery: 6, flareRadius: 150, flareSeconds: 6, wanderSpeed: 0.35, bounty: 1.4, color: '#f5e27a' },
     // Flying recon drone: crosses walls and never attacks. A player within scan px (even hidden) is exposed for revealSeconds
     // and every unaware enemy within alarm px starts searching there; then it rescans after scanCooldown s.
-    scout: { hp: 26, speed: 120, radius: 12, sight: 0, reach: 0, scan: 95, alarm: 560, revealSeconds: 1.2, scanCooldown: 3, wanderSpeed: 0.85, bounty: 1.2, color: '#9fd0e8' },
+    scout: { hp: 26, speed: 120, radius: 12, sight: 0, reach: 0, scan: 95, alarm: 560, revealSeconds: 1.2, scanCooldown: 3, wanderSpeed: 0.85, bounty: 1.2, color: '#9fd0e8', flying: true },
+    // Runs for a radio station to raise a map-wide alarm; hounds follow recent scent, not the player's live position.
+    radio: { hp: 58, speed: 112, radius: 15, sight: 320, reach: 30, damage: 8, cooldown: 1.05, wanderSpeed: 0.42, bounty: 1.5, color: '#cfaa66' },
+    hound: { hp: 46, speed: 186, radius: 14, sight: 335, reach: 25, damage: 10, cooldown: 0.85, wanderSpeed: 0.52, bounty: 1.6, color: '#c6816f' },
     // Bosses (attack patterns under `boss`). They sense hidden players within sense px; loot comes from boss.loot.
     commander: { boss: true, hp: 1100, speed: 72, radius: 30, sight: 520, sense: 160, reach: 56, damage: 18, cooldown: 1.2, wanderSpeed: 0.5, bounty: 0, color: '#c7866f' },
     // Cloaked (bushCloak alpha, skipped by auto-targeting) while inside grass and not aiming.
     sniper: { boss: true, hp: 850, speed: 125, radius: 24, sight: 720, sense: 140, reach: 0, damage: 0, cooldown: 1, wanderSpeed: 0.5, bushCloak: 0.12, revealSeconds: 1.5, bounty: 0, color: '#9aa6b8' },
     hive: { boss: true, hp: 1500, speed: 52, radius: 34, sight: 480, sense: 200, reach: 58, damage: 20, cooldown: 1.4, wanderSpeed: 0.4, bounty: 0, color: '#b58ad6' },
-    wanderInterval: [1.8, 3.6], alertSeconds: 0.28, bushRevealDistance: 110, healthPerWave: 0.14, damagePerWave: 0.095
+    incinerator: { boss: true, hp: 1300, speed: 66, radius: 32, sight: 520, sense: 170, reach: 55, damage: 16, cooldown: 1.1, wanderSpeed: 0.45, bounty: 0, color: '#eb754c' },
+    wanderInterval: [1.8, 3.6], alertSeconds: 0.28, bushRevealDistance: 110, healthPerWave: 0.14, damagePerWave: 0.095, waterMultiplier: 0.6
   },
   // Enemies that lose sight of the player, or hear a noise, walk to that spot and sweep nearby grass until `seconds` run out.
   // A hidden player within probe px of a searcher is found; searching gunners fire recon shots at their sweep point every reconFire s.
   // Explosions make explosionNoise.
   search: { speed: 0.75, seconds: 9, radius: 130, arrive: 24, probe: 62, reconFire: 1.8, explosionNoise: 620 },
+  // Player movement, enemy sight, corpse investigation, radio sites, and scent trails.
+  stealth: {
+    movement: 0.55,
+    vision: { cone: 0.96, side: 0.6, rear: 70, suspicion: [0.3, 1.2] },
+    water: { radius: 150, every: 0.6 },
+    noise: { life: 0.65 },
+    corpses: { life: 20, max: 12, investigateRadius: 110, arrive: 26, alertRadius: 32, revealRadius: 65, sightRadius: 250 },
+    shout: { delay: 1, radius: 180 },
+    radio: { count: 2, radius: 18, hp: 170, spacing: 250, placementAttempts: 250, reinforceCount: 2, reinforceMax: 4, reinforceDistance: 320, hitFlash: 0.15 },
+    hound: { trailSeconds: 6, sampleEvery: 0.2, maxSamples: 32, acquireRadius: 220, followRadius: 28, barkRadius: 420, barkEvery: 4 }
+  },
   waves: {
     baseCount: 2, growth: 2, lateFrom: 5, lateGrowth: 2, maxCount: 64, maxAlive: 34,
     spawnInterval: 0.72, spawnIntervalStep: 0.035, minSpawnInterval: 0.3, batchEvery: 4, maxBatch: 3,
@@ -73,7 +90,9 @@ const CONFIG = Object.freeze({
       { kind: 'flamer', from: 7, weight: 0.2, perWave: 0.03, max: 0.5 },
       { kind: 'bomber', from: 8, weight: 0.2, perWave: 0.03, max: 0.55 },
       { kind: 'flare', from: 9, weight: 0.2, perWave: 0.03, max: 0.5 },
-      { kind: 'scout', from: 11, weight: 0.15, perWave: 0.02, max: 0.35 }
+      { kind: 'scout', from: 11, weight: 0.15, perWave: 0.02, max: 0.35 },
+      { kind: 'radio', from: 10, weight: 0.24, perWave: 0.035, max: 0.65 },
+      { kind: 'hound', from: 12, weight: 0.25, perWave: 0.035, max: 0.6 },
     ]
   },
   chests: { minimum: 2, maximum: 4, initial: 3, radius: 23, hpBase: 23, hpPerWave: 3, replenishSeconds: 5, spawnDistance: 130 },
@@ -100,11 +119,12 @@ const CONFIG = Object.freeze({
   // Throwables: G throws the selected one toward the cursor (up to range px, stopped by walls), T cycles. Throwing never reveals the player.
   // Each type carries up to `carry`; `start` is the opening stock. Grenade damage scales with the wave like enemy HP.
   throwables: {
-    range: 380, flight: 0.45, carry: 3, start: { decoy: 2, smoke: 1, grenade: 1 },
+    range: 380, flight: 0.45, carry: 3, start: { decoy: 2, smoke: 1, grenade: 1, molotov: 1 },
     items: {
       decoy: { icon: '◌', gold: 12, scrap: 0, seconds: 6, pulse: 1, noise: 520 },
       smoke: { icon: '☁', gold: 15, scrap: 1, radius: 110, seconds: 8 },
-      grenade: { icon: '●', gold: 18, scrap: 1, fuse: 0.9, blast: 95, damage: 60 }
+      grenade: { icon: '●', gold: 18, scrap: 1, fuse: 0.9, blast: 95, damage: 60 },
+      molotov: { icon: '♨', gold: 22, scrap: 2, radius: 74, seconds: 6, damage: 11 }
     }
   },
   // Silent melee kill (F) on a non-boss enemy within range that is unaware (wandering/searching) or facing away (beyond backArc rad).
@@ -126,6 +146,7 @@ const CONFIG = Object.freeze({
   perks: {
     offer: 3, curseFrom: 3, curseChance: 0.3,
     rarity: { common: 6, rare: 3, legendary: 1, evolved: 5 },
+    actions: { rerollScrap: 2, rerollStep: 2, banishMax: 2, skipGold: 30 },
     list: {
       ambush: { icon: '◎', rarity: 'rare', max: 2, bonus: 1 },
       vampire: { icon: '♥', rarity: 'common', max: 3, heal: 2 },
@@ -155,7 +176,27 @@ const CONFIG = Object.freeze({
       thornbound: { icon: '❦', rarity: 'cursed', max: 1, heal: 4, drain: 1.5 }
     }
   },
-  // After the perk pick (from wave `from`), choose the next wave's route: calm, or one seeded alternative trading risk for reward.
+  // Gun evolution recipes are checked against owned weapons, maxed shared upgrades/attachments and relevant run perks.
+  builds: {
+    interest: { goldPer: 50, goldAward: 5, maxGold: 25 },
+    recipes: {
+      rifle: { upgrades: { damage: 5, range: 5 } },
+      smg: { upgrades: { rate: 5 }, perks: { trigger: 1 } },
+      shotgun: { upgrades: { spread: 5 }, mods: { ricochet: 2 } },
+      rail: { upgrades: { damage: 5 }, mods: { piercing: 2 } },
+      crossbow: { mods: { piercing: 2 }, perks: { ambush: 1 } },
+      launcher: { upgrades: { damage: 5 }, perks: { volatile: 1 } }
+    },
+    effects: {
+      crossbow: { extraPierce: 1, ambushRefund: 1 },
+      shotgun: { fragments: 2, fragmentDamage: 0.55, fragmentSpread: 0.34 },
+      rail: { shieldBreak: true },
+      launcher: { fragments: 3, fragmentDamage: 0.4, fragmentBlast: 0.55, fragmentRange: 170, fragmentSpeed: 390, maxGenerations: 1 },
+      smg: { rampWindow: 1.2, rampStep: 0.1, rampMax: 5 },
+      rifle: { chargeSeconds: 1.3, chargeDamage: 1.2 }
+    }
+  },
+  // Seeded operation-map nodes attach one route modifier trading risk for reward.
   // gold/scrap/count/hp/elite add to the wave's multipliers; vision limits the view; sight adds to enemy sight; throwables are granted when
   // the wave is cleared; perkCards adds cards to the next perk offer; blitz grants a perk of `rarities` if the wave is cleared within seconds.
   routes: {
@@ -220,7 +261,7 @@ const CONFIG = Object.freeze({
   // Every `every` waves a boss joins a wave of regularShare × the normal size, rotating through `order`; below phase2At HP it escalates.
   // Boss bullets fly bulletRange px; minions they spawn drop no loot.
   boss: {
-    every: 5, regularShare: 0.5, spawnDistance: 420, order: ['commander', 'sniper', 'hive'], phase2At: 0.5, bulletRange: 900,
+    every: 5, regularShare: 0.5, spawnDistance: 420, order: ['commander', 'sniper', 'hive', 'incinerator'], phase2At: 0.5, bulletRange: 900,
     loot: { gold: 90, scrap: 8, heal: 30 },
     // Aimed volleys, lobbed bombs, minion summons; phase 2 speeds up, shortens cooldowns (× pace), throws more bombs and fires bullet rings.
     commander: {
@@ -237,7 +278,9 @@ const CONFIG = Object.freeze({
       brood: { interval: 3.2, count: 2, kind: 'runner', hp: 0.5, radius: 9, distance: 30 },
       acid: { interval: 4.2, count: 1, scatter: 60, fall: 0.9, radius: 55, seconds: 4, damage: 7, range: 560 },
       phase2: { pace: 0.6, acid: 3 }
-    }
+    },
+    // Fire rings telegraph impacts and leave hot ground; the phase-two attack accelerates.
+    incinerator: { interval: 7.5, phase2Interval: 4.8, count: 8, ringRadius: 122, fall: 1.1, radius: 43, seconds: 6, damage: 12, phase2Speed: 1.25 }
   },
   // Achievements persist in localStorage; start rewards (startGun, startAuto, startGold, startOwn) apply to later non-daily runs.
   // Cumulative goals compare profile totals (ambushKills, bossKills, extractions, takedowns, challenges, purchases) or distinct boss
@@ -357,6 +400,12 @@ const CONFIG = Object.freeze({
   // After-action report: the damage log keeps the last `window` s before the end and lists up to `entries` hits; preview names `kinds` foes.
   report: { window: 5, entries: 4 },
   preview: { kinds: 3 },
+  operations: {
+    lanes: 3, weather: ['standard', 'rain', 'night'],
+    supplyHeal: 40, alarmReinforcements: 2,
+    types: ['eliminate', 'infiltrate', 'elite', 'supply'],
+    icons: { eliminate: '◇', infiltrate: '◈', elite: '◆', supply: '+', boss: '♛' }
+  },
   audio: { master: 0.5, music: 0.3, sfx: 0.7, duck: 0.35, tempo: 140, falloff: 900 }
 });
 // UI text comes from i18n.js; ?lang=<code> selects the dictionary and switching rewrites the page in place (no reload).
@@ -470,7 +519,7 @@ const game = { mode: 'menu', wave: 1, walls: [], ponds: [], bushes: [], barrels:
 game.alert = 0; game.waveAlert = 0; game.waveSilent = true;
 function raiseAlert(amount) { game.alert = clamp(game.alert + amount, 0, CONFIG.alert.max); }
 // Every sighting, scan, searchlight or radar alarm counts as one detection for the after-action report and chapter grade.
-function markDetected(amount) { game.waveSilent = false; game.stats.detections++; raiseAlert(amount); }
+function markDetected(amount) { game.waveSilent = false; game.stats.detections++; raiseAlert(amount); operationAlarm(); }
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 // Chiptune synth: every sound is generated with WebAudio oscillators and a noise buffer; no audio files.
 const sound = (() => {
@@ -745,6 +794,7 @@ function makeEnemy(kind, pos, { affix = null, noLoot = false, hpScale = 1, radiu
 }
 function rollAffix() {
   const E = CONFIG.elites;
+  if (game.operation?.type === 'elite') return pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1]));
   const chance = Math.min(E.max, E.base + (game.wave - E.from) * E.perWave) + difficulty().elite + (route().elite ?? 0) + (mutator('elites') ? CONFIG.mutators.elites.elite : 0);
   return game.rng.roster() < chance ? pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1])) : null;
 }
@@ -792,6 +842,7 @@ function spawnBoss() {
   const e = game.boss = Object.assign(makeEnemy(kind, pos, { hpScale: finalOperation ? CONFIG.finale.hpScale : 1 }), { phase: 1, finalOperation });
   if (kind === 'commander') { const C = B.commander; Object.assign(e, { volley: C.volley.interval, bombs: C.bombs.interval, summon: C.summon.interval, ring: C.phase2.ringInterval }); }
   else if (kind === 'sniper') Object.assign(e, { aiming: 0, aimAt: null, burstLeft: 0, burstTimer: 0, cover: null });
+  else if (kind === 'incinerator') Object.assign(e, { fireTimer: B.incinerator.interval });
   else Object.assign(e, { brood: B.hive.brood.interval, acid: B.hive.acid.interval });
   startSearch(e, game.player.x, game.player.y);
   notify(t('toast.boss', { wave: game.wave, name: t(`enemy.${kind}`) }));
@@ -804,6 +855,7 @@ const isBossWave = (wave = game.wave) => !!game.training || wave === CONFIG.fina
 // Regular enemies of a wave under a route and theme (boss waves bring a share; training brings none).
 function waveCount(wave, routeKey, theme) {
   if (game.training) return 0;
+  if ((game.nextOperation?.wave === wave && game.nextOperation.type === 'supply') || (game.operation?.wave === wave && game.operation.type === 'supply')) return 0;
   const count = 1 + (CONFIG.routes.list[routeKey]?.count ?? 0) + (mutator('ironSwarm') && !game.daily ? CONFIG.mutators.ironSwarm.count : 0);
   return Math.round(waveSize(wave) * difficulty().count * count * (isBossWave(wave) ? CONFIG.boss.regularShare : 1) * (theme ? CONFIG.themes.count : 1));
 }
@@ -815,6 +867,7 @@ function rollTheme(wave) {
   return open[Math.floor(game.rng.theme() * open.length)];
 }
 function startWave() {
+  changeChapterBattlefield();
   const boss = isBossWave(), R = CONFIG.reinforcements;
   if (game.wave === 2 && !mutator('rifleOnly')) game.player.owned.add('crossbow');
   game.theme = game.nextTheme; game.nextTheme = null;
@@ -830,6 +883,7 @@ function startWave() {
   sound.play('wave');
   if (!game.training) rollChallenge();
   if (boss) { spawnBoss(); startMission(); } else { if (!game.event) rollEvent(); rollMarket(); }
+  beginOperation();
 }
 // Wave 2 stages intel; later non-boss events use the seeded roster stream.
 function rollEvent() {
@@ -870,15 +924,15 @@ function completeChallenge() {
   notify(t('toast.challengeDone', { name: t(`challenge.${game.challenge.type}`) }));
 }
 // Black market (seeded chance and goods): the merchant waits at a free spot until the next wave starts.
-function rollMarket() {
+function rollMarket(force = false) {
   const M = CONFIG.market, random = game.rng.market;
-  if (game.wave < M.from || random() >= M.chance) return;
+  if (!force && (game.wave < M.from || random() >= M.chance)) return;
   const kinds = Object.keys(M.goods), offers = [];
   while (offers.length < M.offers && kinds.length) {
     const offer = marketGood(kinds.splice(Math.floor(random() * kinds.length), 1)[0], random);
     if (offer) offers.push(offer);
   }
-  const pos = freeSpot(16, M.distance, true);
+  const pos = force ? { x: game.player.x, y: game.player.y } : freeSpot(16, M.distance, true);
   if (!pos || !offers.length) return;
   game.merchant = { ...pos, offers };
   notify(t('event.market'));
@@ -1128,7 +1182,7 @@ function startGame(daily, { training = null, seedWeek = null } = {}) {
   game.mode = 'playing'; game.time = 0; game.wave = training ? CONFIG.training.wave : 1; game.kills = 0; game.earned = 0; game.score = 0; game.combo = 0; game.comboTimer = 0; game.alert = 0; game.waveAlert = 0; game.waveSilent = true;
   game.enemies = []; game.bullets = []; game.missiles = []; game.arcs = []; game.bombs = []; game.blasts = []; game.chests = []; game.loot = []; game.particles = [];
   game.throws = []; game.gadgets = []; game.flares = []; game.pools = [];
-  game.boss = null; game.event = null; game.challenge = null; game.merchant = null; game.perks = {}; game.perkOffer = null; game.route = null; game.nextRoute = null; game.routeOffer = null; game.seenAffixes = new Set(); game.newAchievements = [];
+  game.boss = null; game.event = null; game.challenge = null; game.merchant = null; game.perks = {}; game.perkOffer = null; game.route = null; game.nextRoute = null; game.seenAffixes = new Set(); game.newAchievements = [];
   game.mission = null; game.missionPenalty = 0; game.chapter = null; game.theme = null; game.nextTheme = null; game.seenCaptain = false; game.seenOverheat = false; game.perkBonus = 0;
   game.stats = { damage: {}, crossbowKills: 0, silentWaves: 0, ambushKills: 0, takedowns: 0, taken: 0, bosses: 0, bossKinds: new Set(), challenges: 0, purchases: 0, shotWave: null, extracted: false, perks: [], hurtBy: {}, log: [], lastHit: null, detections: 0, hiddenTime: 0, hitRange: 0, hits: 0, chapters: [] };
   game.keys.clear(); game.mouse.down = false; game.chestTimer = 0; game.flash = 0;
@@ -1143,11 +1197,15 @@ function startGame(daily, { training = null, seedWeek = null } = {}) {
     if (a.startGold) p.gold += a.startGold;
   }
   if (training) { p.gold += CONFIG.training.gold; p.scrap += CONFIG.training.scrap; if (!mutator('rifleOnly')) p.owned.add('crossbow'); }
+  game.operationPlan = null; game.operation = null; game.nextOperation = null; game.operationLane = null; game.supplyReady = true;
+  stealthResetRun(); buildReset();
   generateMap(seededRandom(`${seed}:map`), game.variant, mutator('sparse') ? CONFIG.mutators.sparse.bushes : 1);
+  stealthResetMap();
   for (let i = 0; i < Math.min(CONFIG.chests.initial, CONFIG.chests.maximum); i++) spawnChest();
   UI.start.hidden = true; UI.end.hidden = true; UI.shop.hidden = true; UI.perk.hidden = true;
-  sound.music('play'); startWave(); updateHUD();
-  if (training) toggleShop();
+  sound.music('play');
+  if (training) { startWave(); toggleShop(); } else offerOperation(game.wave);
+  updateHUD();
 }
 // Weekly seed challenge: the week's seed and threat modifiers (seeded by the week, distinct picks from the pool).
 const seedChallengeSeed = week => `${CONFIG.seedChallenge.prefix}${week}`;
@@ -1161,13 +1219,13 @@ function notify(text) { UI.toast.textContent = text; UI.toast.classList.add('sho
 // modifier (0 = no magazine).
 function gunStats(key = game.player.weapon) {
   const p = game.player, l = p.levels, g = CONFIG.gun, w = CONFIG.weapons[key], M = CONFIG.mods, focus = p.focus > 0 ? CONFIG.classes.marksman.skill.damage : 0;
-  return {
+  return buildGunStats(key, {
     ...w, damage: Math.round(w.damage * (1 + l.damage * g.damageStep) * (1 + perk('glassCannon') * P.glassCannon.damage + perk('purist') * P.purist.damage) * (1 + focus)),
     shotsPerSecond: w.shotsPerSecond * (1 + l.rate * g.rateStep) * (1 + perk('trigger') * P.trigger.rate + perk('frenzy') * P.frenzy.rate),
     pellets: w.pellets + l.spread, range: Math.round(w.range * (1 + l.range * g.rangeStep + (classInfo().range ?? 0))), pierce: w.pierce + l.piercing * M.piercing.pierce + (focus && !game.daily && game.cls === 'marksman' && masteryLevel('marksman') >= CONFIG.mastery.skillLevel ? CONFIG.mastery.marksmanFocusPierce : 0),
     bounces: l.ricochet * M.ricochet.bounces, noise: w.noise * (1 - l.suppressor * M.suppressor.noise), jitter: focus ? 0 : w.jitter,
     mag: mutator('magazine') && !w.ammo ? Math.max(1, Math.round(w.shotsPerSecond * CONFIG.mutators.magazine.seconds)) : 0
-  };
+  });
 }
 function gearStats() {
   const l = game.player.levels, g = CONFIG.gear;
@@ -1250,24 +1308,236 @@ function renderShop() {
   const p = game.player;
   $('shopGold').textContent = p.gold; $('shopScrap').textContent = p.scrap;
   for (const tab of document.querySelectorAll('[data-shop-tab]')) tab.setAttribute('aria-selected', tab.dataset.shopTab === game.shopTab);
+  if (game.shopTab === 'builds') {
+    const rule = document.createElement('p'); rule.className = 'build-rule'; rule.textContent = t('builds.unlockRule');
+    const recipes = Object.keys(CONFIG.builds.recipes).map(key => {
+      const row = document.createElement('div'); row.className = 'upgrade evolution-recipe';
+      row.innerHTML = `<div><div class="upgrade-title">${CONFIG.weapons[key].icon} ${t(`guns.${key}.title`)}</div><p>${buildShopText(key)}</p></div>`;
+      return row;
+    });
+    $('shopItems').replaceChildren(rule, ...recipes); return;
+  }
   $('shopItems').replaceChildren(...Object.entries(SHOP_TABS[game.shopTab]).map(([key, item]) => shopRow(game.shopTab, key, item)));
+}
+// Reset per-run evolutions and the one-time wave-interest guard after the player is created.
+function buildReset() {
+  game.builds = new Set(); game.buildInterestWave = null;
+  game.perkRerolls = 0; game.perkBans = new Set(); game.perkBanishing = false; game.perkOfferSize = 0;
+  if (game.player) game.player.buildState = { smgShots: 0, smgLastShot: -Infinity, rifleLastShot: game.time };
+}
+function buildRecipeState(key) {
+  const recipe = CONFIG.builds.recipes[key], p = game.player;
+  if (!recipe || !p) return { met: 0, total: 0, ready: false };
+  let met = Number(p.owned.has(key)), total = 1;
+  for (const kind of ['upgrades', 'mods', 'perks']) for (const [name, level] of Object.entries(recipe[kind] ?? {})) {
+    const have = kind === 'perks' ? perk(name) : p.levels[name] ?? 0;
+    met += Number(have >= level); total++;
+  }
+  return { met, total, ready: met === total };
+}
+function buildAvailable(key) { return !game.builds?.has(key) && buildRecipeState(key).ready; }
+function buildUnlocked(key) { return !!game.builds?.has(key); }
+function buildEquipped(key = game.player?.weapon) { return !!game.player && game.player.weapon === key && buildUnlocked(key); }
+function buildGunStats(key, stats) {
+  if (!buildUnlocked(key)) return stats;
+  const E = CONFIG.builds.effects[key];
+  if (key === 'crossbow') stats.pierce += E.extraPierce;
+  else if (key === 'rail') { stats.pierce = Infinity; stats.shieldBreak = E.shieldBreak; }
+  else if (key === 'smg' && buildEquipped(key)) {
+    const state = game.player.buildState ??= { smgShots: 0, smgLastShot: -Infinity, rifleLastShot: game.time };
+    if (game.time - state.smgLastShot > E.rampWindow) state.smgShots = 0;
+    stats.shotsPerSecond *= 1 + Math.min(state.smgShots, E.rampMax) * E.rampStep;
+  }
+  return stats;
+}
+// Called once per accepted trigger pull, after shot construction; SMG ramp is bounded and resets after a pause.
+function buildOnShot(key) {
+  if (!game.player) return;
+  const p = game.player;
+  if (key === 'smg' && buildEquipped(key)) {
+    const E = CONFIG.builds.effects.smg, state = p.buildState ??= { smgShots: 0, smgLastShot: -Infinity, rifleLastShot: game.time };
+    if (game.time - state.smgLastShot > E.rampWindow) state.smgShots = 0;
+    state.smgShots = Math.min(E.rampMax, state.smgShots + 1); state.smgLastShot = game.time;
+  } else if (key === 'rifle' && buildEquipped(key)) {
+    (p.buildState ??= { smgShots: 0, smgLastShot: -Infinity, rifleLastShot: game.time }).rifleLastShot = game.time;
+  }
+}
+// Modify an accepted shot's bullets; rifle charge is based on time since the last rifle shot.
+function buildShot(key, bullet) {
+  if (!bullet || !buildEquipped(key)) return bullet;
+  bullet.buildEvolution = key;
+  if (key === 'rail') { bullet.pierce = Infinity; bullet.hits ??= new Set(); bullet.shieldBreak = CONFIG.builds.effects.rail.shieldBreak; }
+  else if (key === 'launcher') { bullet.cluster = true; bullet.clusterDepth = 0; }
+  else if (key === 'rifle') {
+    const E = CONFIG.builds.effects.rifle, state = game.player.buildState ??= { smgShots: 0, smgLastShot: -Infinity, rifleLastShot: game.time };
+    const charge = clamp((game.time - state.rifleLastShot) / E.chargeSeconds, 0, 1);
+    bullet.damage = Math.round(bullet.damage * (1 + E.chargeDamage * charge));
+    if (charge >= 1) bullet.color = '#f2d782';
+    bullet.charge = charge;
+  }
+  return bullet;
+}
+// Shotgun fragments occur only on its first ricochet; fragments have no evolution marker and cannot recursively split.
+function buildBulletBounce(bullet) {
+  if (!bullet || bullet.buildEvolution !== 'shotgun' || bullet.buildFragmentsDone) return [];
+  bullet.buildFragmentsDone = true;
+  const E = CONFIG.builds.effects.shotgun, angle = Math.atan2(bullet.vy, bullet.vx), speed = Math.hypot(bullet.vx, bullet.vy), range = Math.max(0, bullet.range - bullet.traveled), fragments = [];
+  for (let i = 0; i < E.fragments; i++) {
+    const a = angle + (i - (E.fragments - 1) / 2) * E.fragmentSpread;
+    fragments.push({
+      x: bullet.x, y: bullet.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, traveled: 0, range,
+      damage: Math.round(bullet.damage * E.fragmentDamage), radius: bullet.radius, friendly: true, pierce: 0,
+      hits: null, bounces: 0, color: bullet.color, trail: false, source: bullet.source, ambush: bullet.ambush,
+      bolt: false, blast: 0
+    });
+  }
+  return fragments;
+}
+// Launcher cluster children are real projectiles but have a hard generation ceiling from CONFIG.
+function buildExplosion(x, y, damage, options = {}) {
+  const E = CONFIG.builds.effects.launcher, depth = options.clusterDepth ?? 0;
+  if (options.source !== 'launcher' || !options.cluster || depth >= E.maxGenerations) return [];
+  const count = E.fragments, angle = options.angle ?? 0, fragmentDamage = Math.round(damage * E.fragmentDamage);
+  const blast = Math.round((options.blast ?? CONFIG.weapons.launcher.blast) * E.fragmentBlast), fragments = [];
+  for (let i = 0; i < count; i++) {
+    const a = angle + i * Math.PI * 2 / count;
+    fragments.push({
+      x, y, vx: Math.cos(a) * E.fragmentSpeed, vy: Math.sin(a) * E.fragmentSpeed, traveled: 0, range: E.fragmentRange,
+      damage: fragmentDamage, radius: CONFIG.gun.bulletRadius, friendly: true, pierce: 0, hits: null, bounces: 0,
+      color: CONFIG.weapons.launcher.color, trail: true, source: 'launcher', ambush: !!options.ambush, bolt: false,
+      blast, cluster: true, clusterDepth: depth + 1
+    });
+  }
+  return fragments;
+}
+// Bosses/captains and operation-elite kills unlock exactly one eligible evolution via the seeded perk stream.
+function buildOnKill(enemy, ambush, source) {
+  if (!enemy || !game.player) return;
+  const p = game.player; game.builds ??= new Set();
+  if (source === 'crossbow' && ambush && buildUnlocked('crossbow')) p.bolts = Math.min(CONFIG.weapons.crossbow.ammo, p.bolts + CONFIG.builds.effects.crossbow.ambushRefund);
+  const eliteReward = game.operation?.type === 'elite' && enemy.affix && !enemy.noLoot;
+  if (!CONFIG.enemies[enemy.kind]?.boss && !enemy.captain && !eliteReward) return;
+  const eligible = Object.keys(CONFIG.builds.recipes).filter(buildAvailable);
+  if (!eligible.length) return;
+  const key = eligible[Math.floor(game.rng.perks() * eligible.length)];
+  game.builds.add(key);
+  if (key === 'rifle') (p.buildState ??= { smgShots: 0, smgLastShot: -Infinity, rifleLastShot: game.time }).rifleLastShot = game.time;
+  notify(t('builds.unlocked', { name: t(`builds.${key}.title`) })); updateHUD();
+}
+// Once per cleared wave, normal runs earn 5 gold per 50 held (up to 25); rerolls never invoke this hook.
+function buildWaveClear() {
+  const p = game.player;
+  if (game.training || !p || game.buildInterestWave === game.wave) return 0;
+  game.buildInterestWave = game.wave;
+  const I = CONFIG.builds.interest, gold = Math.min(I.maxGold, Math.floor(p.gold / I.goldPer) * I.goldAward);
+  if (gold) { p.gold += gold; notify(t('builds.interest', { gold })); updateHUD(); }
+  return gold;
+}
+function buildRecipeVars(key) {
+  const R = CONFIG.builds.recipes[key];
+  return {
+    damage: R.upgrades?.damage, range: R.upgrades?.range, rate: R.upgrades?.rate, spread: R.upgrades?.spread,
+    piercing: R.mods?.piercing, ricochet: R.mods?.ricochet,
+    trigger: t('perk.trigger.title'), triggerLevel: R.perks?.trigger,
+    ambush: t('perk.ambush.title'), ambushLevel: R.perks?.ambush,
+    volatile: t('perk.volatile.title'), volatileLevel: R.perks?.volatile
+  };
+}
+function buildEffectVars(key) {
+  const E = CONFIG.builds.effects[key];
+  return {
+    seconds: E.chargeSeconds, damage: Math.round(((E.chargeDamage ?? E.fragmentDamage) ?? 0) * 100),
+    window: E.rampWindow, step: Math.round((E.rampStep ?? 0) * 100), cap: Math.round((E.rampStep ?? 0) * (E.rampMax ?? 0) * 100),
+    count: E.fragments, blast: Math.round((E.fragmentBlast ?? 0) * 100), generations: E.maxGenerations,
+    pierce: E.extraPierce, refund: E.ambushRefund
+  };
+}
+function buildShopText(key) {
+  const state = buildRecipeState(key);
+  if (!state.total) return '';
+  const status = t(buildUnlocked(key) ? (game.player.weapon === key ? 'builds.status.equipped' : 'builds.status.evolved') : state.ready ? 'builds.status.ready' : 'builds.status.locked');
+  return `${t('builds.shopLine', { name: t(`builds.${key}.title`), status, progress: `${state.met}/${state.total}` })}<br>${t(`builds.recipe.${key}`, buildRecipeVars(key))}<br>${t(`builds.effect.${key}`, buildEffectVars(key))}`;
+}
+function buildHudText() {
+  const p = game.player;
+  if (!p) return '';
+  const key = p.weapon, name = t(`builds.${key}.title`);
+  if (buildUnlocked(key)) return ` · ${t('builds.hudEquipped', { name })}`;
+  const state = buildRecipeState(key);
+  return ` · ${t('builds.hudProgress', { name, progress: `${state.met}/${state.total}` })}`;
 }
 function toggleShop() {
   if (game.mode === 'playing') { game.mode = 'shop'; game.mouse.down = false; renderShop(); UI.shop.hidden = false; sound.music('duck'); }
   else if (game.mode === 'shop') { game.mode = 'playing'; UI.shop.hidden = true; game.keys.clear(); sound.music('play'); }
 }
-// A perk is available below max stacks, when its unlock is earned (never in daily runs) and when every perk it evolves from is maxed.
-const perkAvailable = (key, v) => perk(key) < v.max && (!v.unlock || (!game.daily && unlocked(v.unlock))) && (!v.needs || v.needs.every(n => perk(n) >= P[n].max));
-// Perk offers come from the run's seeded perk stream: distinct picks weighted by rarity (plus any extra cards from the exposed route),
-// then possibly one curse in the last slot (never in daily runs).
-function offerPerks() {
-  const C = CONFIG.perks, random = game.rng.perks, open = Object.entries(P).filter(([key, v]) => perkAvailable(key, v)), offer = [], size = C.offer + game.perkBonus;
+// A perk is available below max stacks, when its unlock is earned and every non-banished prerequisite is maxed.
+const perkAvailable = (key, v = P[key]) => !!v && perk(key) < v.max && !game.perkBans?.has(key) &&
+  (!v.unlock || (!game.daily && unlocked(v.unlock))) &&
+  (!v.needs || v.needs.every(n => !!P[n] && !game.perkBans?.has(n) && perk(n) >= P[n].max));
+function drawPerkOffer(size, excluded = null) {
+  const C = CONFIG.perks, random = game.rng.perks, open = Object.entries(P).filter(([key, v]) => perkAvailable(key, v) && !excluded?.has(key)), offer = [];
   const pool = open.filter(([, v]) => v.rarity !== 'cursed').map(([key, v]) => [key, C.rarity[v.rarity]]), curses = open.filter(([, v]) => v.rarity === 'cursed');
-  game.perkBonus = 0;
   while (offer.length < size && pool.length) { const key = pickWeighted(random, pool); offer.push(key); pool.splice(pool.findIndex(([k]) => k === key), 1); }
   if (curses.length && !game.daily && game.wave >= C.curseFrom && random() < C.curseChance) offer[Math.min(offer.length, size - 1)] = curses[Math.floor(random() * curses.length)][0];
-  if (!offer.length) return false;
+  return offer;
+}
+// Perk offers and rerolls use only the seeded perks stream; a reroll avoids the current cards whenever alternatives exist.
+function offerPerks() {
+  const C = CONFIG.perks;
+  game.perkBans ??= new Set(); game.perkRerolls ??= 0; game.perkBanishing = false;
+  game.perkOfferSize = Math.max(1, C.offer + game.perkBonus); game.perkBonus = 0;
+  const offer = drawPerkOffer(game.perkOfferSize);
+  if (!offer.length) { game.perkOffer = null; return false; }
   game.perkOffer = offer; openChoice('perk'); return true;
+}
+function perkRerollCost() { return CONFIG.perks.actions.rerollScrap + (game.perkRerolls ?? 0) * CONFIG.perks.actions.rerollStep; }
+function canRerollPerks() {
+  if (game.mode !== 'perk' || !game.perkOffer?.length || game.player.scrap < perkRerollCost()) return false;
+  const current = new Set(game.perkOffer);
+  return Object.keys(P).some(key => perkAvailable(key) && !current.has(key));
+}
+function rerollPerks() {
+  if (!canRerollPerks()) return;
+  const cost = perkRerollCost(), offer = drawPerkOffer(game.perkOfferSize, new Set(game.perkOffer));
+  if (!offer.length) return;
+  game.player.scrap -= cost; game.perkRerolls = (game.perkRerolls ?? 0) + 1;
+  game.perkOffer = offer; game.perkBanishing = false; sound.play('buy'); updateHUD(); renderChoice();
+}
+function armPerkBanish() {
+  if (game.mode !== 'perk' || (game.perkBans?.size ?? 0) >= CONFIG.perks.actions.banishMax) return;
+  game.perkBanishing = !game.perkBanishing; renderChoice();
+}
+function banishPerk(index) {
+  if (game.mode !== 'perk' || !game.perkBanishing || (game.perkBans?.size ?? 0) >= CONFIG.perks.actions.banishMax) return;
+  const key = game.perkOffer?.[index];
+  if (!key) return;
+  game.perkBans ??= new Set(); game.perkBans.add(key); game.perkOffer.splice(index, 1); game.perkBanishing = false;
+  sound.play('buy'); notify(t('perk.action.banished', { name: t(`perk.${key}.title`), count: game.perkBans.size, max: CONFIG.perks.actions.banishMax }));
+  renderChoice();
+}
+function renderPerkControls() {
+  $('perkActions')?.remove();
+  if (game.mode !== 'perk') { game.perkBanishing = false; return; }
+  game.perkBans ??= new Set();
+  const A = CONFIG.perks.actions, row = document.createElement('div'); row.id = 'perkActions'; row.className = 'menu-pair perk-actions';
+  const button = (label, disabled, action) => {
+    const el = document.createElement('button'); el.type = 'button'; el.className = 'secondary-btn';
+    el.textContent = label; el.disabled = disabled; el.addEventListener('click', action); row.append(el); return el;
+  };
+  const reroll = button(t('perk.action.reroll', { cost: perkRerollCost() }), !canRerollPerks(), rerollPerks);
+  reroll.setAttribute('aria-keyshortcuts', 'R');
+  const banish = button(t(game.perkBanishing ? 'perk.action.cancelBanish' : 'perk.action.banish', { used: game.perkBans.size, max: A.banishMax }), !game.perkBanishing && game.perkBans.size >= A.banishMax, armPerkBanish);
+  banish.setAttribute('aria-keyshortcuts', 'X');
+  const skip = button(t('perk.action.skip', { gold: A.skipGold }), false, skipPerks);
+  skip.setAttribute('aria-keyshortcuts', 'S');
+  $('perkChoices').insertAdjacentElement('afterend', row);
+  if (game.perkBanishing) $('perkHint').textContent += ` · ${t('perk.action.selectCard')}`;
+}
+function skipPerks() {
+  if (game.mode !== 'perk') return;
+  const p = game.player; p.gold += CONFIG.perks.actions.skipGold;
+  game.perkOffer = null; game.perkBanishing = false; sound.play('buy'); notify(t('perk.action.skipped', { gold: CONFIG.perks.actions.skipGold })); updateHUD();
+  if (!offerRoute()) resume();
 }
 function openChoice(mode) {
   game.mode = mode; game.mouse.down = false; game.keys.clear();
@@ -1294,7 +1564,7 @@ function choiceCards() {
     ];
   }
   if (game.mode === 'perk') return game.perkOffer.map(key => ({ icon: P[key].icon, rarity: P[key].rarity, title: t(`perk.${key}.title`), note: `${t(`rarity.${P[key].rarity}`)} · ${t('perk.stack', { level: perk(key) + 1, max: P[key].max })}`, text: t(`perk.${key}.desc`, perkVars(key)) }));
-  if (game.mode === 'route') return game.routeOffer.map(key => ({ icon: CONFIG.routes.list[key].icon, title: t(`route.${key}.title`), note: t('route.next', { wave: game.wave + 1 }), text: t(`route.${key}.desc`, routeVars(key)) }));
+  if (game.mode === 'route') return operationCards();
   const G = CONFIG.market.goods;
   return game.merchant.offers.map(offer => {
     const cost = offerCost(offer);
@@ -1323,6 +1593,8 @@ function renderChoice() {
     button.addEventListener('click', () => choose(i));
     return button;
   }));
+  renderOperationMap();
+  renderPerkControls();
 }
 function choose(index) { ({ extract: chooseExtract, perk: choosePerk, route: chooseRoute, market: buyOffer })[game.mode]?.(index); }
 // Card 1 keeps fighting (then the usual perk and route picks); card 2 extracts and ends the run as a success.
@@ -1345,23 +1617,136 @@ function grantPerk(key) {
 function choosePerk(index) {
   const key = game.perkOffer?.[index];
   if (game.mode !== 'perk' || !key) return;
+  if (game.perkBanishing) { banishPerk(index); return; }
+  if (!perkAvailable(key)) { game.perkOffer.splice(index, 1); renderChoice(); return; }
   game.perkOffer = null; grantPerk(key); sound.play('buy');
   if (!offerRoute()) resume();
 }
-// Route offers: calm plus one seeded alternative.
+// The chapter map replaces isolated next-wave route rolls with visible, connected operation nodes.
 function offerRoute() {
-  if (game.wave < CONFIG.routes.from) return false;
-  const others = Object.keys(CONFIG.routes.list).filter(key => key !== 'calm');
-  game.routeOffer = ['calm', others[Math.floor(game.rng.perks() * others.length)]]; openChoice('route'); return true;
+  if (game.training || game.wave >= CONFIG.finale.wave) return false;
+  return offerOperation(game.wave + 1);
 }
 function chooseRoute(index) {
-  const key = game.routeOffer?.[index];
-  if (game.mode !== 'route' || !key) return;
-  game.nextRoute = key === 'calm' ? null : key; game.routeOffer = null;
-  sound.play('buy'); if (game.nextRoute) notify(t('toast.route', { name: t(`route.${key}.title`) }));
+  const node = game.operationOffer?.[index];
+  if (game.mode !== 'route' || !node) return;
+  game.operationPlan.selected[game.operationChoosingWave] = node;
+  game.nextOperation = node; game.operationLane = node.lane;
+  game.nextRoute = node.route;
+  const first = game.operationChoosingWave === game.wave;
   resume();
+  if (first) startWave();
 }
-function resume() { game.mode = 'playing'; UI.perk.hidden = true; sound.music('play'); updateHUD(); }
+function operationPlan(wave) {
+  const length = CONFIG.chapters.length, chapter = Math.ceil(wave / length);
+  if (game.operationPlan?.chapter === chapter) return game.operationPlan;
+  const random = seededRandom(`${game.seed}:operations:${chapter}`), start = (chapter - 1) * length + 1;
+  const rows = Array.from({ length }, (_, row) => {
+    const next = start + row, boss = isBossWave(next);
+    return Array.from({ length: boss || next <= CONFIG.routes.from ? 1 : CONFIG.operations.lanes }, (_, lane) => {
+      const type = boss ? 'boss' : next === 1 ? 'eliminate' : next === 2 ? 'infiltrate' : CONFIG.operations.types[(Math.floor(random() * CONFIG.operations.types.length) + lane) % CONFIG.operations.types.length];
+      const routes = Object.keys(CONFIG.routes.list), route = next > CONFIG.routes.from && type !== 'boss' && type !== 'supply' ? routes[Math.floor(random() * routes.length)] : 'calm';
+      return { wave: next, lane, type, route };
+    });
+  });
+  game.operationLane = null;
+  return game.operationPlan = { chapter, start, rows, selected: {} };
+}
+function offerOperation(wave) {
+  const plan = operationPlan(wave), row = plan.rows[wave - plan.start];
+  game.operationChoosingWave = wave;
+  const previous = plan.rows[wave - plan.start - 1];
+  game.operationOffer = row.filter(node => row.length === 1 || previous?.length === 1 || game.operationLane === null || Math.abs(node.lane - game.operationLane) <= 1);
+  openChoice('route'); return true;
+}
+function operationCards() {
+  return game.operationOffer.map(node => ({
+    icon: CONFIG.operations.icons[node.type], title: t(`operation.${node.type}`),
+    note: t('route.next', { wave: node.wave }),
+    text: t(`operation.${node.type}.desc`, { heal: CONFIG.operations.supplyHeal }) + (node.route && node.route !== 'calm' ? ` · ${t(`route.${node.route}.title`)}: ${t(`route.${node.route}.desc`, routeVars(node.route))}` : '')
+  }));
+}
+function renderOperationMap() {
+  let map = $('operationMap');
+  if (!map) { map = document.createElement('div'); map.id = 'operationMap'; $('perkChoices').before(map); }
+  map.hidden = game.mode !== 'route';
+  if (map.hidden) return;
+  $('perkHeading').textContent = t('operation.heading', { chapter: game.operationPlan.chapter });
+  $('perkHint').textContent = t('operation.hint');
+  map.replaceChildren(...game.operationPlan.rows.map(row => {
+    const column = document.createElement('div'); column.className = 'operation-column';
+    const heading = document.createElement('strong'); heading.textContent = t('route.next', { wave: row[0].wave }); column.append(heading);
+    for (const node of row) {
+      const item = document.createElement('span');
+      item.textContent = `${CONFIG.operations.icons[node.type]} ${t(`operation.${node.type}`)}`;
+      item.className = game.operationPlan.selected[node.wave] === node ? 'selected' : node.wave === game.operationChoosingWave && game.operationOffer.includes(node) ? 'available' : '';
+      item.title = t(`operation.${node.type}.desc`, { heal: CONFIG.operations.supplyHeal }) + (node.route && node.route !== 'calm' ? ` · ${t(`route.${node.route}.title`)}: ${t(`route.${node.route}.desc`, routeVars(node.route))}` : '');
+      column.append(item);
+    }
+    return column;
+  }));
+}
+function beginOperation() {
+  if (game.training) return;
+  game.operation = game.nextOperation ?? { type: isBossWave() ? 'boss' : 'eliminate', wave: game.wave };
+  game.nextOperation = null;
+  game.operationAlarm = false; game.supplyReady = game.operation.type !== 'supply';
+  if (game.operation.type === 'supply') {
+    game.waveRemaining = game.waveTotal = 0; game.reinforceAt = Infinity;
+    game.event = null; game.challenge = null;
+    game.bullets = []; game.bombs = []; game.pools = []; game.flares = []; game.missiles = []; game.gadgets = []; game.throws = [];
+    for (const bush of game.bushes) { bush.fire = 0; bush.fireSpread = 0; }
+    game.player.hp = Math.min(game.player.maxHp, game.player.hp + CONFIG.operations.supplyHeal);
+    rollMarket(true);
+    if (game.merchant) openChoice('market'); else game.supplyReady = true;
+  } else if (game.operation.type === 'infiltrate') {
+    game.event = { type: 'intel', started: false, done: false };
+  }
+}
+function operationAlarm() {
+  if (!harsh() || game.operation?.type !== 'infiltrate' || game.operationAlarm || game.nextWave) return;
+  game.operationAlarm = true;
+  game.waveRemaining += CONFIG.operations.alarmReinforcements;
+  game.waveTotal += CONFIG.operations.alarmReinforcements;
+}
+function changeChapterBattlefield() {
+  if (game.training || game.wave <= 1 || (game.wave - 1) % CONFIG.chapters.length) return;
+  const chapter = Math.ceil(game.wave / CONFIG.chapters.length), random = seededRandom(`${game.seed}:battlefield:${chapter}`);
+  const w = CONFIG.world;
+  game.variant = CONFIG.operations.weather[(chapter - 1) % CONFIG.operations.weather.length];
+  // Preserve stone walls and water: the learned map stays useful; only wooden cover is rebuilt.
+  game.walls = game.walls.filter(wall => !wall.wood);
+  game.bullets = []; game.bombs = []; game.pools = []; game.flares = []; game.missiles = [];
+  game.gadgets = []; game.throws = []; game.event = null; game.loot = []; game.chests = [];
+  game.player.x = worldCenter.x; game.player.y = worldCenter.y;
+  for (const bush of game.bushes) {
+    if (!mutator('scorchedEarth')) bush.burned = 0;
+    bush.fire = 0; bush.fireSpread = 0;
+  }
+  for (let i = 0; i < w.woodWalls; i++) {
+    for (let attempt = 0; attempt < w.placementAttempts; attempt++) {
+      const width = between(random, ...w.wallWidth), height = between(random, ...w.wallHeight);
+      const wall = { x: between(random, w.placementMargin, w.width - width - w.placementMargin), y: between(random, w.placementMargin, w.height - height - w.placementMargin), w: width, h: height, wood: true, hp: w.woodHp, maxHp: w.woodHp, hit: 0 };
+      if (distance(rectCenter(wall), worldCenter) < w.spawnClearance || [...game.walls, ...game.ponds, ...game.bushes, ...game.barrels.map(b => ({ x: b.x - b.radius, y: b.y - b.radius, w: b.radius * 2, h: b.radius * 2 }))].some(r => overlap(wall, r, w.terrainGap)) || !connected([...game.walls, wall])) continue;
+      game.walls.push(wall); break;
+    }
+  }
+  game.lights = [];
+  const L = CONFIG.searchlights;
+  for (let i = 0; i < (CONFIG.variants[game.variant].searchlights ?? 0); i++) {
+    for (let attempt = 0; attempt < w.placementAttempts; attempt++) {
+      const pos = { x: between(random, w.placementMargin, w.width - w.placementMargin), y: between(random, w.placementMargin, w.height - w.placementMargin) };
+      if (!passable(pos.x, pos.y, L.radius) || distance(pos, worldCenter) < w.spawnClearance || [...game.bushes, ...game.ponds].some(r => circleRect(pos.x, pos.y, L.radius, r)) || game.lights.some(l => distance(l, pos) < L.spacing)) continue;
+      game.lights.push({ ...pos, radius: L.radius, hp: L.hp, hit: 0, alarm: 0, base: Math.atan2(worldCenter.y - pos.y, worldCenter.x - pos.x), phase: random() * Math.PI * 2, light: true }); break;
+    }
+  }
+  for (let i = 0; i < CONFIG.chests.initial; i++) spawnChest();
+  stealthResetMap();
+}
+function resume() {
+  if (game.mode === 'market' && game.operation?.type === 'supply') game.supplyReady = true;
+  game.mode = 'playing'; UI.perk.hidden = true; sound.music('play'); updateHUD();
+}
 // Achievement text: goal, cumulative progress (totals or distinct boss kinds), difficulty and start gold.
 function achievementVars(a) {
   const metric = TOTAL_KEYS.find(key => a[key]), goal = metric ? a[metric] : a.bossKinds, have = metric ? profile.totals[metric] : profile.bossKinds.length;
@@ -1549,6 +1934,7 @@ function updateHUD() {
   $('shieldFill').style.width = `${gear.maxShield ? 100 * p.shield / gear.maxShield : 0}%`;
   $('waveText').textContent = String(game.wave).padStart(2, '0');
   const tags = [t(game.nextWave ? 'hud.intermission' : 'hud.combat'), !game.daily && threatTotal() > 0 && t('hud.threat', { points: threatTotal() }), game.route && t(`route.${game.route}.title`), game.variant !== 'standard' && t(`variant.${game.variant}`), game.daily ? t('hud.daily') : game.difficulty !== 'normal' && t(`difficulty.${game.difficulty}`)].filter(Boolean);
+  if (game.operation) tags.push(t(`operation.${game.operation.type}`));
   $('wavePill').textContent = `WAVE ${String(game.wave).padStart(2, '0')} / ${tags.join(' · ')}`;
   $('killsText').textContent = game.kills; $('goldText').textContent = p.gold; $('scrapText').textContent = p.scrap;
   $('damageStat').textContent = gun.damage; $('rateStat').textContent = `${gun.shotsPerSecond.toFixed(1)}/s`;
@@ -1557,6 +1943,9 @@ function updateHUD() {
   $('weaponName').textContent = t(`guns.${p.weapon}.title`);
   const mag = gun.mag ? (p.reload > 0 ? t('hud.reloading') : t('hud.mag', { left: p.mag[p.weapon] ?? gun.mag, size: gun.mag })) : '';
   $('weaponTier').textContent = t('hud.weaponTier', { owned: p.owned.size, total: Object.keys(CONFIG.weapons).length, level: total }) + (p.owned.has('crossbow') ? t('hud.bolts', { bolts: p.bolts, max: CONFIG.weapons.crossbow.ammo }) : '') + mag;
+  const buildProgress = buildHudText();
+  $('weaponTier').textContent += buildProgress;
+  $('weaponTier').title = buildProgress;
   const autos = Object.entries(CONFIG.autoWeapons).filter(([key]) => p.levels[key]);
   const heat = perk('purist') ? t('hud.autoOff') : p.overheat > 0 ? t('hud.overheat', { left: p.overheat.toFixed(1) }) : harsh() && autos.length ? t('hud.heat', { pct: Math.round(p.heat / CONFIG.autoHeat.max * 100) }) : '';
   $('autoList').textContent = `${t('hud.auto')}${autos.length ? autos.map(([key, item]) => `${item.icon} ${p.levels[key]}`).join('　') : t('hud.none')}${autos.length ? heat : ''}`;
@@ -1605,7 +1994,269 @@ function enemySight(e, p) { return clearSight(e, p) && !game.gadgets.some(g => g
 function startSearch(e, x, y) { Object.assign(e, { state: 'search', goal: { x, y }, sweep: null, arrived: false, searchTime: CONFIG.search.seconds * e.patrolScale }); }
 // Noise sends every unaware or searching enemy within radius (scouts excepted) to search its origin.
 function alertNoise(x, y, radius) {
+  stealthNoise(x, y, radius);
   for (const e of game.enemies) if ((e.state === 'wander' || e.state === 'search') && e.kind !== 'scout' && Math.hypot(e.x - x, e.y - y) < radius) startSearch(e, x, y);
+}
+function stealthData() {
+  return game.stealth ??= { stations: [], corpses: [], noises: [], trail: [], mapIndex: 0, trailTimer: 0, waterTimer: 0, playerPos: null, radioWave: game.wave, radioReinforced: 0 };
+}
+function stealthResetRun() {
+  game.stealth = { stations: [], corpses: [], noises: [], trail: [], mapIndex: 0, trailTimer: 0, waterTimer: 0, playerPos: null, radioWave: game.wave, radioReinforced: 0 };
+  game.environmentGrassTick = 0;
+}
+function stealthStationFits(x, y, stations) {
+  const R = CONFIG.stealth.radio, p = game.player, radius = R.radius, w = CONFIG.world;
+  if (!p || !passable(x, y, radius) || Math.hypot(x - p.x, y - p.y) < CONFIG.waves.enemySpawnDistance) return false;
+  if ([...game.ponds, ...game.bushes].some(r => circleRect(x, y, radius + w.terrainSpawnPadding, r))) return false;
+  if ([...game.barrels, ...game.lights, ...game.chests].some(o => Math.hypot(x - o.x, y - o.y) < radius + o.radius + w.terrainGap)) return false;
+  return stations.every(s => Math.hypot(x - s.x, y - s.y) >= R.spacing);
+}
+function stealthResetMap() {
+  const S = stealthData(), R = CONFIG.stealth.radio, W = CONFIG.world;
+  S.mapIndex++; S.stations.length = 0; S.corpses.length = 0; S.noises.length = 0; S.trail.length = 0;
+  S.trailTimer = 0; S.waterTimer = 0; S.playerPos = game.player ? { x: game.player.x, y: game.player.y } : null;
+  S.radioWave = game.wave; S.radioReinforced = 0;
+  if (!game.player) return;
+  const random = seededRandom(`${game.seed}:stealth-map:${S.mapIndex}`);
+  const add = (x, y) => S.stations.push({ x, y, radius: R.radius, hp: R.hp, maxHp: R.hp, hit: 0, used: false, station: true });
+  for (let i = 0; i < R.count; i++) {
+    let pos = null;
+    for (let attempt = 0; attempt < R.placementAttempts; attempt++) {
+      const x = between(random, W.spawnMargin, W.width - W.spawnMargin), y = between(random, W.spawnMargin, W.height - W.spawnMargin);
+      if (stealthStationFits(x, y, S.stations)) { pos = { x, y }; break; }
+    }
+    if (!pos) {
+      const step = W.grid * 2;
+      for (let y = W.spawnMargin; y <= W.height - W.spawnMargin && !pos; y += step) {
+        for (let x = W.spawnMargin; x <= W.width - W.spawnMargin; x += step) {
+          if (stealthStationFits(x, y, S.stations)) { pos = { x, y }; break; }
+        }
+      }
+    }
+    if (pos) add(pos.x, pos.y);
+  }
+}
+function stealthMoveFactor() { return game.keys.has('shift') ? CONFIG.stealth.movement : 1; }
+function stealthNoise(x, y, radius) {
+  if (radius <= 0) return;
+  const life = CONFIG.stealth.noise.life;
+  stealthData().noises.push({ x, y, radius, life, maxLife: life });
+}
+function stealthDamageStation(station, damage) {
+  if (!station?.station || station.hp <= 0 || damage <= 0) return false;
+  station.hp = Math.max(0, station.hp - damage); station.hit = CONFIG.stealth.radio.hitFlash;
+  if (!station.hp) { station.used = true; burst(station.x, station.y, '#d6c48b', 14); sound.play('shieldBreak', station); }
+  return true;
+}
+function stealthBlastStations(x, y, radius, damage) {
+  if (!damage) return;
+  for (const station of stealthData().stations) if (station.hp > 0 && Math.hypot(station.x - x, station.y - y) < radius + station.radius) stealthDamageStation(station, damage);
+}
+function stealthVisibility(e, p, d, candidate, dt) {
+  if (!candidate) { e.stealthSuspicion = 0; return false; }
+  if (hunting(e) || e.wasVisible) { e.stealthSuspicion = 0; return true; }
+  const V = CONFIG.stealth.vision, stats = CONFIG.enemies[e.kind], range = stats.sight * e.sightScale * CONFIG.variants[game.variant].sight;
+  const angle = Math.abs(angleDiff(angleTo(e, p), e.facing));
+  const limit = angle <= V.cone ? range : angle <= Math.PI - V.cone ? range * V.side : V.rear;
+  if (d > limit) { e.stealthSuspicion = 0; return false; }
+  const delay = V.suspicion[0] + (V.suspicion[1] - V.suspicion[0]) * clamp(d / limit, 0, 1);
+  e.stealthSuspicion = (e.stealthSuspicion ?? 0) + dt;
+  if (e.stealthSuspicion < delay) return false;
+  e.stealthSuspicion = 0;
+  return true;
+}
+function stealthDeath(enemy) {
+  const S = stealthData(), C = CONFIG.stealth.corpses, stats = CONFIG.enemies[enemy.kind];
+  if (enemy.stealthCorpse) { enemy.stealthCorpse.investigator = null; enemy.stealthCorpse.investigated = true; enemy.stealthCorpse = null; }
+  if (stats?.boss || enemy.kind === 'scout' || stats?.flying) return;
+  if (S.corpses.length >= C.max) {
+    const oldest = S.corpses.shift();
+    if (oldest.investigator?.stealthCorpse === oldest) oldest.investigator.stealthCorpse = null;
+  }
+  S.corpses.push({ x: enemy.x, y: enemy.y, kind: enemy.kind, life: C.life, investigator: null, discovered: false, investigated: false, alarmed: false, playerFound: !inTerrain(enemy, game.bushes) });
+}
+function stealthUpdate(dt) {
+  const S = stealthData(), C = CONFIG.stealth.corpses, H = CONFIG.stealth.hound, p = game.player;
+  for (let i = S.noises.length - 1; i >= 0; i--) if ((S.noises[i].life -= dt) <= 0) S.noises.splice(i, 1);
+  for (const station of S.stations) station.hit = Math.max(0, station.hit - dt);
+  if (!p) return;
+  const moved = S.playerPos && (p.x !== S.playerPos.x || p.y !== S.playerPos.y);
+  S.playerPos ??= { x: p.x, y: p.y }; S.playerPos.x = p.x; S.playerPos.y = p.y;
+  if (harsh() && moved && inTerrain(p, game.ponds)) {
+    S.waterTimer += dt;
+    if (S.waterTimer >= CONFIG.stealth.water.every) { S.waterTimer = 0; alertNoise(p.x, p.y, CONFIG.stealth.water.radius); }
+  } else S.waterTimer = 0;
+  if (inTerrain(p, game.ponds) || inSmoke(p)) { S.trail.length = 0; S.trailTimer = 0; }
+  else {
+    S.trailTimer += dt;
+    if (S.trailTimer >= H.sampleEvery) {
+      S.trailTimer -= H.sampleEvery; S.trail.push({ x: p.x, y: p.y, time: game.time });
+      while (S.trail.length && (game.time - S.trail[0].time > H.trailSeconds || S.trail.length > H.maxSamples)) S.trail.shift();
+    }
+  }
+  for (let i = S.corpses.length - 1; i >= 0; i--) {
+    const corpse = S.corpses[i];
+    if ((corpse.life -= dt) <= 0) {
+      if (corpse.investigator?.stealthCorpse === corpse) corpse.investigator.stealthCorpse = null;
+      S.corpses.splice(i, 1); continue;
+    }
+    if (!inTerrain(corpse, game.bushes) || distance(p, corpse) <= C.revealRadius) corpse.playerFound = true;
+    const guard = corpse.investigator;
+    if (!guard) continue;
+    if (!game.enemies.includes(guard)) { corpse.investigator = null; corpse.investigated = true; continue; }
+    const d = distance(guard, corpse);
+    if (d <= C.alertRadius && !corpse.alarmed && harsh()) {
+      corpse.alarmed = true; corpse.discovered = true; markDetected(CONFIG.alert.detection);
+      alertNoise(guard.x, guard.y, CONFIG.stealth.shout.radius); notify(t('stealth.corpseFound'));
+    }
+    if (d <= C.arrive) { corpse.investigated = true; corpse.investigator = null; guard.stealthCorpse = null; }
+  }
+}
+function stealthInvestigateCorpse(e) {
+  const C = CONFIG.stealth.corpses, S = stealthData();
+  if (e.state !== 'wander' && e.state !== 'search' || e.stealthCorpse || e.stealthCorpseWave === game.wave) return;
+  let target = null, best = Infinity;
+  for (const corpse of S.corpses) {
+    if (corpse.investigated || corpse.investigator) continue;
+    const d = distance(e, corpse), hidden = inTerrain(corpse, game.bushes);
+    if (d > C.sightRadius || hidden && d > C.investigateRadius || !enemySight(e, corpse)) continue;
+    if (!hidden && Math.abs(angleDiff(angleTo(e, corpse), e.facing)) > CONFIG.stealth.vision.cone) continue;
+    if (d < best) { target = corpse; best = d; }
+  }
+  if (!target) return;
+  target.investigator = e; target.discovered = true; e.stealthCorpse = target; e.stealthCorpseWave = game.wave;
+  startSearch(e, target.x, target.y);
+}
+function stealthShout(e, visible, dt) {
+  if (!harsh()) { e.stealthSightTime = 0; return; }
+  if (visible) {
+    e.stealthSightTime = (e.stealthSightTime ?? 0) + dt;
+    if (e.stealthSightTime >= CONFIG.stealth.shout.delay && !e.stealthShouted) {
+      e.stealthShouted = true; alertNoise(e.x, e.y, CONFIG.stealth.shout.radius); sound.play('beep', e);
+    }
+  } else {
+    e.stealthSightTime = 0;
+    if (e.state === 'wander') e.stealthShouted = false;
+  }
+}
+function stealthRadioReinforcements() {
+  if (!harsh()) return;
+  const S = stealthData(), R = CONFIG.stealth.radio, p = game.player;
+  if (S.radioWave !== game.wave) { S.radioWave = game.wave; S.radioReinforced = 0; }
+  for (let i = 0; i < R.reinforceCount && S.radioReinforced < R.reinforceMax && game.enemies.length < CONFIG.waves.maxAlive; i++) {
+    const pos = freeSpot(CONFIG.enemies.runner.radius, R.reinforceDistance, true);
+    if (!pos) break;
+    const guard = makeEnemy('runner', pos, { noLoot: true });
+    startSearch(guard, p.x, p.y); S.radioReinforced++;
+  }
+}
+function stealthActivateStation(e, station) {
+  const p = game.player, W = CONFIG.world;
+  station.used = true; e.stealthStationDone = true; startSearch(e, p.x, p.y);
+  const radius = Math.max(Math.hypot(station.x, station.y), Math.hypot(W.width - station.x, station.y), Math.hypot(station.x, W.height - station.y), Math.hypot(W.width - station.x, W.height - station.y));
+  markDetected(CONFIG.alert.detection); alertNoise(station.x, station.y, radius);
+  burst(station.x, station.y, '#f3d182', 18); sound.play('beep', station); notify(t('stealth.radioAlarm'));
+  stealthRadioReinforcements();
+}
+function stealthTrailTarget(e) {
+  const trail = stealthData().trail, H = CONFIG.stealth.hound;
+  if (!trail.length) { e.stealthTrailAt = null; return null; }
+  let index = e.stealthTrailAt == null ? -1 : trail.findIndex(point => point.time >= e.stealthTrailAt);
+  if (index < 0) {
+    let nearest = Infinity;
+    for (let i = 0; i < trail.length; i++) {
+      const d = distance(e, trail[i]);
+      if (d < nearest) { index = i; nearest = d; }
+    }
+    if (nearest > H.acquireRadius) { e.stealthTrailAt = null; return null; }
+  }
+  while (index < trail.length - 1 && distance(e, trail[index]) <= H.followRadius) index++;
+  e.stealthTrailAt = trail[index].time;
+  return trail[index];
+}
+function stealthDecoyTarget(e) {
+  const decoy = e.stealthDecoy;
+  if (decoy && game.gadgets.includes(decoy)) return decoy;
+  e.stealthDecoy = null;
+  const range = CONFIG.throwables.items.decoy.noise;
+  e.stealthDecoy = game.gadgets.find(g => g.kind === 'decoy' && distance(e, g) <= range) ?? null;
+  return e.stealthDecoy;
+}
+function stealthUpdateHound(e, dt, d, visible) {
+  const H = CONFIG.stealth.hound, stats = CONFIG.enemies.hound, p = game.player, speed = stats.speed * e.speed * (guarded(e) ? CONFIG.captains.speed : 1);
+  const target = visible ? p : stealthDecoyTarget(e) ?? stealthTrailTarget(e);
+  if (visible) e.stealthTrailAt = null;
+  if (target) {
+    e.facing = angleTo(e, target);
+    if (!visible) { e.state = 'search'; e.goal ??= {}; e.goal.x = target.x; e.goal.y = target.y; }
+    if (Math.hypot(e.x - target.x, e.y - target.y) > stats.reach) steer(e, e.facing, speed, dt);
+    e.stealthBarkTimer = (e.stealthBarkTimer ?? H.barkEvery) - dt;
+    if (e.stealthBarkTimer <= 0) {
+      e.stealthBarkTimer = H.barkEvery; alertNoise(e.x, e.y, H.barkRadius); raiseAlert(CONFIG.alert.detection); sound.play('beep', e);
+    }
+  } else if (e.state === 'search') updateSearch(e, stats, speed, dt);
+  else {
+    e.wanderTime -= dt;
+    if (e.wanderTime <= 0) { e.direction = rand(-Math.PI, Math.PI); e.wanderTime = rand(...CONFIG.enemies.wanderInterval); }
+    e.facing = e.direction; steer(e, e.direction, speed * stats.wanderSpeed, dt);
+  }
+  if (visible && d <= stats.reach + p.radius && e.cooldown <= 0) { hurtPlayer(enemyDamage(stats), e.kind); e.cooldown = stats.cooldown; }
+  return true;
+}
+function stealthUpdateEnemy(e, dt, d, visible) {
+  stealthShout(e, visible, dt);
+  if (e.kind === 'radio' && !e.stealthStationDone && e.state !== 'wander') {
+    const sites = stealthData().stations.filter(station => station.hp > 0 && !station.used);
+    if (!sites.length) { e.stealthStationDone = true; return false; }
+    const station = sites.reduce((nearest, site) => distance(e, site) < distance(e, nearest) ? site : nearest);
+    const speed = CONFIG.enemies.radio.speed * e.speed * (guarded(e) ? CONFIG.captains.speed : 1);
+    if (distance(e, station) <= e.radius + station.radius) stealthActivateStation(e, station);
+    else { e.facing = angleTo(e, station); steer(e, e.facing, speed, dt); }
+    return true;
+  }
+  if (e.kind === 'hound') return stealthUpdateHound(e, dt, d, visible);
+  if (e.kind !== 'scout' && e.kind !== 'medic' && !CONFIG.enemies[e.kind].boss) stealthInvestigateCorpse(e);
+  return false;
+}
+function stealthDraw() {
+  const S = stealthData(), p = game.player, C = CONFIG.stealth.corpses;
+  if (!mutator('blindSpot')) for (const ring of S.noises) {
+    const progress = 1 - ring.life / ring.maxLife;
+    ctx.strokeStyle = `rgba(236,219,164,${(1 - progress) * .55})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(ring.x, ring.y, ring.radius * progress, 0, Math.PI * 2); ctx.stroke();
+  }
+  for (const corpse of S.corpses) {
+    const hidden = inTerrain(corpse, game.bushes);
+    if (!p || hidden && !corpse.playerFound && distance(p, corpse) > C.revealRadius) continue;
+    ctx.save(); ctx.globalAlpha = Math.min(1, corpse.life / C.life); ctx.translate(corpse.x, corpse.y);
+    ctx.fillStyle = '#2b2b25'; ctx.beginPath(); ctx.ellipse(0, 3, 13, 6, -.18, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = CONFIG.enemies[corpse.kind].color; ctx.fillRect(-9, -2, 18, 5);
+    ctx.fillStyle = '#d0c6a0'; ctx.beginPath(); ctx.arc(10, -2, 4, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  for (const station of S.stations) {
+    const active = station.hp > 0, color = !active ? '#66665c' : station.hit > 0 ? '#fff2bd' : station.used ? '#c8905a' : '#9bb8a5';
+    ctx.save(); ctx.globalAlpha = active ? 1 : .58; ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(station.x, station.y, station.radius + 5, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#27352c'; ctx.fillRect(station.x - 11, station.y - 8, 22, 19);
+    ctx.fillStyle = color; ctx.fillRect(station.x - 8, station.y - 5, 16, 12);
+    ctx.strokeStyle = color; ctx.beginPath(); ctx.moveTo(station.x, station.y - 8); ctx.lineTo(station.x, station.y - 19); ctx.moveTo(station.x - 5, station.y - 17); ctx.lineTo(station.x + 5, station.y - 17); ctx.stroke();
+    if (active) { ctx.fillStyle = '#18251c'; ctx.fillRect(station.x - 12, station.y + 14, 24, 3); ctx.fillStyle = '#f3d182'; ctx.fillRect(station.x - 12, station.y + 14, 24 * station.hp / station.maxHp, 3); }
+    ctx.restore();
+  }
+}
+function stealthDrawEnemy(e) {
+  if (e.kind !== 'radio' && e.kind !== 'hound') return;
+  ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.facing);
+  if (e.kind === 'radio') {
+    ctx.fillStyle = '#403a2b'; ctx.fillRect(-5, -e.radius - 7, 10, 8);
+    ctx.strokeStyle = '#e6cf88'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(2, -e.radius - 7); ctx.lineTo(5, -e.radius - 17); ctx.lineTo(8, -e.radius - 19); ctx.stroke();
+    ctx.fillStyle = '#f3d182'; ctx.fillRect(-2, -e.radius - 4, 4, 2);
+  } else {
+    ctx.fillStyle = '#32251f'; ctx.beginPath(); ctx.moveTo(3, -e.radius + 2); ctx.lineTo(7, -e.radius - 7); ctx.lineTo(11, -e.radius + 1); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(3, e.radius - 2); ctx.lineTo(7, e.radius + 7); ctx.lineTo(11, e.radius - 1); ctx.fill();
+    ctx.strokeStyle = '#efc098'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-e.radius, 0); ctx.lineTo(-e.radius - 6, 3); ctx.stroke();
+  }
+  ctx.restore();
 }
 // Magazine modifier: reload the equipped gun (R, or automatically when it runs dry); the magazine refills after `reload` s.
 function reload() {
@@ -1630,8 +2281,9 @@ function shoot() {
   if (gun.mag && --p.mag[p.weapon] <= 0) reload();
   for (let i = 0; i < gun.pellets; i++) {
     const a = angle + (i - (gun.pellets - 1) / 2) * gun.spreadRadians + rand(-gun.jitter, gun.jitter), x = p.x + Math.cos(a) * 21, y = p.y + Math.sin(a) * 21;
-    game.bullets.push({ x, y, vx: Math.cos(a) * gun.bulletSpeed, vy: Math.sin(a) * gun.bulletSpeed, traveled: 0, range: gun.range, damage, radius: CONFIG.gun.bulletRadius, friendly: true, pierce: gun.blast ? 0 : gun.pierce, hits: gun.pierce ? new Set() : null, bounces: gun.bounces, color: focusShot ? '#f2d782' : gun.color, trail: p.weapon === 'rail' || p.weapon === 'crossbow', source: p.weapon, ambush, bolt: !!gun.ammo && i === 0, blast: gun.blast });
+    game.bullets.push(buildShot(p.weapon, { x, y, vx: Math.cos(a) * gun.bulletSpeed, vy: Math.sin(a) * gun.bulletSpeed, traveled: 0, range: gun.range, damage, radius: CONFIG.gun.bulletRadius, friendly: true, pierce: gun.blast ? 0 : gun.pierce, hits: gun.pierce ? new Set() : null, bounces: gun.bounces, color: focusShot ? '#f2d782' : gun.color, trail: p.weapon === 'rail' || p.weapon === 'crossbow', source: p.weapon, ambush, bolt: !!gun.ammo && i === 0, blast: gun.blast }));
   }
+  buildOnShot(p.weapon);
   if (gun.noise) {
     game.waveSilent = false;
     raiseAlert(CONFIG.alert.manualShot * clamp(gun.noise / CONFIG.weapons.rifle.noise, 0.25, 1.5));
@@ -1653,6 +2305,8 @@ function scoreMultiplier() {
 const addScore = points => { game.score += Math.round(points * scoreMultiplier()); };
 function enemyDeath(enemy, ambush, source) {
   game.enemies.splice(game.enemies.indexOf(enemy), 1); game.kills++;
+  stealthDeath(enemy);
+  buildOnKill(enemy, ambush, source);
   if (source === 'crossbow') game.stats.crossbowKills++;
   const l = CONFIG.loot, stats = CONFIG.enemies[enemy.kind], p = game.player, S = CONFIG.score;
   game.combo = (game.comboTimer > 0 ? game.combo : 0) + (ambush ? S.ambushCombo : 1); game.comboTimer = S.comboWindow;
@@ -1701,6 +2355,7 @@ function chestDeath(chest) {
 // Frontal shields absorb friendly bullets that arrive within ±shieldArc of the bearer's facing until depleted.
 function damageEnemy(e, b) {
   const stats = CONFIG.enemies[e.kind];
+  if (b.shieldBreak && e.shieldHp > 0) { e.shieldHp = 0; sound.play('shieldBreak', e); }
   if (e.shieldHp > 0 && Math.abs(angleDiff(Math.atan2(b.y - e.y, b.x - e.x), e.facing)) < stats.shieldArc) {
     e.shieldHp = Math.max(0, e.shieldHp - b.damage); e.blocked = .12;
     if (e.shieldHp) { burst(b.x, b.y, '#d5ecf5', 4); sound.play('block', e); }
@@ -1757,8 +2412,124 @@ function updateBarrels(dt) {
     }
   }
 }
+function igniteGrass(r) {
+  if (r.burned > 0) return;
+  r.burned = CONFIG.world.burnSeconds; r.fire = CONFIG.environment.fireSeconds;
+  r.fireSpread = CONFIG.environment.fireSpreadInterval;
+  burst(r.x + r.w / 2, r.y + r.h / 2, '#f0a24f', 6);
+}
 function burnGrass(x, y, radius) {
-  for (const r of game.bushes) if (circleRect(x, y, radius, r)) { r.burned = CONFIG.world.burnSeconds; burst(clamp(x, r.x, r.x + r.w), clamp(y, r.y, r.y + r.h), '#f0a24f', 6); }
+  for (const r of game.bushes) if (circleRect(x, y, radius, r)) igniteGrass(r);
+}
+function environmentWaterBetween(x1, y1, x2, y2) {
+  return game.ponds.some(pond => lineRect(x1, y1, x2, y2, pond));
+}
+function environmentCreateFirePool(x, y, radius, seconds, damage, source = 'fire', owner = null, playerDamage = CONFIG.environment.playerFireDamage, enemyScale = 1) {
+  if (game.ponds.some(pond => pointIn(x, y, pond))) return false;
+  game.pools.push({ kind: 'fire', x, y, radius, life: seconds, damage, source, owner, playerDamage, enemyScale, enemyTick: 0 });
+  burnGrass(x, y, radius); burst(x, y, '#ff9a45', 16);
+  return true;
+}
+function environmentLandThrowable(kind, x, y) {
+  if (kind !== 'molotov') return false;
+  const item = CONFIG.throwables.items.molotov;
+  environmentCreateFirePool(x, y, item.radius, item.seconds, Math.round(item.damage * waveScale()), 'fire', game.player);
+  return true;
+}
+function environmentUpdate(dt) {
+  const E = CONFIG.environment, p = game.player;
+  for (const r of game.bushes) {
+    if (!mutator('scorchedEarth')) r.burned = Math.max(0, (r.burned ?? 0) - dt);
+    if (!(r.fire > 0)) continue;
+    r.fire = Math.max(0, r.fire - dt);
+    r.fireSpread = (r.fireSpread ?? E.fireSpreadInterval) - dt;
+    if (r.fireSpread > 0) continue;
+    r.fireSpread = E.fireSpreadInterval;
+    const x = r.x + r.w / 2, y = r.y + r.h / 2;
+    for (const other of game.bushes) {
+      if (other === r || other.burned > 0) continue;
+      const ox = other.x + other.w / 2, oy = other.y + other.h / 2;
+      if (Math.hypot(ox - x, oy - y) <= E.fireSpreadRange && !environmentWaterBetween(x, y, ox, oy)) igniteGrass(other);
+    }
+  }
+  game.environmentGrassTick = Math.max(0, (game.environmentGrassTick ?? 0) - dt);
+  if (game.environmentGrassTick <= 0) {
+    game.environmentGrassTick = E.fireTick;
+    if (harsh() && !game.daily && p && !inTerrain(p, game.ponds) && game.bushes.some(r => r.fire > 0 && circleRect(p.x, p.y, p.radius, r))) hurtPlayer(E.playerFireDamage, 'fire');
+    for (const e of [...game.enemies]) {
+      if (!inTerrain(e, game.ponds) && game.bushes.some(r => r.fire > 0 && circleRect(e.x, e.y, e.radius, r))) hitEnemyBody(e, E.fireDamage, 'fire');
+    }
+  }
+  for (const pool of game.pools) {
+    if (pool.life <= 0) continue;
+    pool.enemyTick = (pool.enemyTick ?? 0) - dt;
+    if (pool.enemyTick > 0) continue;
+    pool.enemyTick = E.fireTick;
+    const fire = pool.kind === 'fire', damage = pool.damage ?? enemyDamage(CONFIG.boss.hive.acid), source = pool.source ?? (fire ? 'fire' : 'hive');
+    for (const e of [...game.enemies]) {
+      if ((fire && inTerrain(e, game.ponds)) || e === pool.owner || distance(e, pool) >= pool.radius + e.radius) continue;
+      hitEnemyBody(e, damage * (pool.enemyScale ?? E.enemyBlastDamage), source);
+    }
+  }
+}
+function environmentDraw() {
+  for (const r of game.bushes) if (r.fire > 0) {
+    const x = r.x + r.w / 2, y = r.y + r.h / 2, flicker = Math.sin(game.time * 12 + r.x) * 3;
+    ctx.fillStyle = 'rgba(255,126,47,.42)'; ctx.beginPath(); ctx.ellipse(x, y, r.w * .24, r.h * .2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f8943f'; ctx.beginPath(); ctx.moveTo(x - 8, y + 5); ctx.quadraticCurveTo(x - 12, y - 10 - flicker, x, y - 18 - flicker); ctx.quadraticCurveTo(x + 12, y - 9, x + 8, y + 5); ctx.fill();
+  }
+  for (const pool of game.pools) if (pool.kind === 'fire') {
+    ctx.fillStyle = 'rgba(242,106,39,.25)'; ctx.beginPath(); ctx.arc(pool.x, pool.y, pool.radius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,176,73,.75)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(pool.x, pool.y, pool.radius - 2 + Math.sin(game.time * 6) * 2, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+function environmentSegmentEntry(x1, y1, x2, y2, target, radius) {
+  const dx = x2 - x1, dy = y2 - y1, fx = x1 - target.x, fy = y1 - target.y;
+  const c = fx * fx + fy * fy - radius * radius;
+  if (c <= 0) return 0;
+  const a = dx * dx + dy * dy;
+  if (!a) return null;
+  const b = 2 * (fx * dx + fy * dy), disc = b * b - 4 * a * c;
+  if (disc < 0) return null;
+  const t = (-b - Math.sqrt(disc)) / (2 * a);
+  return t >= 0 && t <= 1 ? t : null;
+}
+function environmentBulletTarget(b, x1, y1, x2, y2) {
+  let target = null, best = Infinity, t;
+  for (const e of game.enemies) {
+    if (e === b.owner || e.hp <= 0 || b.hits?.has(e)) continue;
+    t = environmentSegmentEntry(x1, y1, x2, y2, e, e.radius + b.radius);
+    if (t !== null && t < best) { target = e; best = t; }
+  }
+  const p = game.player;
+  if (p) {
+    t = environmentSegmentEntry(x1, y1, x2, y2, p, p.radius + b.radius);
+    if (t !== null && t < best) { target = p; best = t; }
+  }
+  const agent = escortAgent();
+  if (agent) {
+    t = environmentSegmentEntry(x1, y1, x2, y2, agent, agent.radius + b.radius);
+    if (t !== null && t < best) { target = agent; best = t; }
+  }
+  for (const station of game.stealth?.stations ?? []) {
+    if (!station.station || station.hp <= 0) continue;
+    t = environmentSegmentEntry(x1, y1, x2, y2, station, station.radius + b.radius);
+    if (t !== null && t < best) { target = station; best = t; }
+  }
+  return target;
+}
+function environmentDamageEnemy(e, b) {
+  if (!e || e === b.owner || e.hp <= 0) return;
+  const damage = b.damage;
+  b.damage *= CONFIG.environment.enemyBulletDamage;
+  damageEnemy(e, b);
+  b.damage = damage;
+}
+function environmentBlastEnemies(x, y, radius, damage, exclude) {
+  if (!damage) return;
+  for (const e of [...game.enemies]) {
+    if (e !== exclude && e.hp > 0 && Math.hypot(e.x - x, e.y - y) < radius + e.radius) hitEnemyBody(e, damage * CONFIG.environment.enemyBlastDamage, 'friendlyFire');
+  }
 }
 function nearestEnemy(from, range, exclude) {
   let best = null, bestDistance = range;
@@ -1816,7 +2587,16 @@ function updateAutoWeapons(dt) {
     const s = A.tesla, first = nearestEnemy(p, s.range);
     if (first) {
       const chain = [first], hit = new Set(chain);
-      while (chain.length < s.chains[l.tesla - 1]) { const next = nearestEnemy(chain.at(-1), s.chainRange, hit); if (!next) break; chain.push(next); hit.add(next); }
+      while (chain.length < s.chains[l.tesla - 1]) {
+        const from = chain[chain.length - 1]; let next = null, best = Infinity;
+        for (const candidate of game.enemies) {
+          if (hit.has(candidate) || isCloaked(candidate) || !clearSight(from, candidate)) continue;
+          const reach = s.chainRange * (inTerrain(candidate, game.ponds) ? s.wetChainRange : 1), d = distance(from, candidate);
+          if (d < reach && d < best) { best = d; next = candidate; }
+        }
+        if (!next) break;
+        chain.push(next); hit.add(next);
+      }
       game.arcs.push({ points: [{ x: p.x, y: p.y }, ...chain.map(e => ({ x: e.x, y: e.y }))], life: .16 });
       for (const e of chain) hitEnemyBody(e, s.damage[l.tesla - 1], 'tesla');
       cd.tesla = s.interval[l.tesla - 1]; sound.play('zap'); addHeat('tesla');
@@ -1825,10 +2605,13 @@ function updateAutoWeapons(dt) {
 }
 // Shared blast: damages enemies and chests, sets off barrels, splinters wooden walls, knocks out searchlights, optionally hurts the
 // player (hurtBy names the attacker for the after-action report) and the escorted agent, and burns grass. Every blast makes noise.
-function explode(x, y, damage, { blast = CONFIG.autoWeapons.missile.blast, source = 'missile', burn = false, playerDamage = 0, ambush = false, hurtBy = source } = {}) {
+function explode(x, y, damage, { blast = CONFIG.autoWeapons.missile.blast, source = 'missile', burn = false, playerDamage = 0, ambush = false, hurtBy = source, enemyDamage = 0, exclude = null, cluster = false, clusterDepth = 0, angle = 0 } = {}) {
   const p = game.player;
   burst(x, y, '#f6b36b', 22); burst(x, y, '#fff0c0', 8); sound.play('explosion', { x, y }); game.shake = Math.max(game.shake, 4 + (burn ? 4 : 0));
   game.blasts.push({ x, y, radius: blast, life: .35 });
+  environmentBlastEnemies(x, y, blast, enemyDamage, exclude);
+  stealthBlastStations(x, y, blast, damage || enemyDamage);
+  if (cluster) game.bullets.push(...buildExplosion(x, y, damage, { blast, source, ambush, cluster, clusterDepth, angle }));
   if (damage) {
     for (const e of [...game.enemies]) if (Math.hypot(e.x - x, e.y - y) < blast + e.radius) hitEnemyBody(e, damage, source, ambush);
     for (const c of [...game.chests]) if (Math.hypot(c.x - x, c.y - y) < blast + c.radius) damageChest(c, damage);
@@ -2011,7 +2794,8 @@ async function copyShare() {
 function steer(enemy, angle, speed, dt) {
   const x = enemy.x, y = enemy.y;
   for (const offset of [0, .65, -.65, 1.3, -1.3, Math.PI]) {
-    const a = angle + offset, dx = Math.cos(a) * speed * dt, dy = Math.sin(a) * speed * dt;
+    const a = angle + offset, wet = !CONFIG.enemies[enemy.kind]?.flying && inTerrain(enemy, game.ponds);
+    const scaledSpeed = speed * (wet ? CONFIG.enemies.waterMultiplier : 1), dx = Math.cos(a) * scaledSpeed * dt, dy = Math.sin(a) * scaledSpeed * dt;
     if (passable(x + dx * 3, y + dy * 3, enemy.radius)) { move(enemy, dx, dy); return; }
   }
 }
@@ -2027,21 +2811,23 @@ function detonate(e) {
   const stats = CONFIG.enemies[e.kind];
   game.enemies.splice(game.enemies.indexOf(e), 1);
   burst(e.x, e.y, '#8a5a3c', 10);
-  explode(e.x, e.y, 0, { blast: stats.blast, burn: true, playerDamage: enemyDamage(stats), hurtBy: e.kind });
+  explode(e.x, e.y, 0, { blast: stats.blast, burn: true, playerDamage: enemyDamage(stats), hurtBy: e.kind, enemyDamage: enemyDamage(stats), exclude: e });
 }
 const angleTo = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
 const hunting = e => e.state === 'chase' || e.state === 'attack';
 function enemyShot(e, angle, s) {
-  game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(angle) * s.speed, vy: Math.sin(angle) * s.speed, range: CONFIG.boss.bulletRange, traveled: 0, damage: enemyDamage(s), radius: s.radius, friendly: false, source: e.kind });
+  game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(angle) * s.speed, vy: Math.sin(angle) * s.speed, range: CONFIG.boss.bulletRange, traveled: 0, damage: enemyDamage(s), radius: s.radius, friendly: false, source: e.kind, owner: e });
 }
 function gunnerShot(e, stats, angle) {
-  game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(angle) * stats.projectileSpeed, vy: Math.sin(angle) * stats.projectileSpeed, range: stats.sight, traveled: 0, damage: enemyDamage(stats), radius: stats.projectileRadius, friendly: false, source: e.kind });
+  game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(angle) * stats.projectileSpeed, vy: Math.sin(angle) * stats.projectileSpeed, range: stats.sight, traveled: 0, damage: enemyDamage(stats), radius: stats.projectileRadius, friendly: false, source: e.kind, owner: e });
   sound.play('enemyShot', e);
 }
-const BOSS_BEHAVIOR = { commander: updateCommander, sniper: updateSniper, hive: updateHive };
+const BOSS_BEHAVIOR = { commander: updateCommander, sniper: updateSniper, hive: updateHive, incinerator: updateIncinerator };
 function updateBoss(e, dt) {
   if (e.phase === 1 && e.hp < e.maxHp * CONFIG.boss.phase2At) {
-    e.phase = 2; if (e.kind === 'commander') e.speed *= CONFIG.boss.commander.phase2.speed;
+    e.phase = 2;
+    if (e.kind === 'commander') e.speed *= CONFIG.boss.commander.phase2.speed;
+    else if (e.kind === 'incinerator') e.speed *= CONFIG.boss.incinerator.phase2Speed;
     burst(e.x, e.y, '#ff8a6a', 30); sound.play('shieldBreak', e); notify(t('toast.bossPhase', { name: t(`enemy.${e.kind}`) }));
     if (harsh()) counterPlayer(e);
   }
@@ -2075,7 +2861,7 @@ function updateCommander(e, dt) {
   }
   if (e.bombs <= 0 && distance(e, p) < C.bombs.range) {
     const b = C.bombs;
-    for (let i = 0; i < (e.phase === 2 ? C.phase2.bombs : b.count); i++) game.bombs.push({ x: p.x + rand(-b.scatter, b.scatter) * Math.min(i, 1), y: p.y + rand(-b.scatter, b.scatter) * Math.min(i, 1), time: b.fall, fall: b.fall, radius: b.blast, damage: enemyDamage(b), source: e.kind });
+    for (let i = 0; i < (e.phase === 2 ? C.phase2.bombs : b.count); i++) game.bombs.push({ x: p.x + rand(-b.scatter, b.scatter) * Math.min(i, 1), y: p.y + rand(-b.scatter, b.scatter) * Math.min(i, 1), time: b.fall, fall: b.fall, radius: b.blast, damage: enemyDamage(b), enemyDamage: enemyDamage(b), owner: e, source: e.kind });
     e.bombs = b.interval * pace; sound.play('fuse', e);
   }
   if (e.summon <= 0) {
@@ -2127,18 +2913,33 @@ function updateHive(e, dt) {
     e.brood = H.brood.interval * pace; burst(e.x, e.y, CONFIG.enemies.hive.color, 12);
   }
   if (e.acid <= 0 && distance(e, p) < A.range) {
-    for (let i = 0; i < (e.phase === 2 ? H.phase2.acid : A.count); i++) game.bombs.push({ x: p.x + rand(-A.scatter, A.scatter) * Math.min(i, 1), y: p.y + rand(-A.scatter, A.scatter) * Math.min(i, 1), time: A.fall, fall: A.fall, radius: A.radius, acid: true });
+    for (let i = 0; i < (e.phase === 2 ? H.phase2.acid : A.count); i++) game.bombs.push({ x: p.x + rand(-A.scatter, A.scatter) * Math.min(i, 1), y: p.y + rand(-A.scatter, A.scatter) * Math.min(i, 1), time: A.fall, fall: A.fall, radius: A.radius, acid: true, enemyDamage: enemyDamage(A), owner: e, source: e.kind });
     e.acid = A.interval * pace; sound.play('fuse', e);
   }
 }
 // Lobbed hazards land after `fall`: commander bombs explode and burn grass, hive acid leaves a pool.
+// The incinerator lays a telegraphed ring of fire around the player's last position.
+function updateIncinerator(e, dt) {
+  if (!hunting(e)) return;
+  const B = CONFIG.boss.incinerator, p = game.player;
+  e.fireTimer -= dt;
+  if (e.fireTimer > 0) return;
+  const count = B.count, damage = enemyDamage(B);
+  for (let i = 0; i < count; i++) {
+    const angle = i * Math.PI * 2 / count, x = clamp(p.x + Math.cos(angle) * B.ringRadius, 0, CONFIG.world.width), y = clamp(p.y + Math.sin(angle) * B.ringRadius, 0, CONFIG.world.height);
+    game.bombs.push({ x, y, time: B.fall, fall: B.fall, radius: B.radius, damage, enemyDamage: damage, playerDamage: damage, seconds: B.seconds, fire: true, enemyScale: CONFIG.environment.enemyBlastDamage, owner: e, source: e.kind });
+  }
+  e.fireTimer = (e.phase === 2 ? B.phase2Interval : B.interval) * counterPace(e);
+  sound.play('fuse', e);
+}
 function updateBombs(dt) {
   for (let i = game.bombs.length - 1; i >= 0; i--) {
     const b = game.bombs[i];
     if ((b.time -= dt) > 0) continue;
     game.bombs.splice(i, 1);
-    if (b.acid) { game.pools.push({ x: b.x, y: b.y, radius: b.radius, life: CONFIG.boss.hive.acid.seconds }); burst(b.x, b.y, '#a6e36b', 14); }
-    else explode(b.x, b.y, 0, { blast: b.radius, burn: true, playerDamage: b.damage, hurtBy: b.source });
+    if (b.fire) environmentCreateFirePool(b.x, b.y, b.radius, b.seconds, b.enemyDamage, b.source, b.owner, b.playerDamage, b.enemyScale);
+    else if (b.acid) { game.pools.push({ kind: 'acid', x: b.x, y: b.y, radius: b.radius, life: CONFIG.boss.hive.acid.seconds, damage: b.enemyDamage, source: b.source, owner: b.owner, enemyTick: 0 }); burst(b.x, b.y, '#a6e36b', 14); }
+    else explode(b.x, b.y, 0, { blast: b.radius, burn: true, playerDamage: b.damage, hurtBy: b.source, enemyDamage: b.enemyDamage, exclude: b.owner });
   }
 }
 // Recon drone: drifts toward the player over walls; scanning the player exposes them and raises an alarm.
@@ -2201,6 +3002,7 @@ function updateMedic(e, stats, dt) {
   steer(e, e.direction, stats.speed * e.speed * stats.wanderSpeed, dt);
 }
 function updateEnemy(e, dt) {
+  if (e.hp <= 0) return;
   const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), speed = stats.speed * e.speed * (guarded(e) ? CONFIG.captains.speed : 1);
   if (e.affix === 'regen') e.hp = Math.min(e.maxHp, e.hp + CONFIG.elites.affixes.regen.rate * e.maxHp * dt);
   e.cooldown -= dt; e.special -= dt; e.hit = Math.max(0, e.hit - dt); e.blocked = Math.max(0, e.blocked - dt); e.bladeCooldown -= dt; e.reveal -= dt;
@@ -2214,7 +3016,7 @@ function updateEnemy(e, dt) {
     return;
   }
   const detect = !isHidden() || d < (stats.sense ?? 0) || (e.state === 'search' && d < CONFIG.search.probe);
-  const visible = detect && d < stats.sight * e.sightScale * CONFIG.variants[game.variant].sight && enemySight(e, p);
+  const visible = stealthVisibility(e, p, d, detect && d < stats.sight * e.sightScale * CONFIG.variants[game.variant].sight && enemySight(e, p), dt);
   const melee = !stats.projectileSpeed && !stats.fuse && !stats.cone && stats.damage > 0;
   const look = e.state === 'wander' ? e.direction : e.state === 'search' ? angleTo(e, e.arrived ? e.sweep : e.goal) : angleTo(e, p);
   const maxTurn = (stats.turnRate ?? Infinity) * dt;
@@ -2230,6 +3032,7 @@ function updateEnemy(e, dt) {
     e.wasVisible = false;
     if (e.state === 'alert' || hunting(e)) { const spot = e.lastSeen ?? p; startSearch(e, spot.x, spot.y); }
   }
+  if (stealthUpdateEnemy(e, dt, d, visible)) return;
   if (e.cover) { /* sniper relocating: moved by updateSniper */ }
   else if (e.state === 'wander') {
     e.wanderTime -= dt;
@@ -2265,6 +3068,12 @@ function segmentCircle(x1, y1, x2, y2, target, radius) {
   const dx = x2 - x1, dy = y2 - y1, t = clamp(((target.x - x1) * dx + (target.y - y1) * dy) / (dx * dx + dy * dy || 1), 0, 1);
   return Math.hypot(x1 + t * dx - target.x, y1 + t * dy - target.y) <= radius;
 }
+function bulletTargetIn(b, nx, ny, objects) {
+  if (objects) for (const o of objects) {
+    if ((!o.station || o.hp > 0) && !b.hits?.has(o) && !(o.fuse > 0 && o.barrel) && segmentCircle(b.x, b.y, nx, ny, o, o.radius + b.radius)) return o;
+  }
+  return null;
+}
 // Ricochet bullets reflect off the wall face they hit (the axis whose move alone collides) while bounces remain. Any bullet hitting a
 // wooden wall damages it. Launcher shells explode where they stop instead of hitting directly; crossbow bolts drop where they stop.
 function updateBullets(dt) {
@@ -2276,28 +3085,30 @@ function updateBullets(dt) {
     if (wall && b.bounces > 0) {
       if (wall.wood) damageWood(wall, b.damage);
       if (game.walls.some(r => lineRect(b.x, b.y, nx, b.y, r))) b.vx = -b.vx; else b.vy = -b.vy;
-      b.bounces--; b.hits?.clear(); burst(b.x, b.y, '#d9caa7', 3); continue;
+      b.bounces--; b.hits?.clear();
+      if (b.buildEvolution === 'shotgun' && !b.buildFragmentsDone) game.bullets.push(...buildBulletBounce(b));
+      burst(b.x, b.y, '#d9caa7', 3); continue;
     }
-    let target = null;
-    if (!wall) {
-      if (b.friendly) target = [...game.enemies, ...game.chests, ...game.barrels, ...game.lights, ...missionDishes()].find(o => !b.hits?.has(o) && !(o.fuse > 0 && o.barrel) && segmentCircle(b.x, b.y, nx, ny, o, o.radius + b.radius));
-      else if (segmentCircle(b.x, b.y, nx, ny, game.player, game.player.radius + b.radius)) target = game.player;
-      else { const agent = escortAgent(); if (agent && segmentCircle(b.x, b.y, nx, ny, agent, agent.radius + b.radius)) target = agent; }
-    }
-    let spent = !!target;
-    if (target && !b.blast) {
-      if (target === game.player) hurtPlayer(b.damage, b.source);
-      else if (target.agent) hurtAgent(b.damage);
-      else if (target.dish) damageDish(target, b.damage);
-      else if (target.kind) { damageEnemy(target, b); if (b.pierce > 0) { b.pierce--; b.hits.add(target); spent = false; } }
-      else if (target.barrel) damageBarrel(target, b.damage);
-      else if (target.light) damageLight(target, b.damage);
-      else damageChest(target, b.damage);
-    }
+    let target = null, spent = false;
+    if (!wall) do {
+      if (b.friendly) target = bulletTargetIn(b, nx, ny, game.enemies) ?? bulletTargetIn(b, nx, ny, game.chests) ?? bulletTargetIn(b, nx, ny, game.barrels) ?? bulletTargetIn(b, nx, ny, game.lights) ?? bulletTargetIn(b, nx, ny, missionDishes()) ?? bulletTargetIn(b, nx, ny, game.stealth?.stations);
+      else target = environmentBulletTarget(b, b.x, b.y, nx, ny);
+      spent = !!target;
+      if (target && !b.blast) {
+        if (target === game.player) hurtPlayer(b.damage, b.source);
+        else if (target.agent) hurtAgent(b.damage);
+        else if (target.dish) damageDish(target, b.damage);
+        else if (target.station) stealthDamageStation(target, b.damage);
+        else if (target.kind) { if (b.friendly) damageEnemy(target, b); else environmentDamageEnemy(target, b); if (b.pierce > 0) { b.pierce--; b.hits.add(target); spent = false; } }
+        else if (target.barrel) damageBarrel(target, b.damage);
+        else if (target.light) damageLight(target, b.damage);
+        else damageChest(target, b.damage);
+      }
+    } while (target && !spent);
     if (spent || wall || b.traveled >= b.range || nx < 0 || ny < 0 || nx > W.width || ny > W.height) {
       game.bullets.splice(i, 1);
       const at = wall ? { x: b.x, y: b.y } : { x: clamp(nx, W.borderMargin, W.width - W.borderMargin), y: clamp(ny, W.borderMargin, W.height - W.borderMargin) };
-      if (b.blast) explode(at.x, at.y, b.damage, { blast: b.blast, source: b.source, ambush: b.ambush });
+      if (b.blast) explode(at.x, at.y, b.damage, { blast: b.blast, source: b.source, ambush: b.ambush, cluster: b.cluster, clusterDepth: b.clusterDepth, angle: Math.atan2(b.vy, b.vx) });
       else if (wall) { burst(nx, ny, wall.wood ? '#b58a55' : '#d9caa7', 3); if (wall.wood) damageWood(wall, b.damage); }
       if (b.bolt) game.loot.push({ ...at, kind: 'bolt', amount: 1, age: 0, phase: rand(0, 6) });
     } else { b.x = nx; b.y = ny; }
@@ -2391,6 +3202,7 @@ function updateGadgets(dt) {
     if ((th.time += dt) < T.flight) continue;
     game.throws.splice(i, 1);
     const { x, y } = th.to, item = I[th.kind];
+    if (environmentLandThrowable(th.kind, x, y)) continue;
     game.gadgets.push({ kind: th.kind, x, y, age: 0, pulse: 0, life: item.seconds, radius: item.radius });
     if (th.kind === 'smoke') burst(x, y, '#d8dccf', 24);
   }
@@ -2412,7 +3224,9 @@ function updateGadgets(dt) {
   for (let i = game.pools.length - 1; i >= 0; i--) {
     const pool = game.pools[i];
     if ((pool.life -= dt) <= 0) { game.pools.splice(i, 1); continue; }
-    if (distance(pool, p) < pool.radius + p.radius * .5) hurtPlayer(enemyDamage(CONFIG.boss.hive.acid), 'hive');
+    if (pool.kind === 'fire') {
+      if (harsh() && !game.daily && !inTerrain(p, game.ponds) && distance(pool, p) < pool.radius + p.radius * .5) hurtPlayer(pool.playerDamage ?? CONFIG.environment.playerFireDamage, 'fire');
+    } else if (distance(pool, p) < pool.radius + p.radius * .5) hurtPlayer(enemyDamage(CONFIG.boss.hive.acid), 'hive');
   }
 }
 function update(dt) {
@@ -2428,12 +3242,13 @@ function update(dt) {
   if ((game.comboTimer -= dt) <= 0) game.combo = 0;
   if (p.dash) { move(p, p.dash.vx * dt, p.dash.vy * dt); if ((p.dash.time -= dt) <= 0) p.dash = null; }
   else {
-    const { dx, dy } = moveInput(), speed = CONFIG.player.speed * gearStats().speed * (inTerrain(p, game.ponds) ? CONFIG.player.waterMultiplier : 1);
+    const { dx, dy } = moveInput(), speed = CONFIG.player.speed * gearStats().speed * stealthMoveFactor() * (inTerrain(p, game.ponds) ? CONFIG.player.waterMultiplier : 1);
     if (dx || dy) move(p, dx * speed * dt, dy * speed * dt);
   }
   if (inTerrain(p, game.bushes)) p.bushTime = game.time;
-  // Burned grass regrows unless the scorched-earth modifier is on.
-  if (!mutator('scorchedEarth')) for (const r of game.bushes) if (r.burned) r.burned = Math.max(0, r.burned - dt);
+  stealthUpdate(dt);
+  environmentUpdate(dt);
+  if (game.mode !== 'playing') return;
   for (const r of game.walls) if (r.hit) r.hit = Math.max(0, r.hit - dt);
   updateLights(dt);
   if (perk('mender')) p.hp = Math.min(p.maxHp, p.hp + perk('mender') * P.mender.regen * dt);
@@ -2480,11 +3295,12 @@ function update(dt) {
       for (let i = 0; i < batch; i++) if (spawnEnemy()) game.waveRemaining--;
       game.spawnTimer = Math.max(w.minSpawnInterval, w.spawnInterval - (game.wave - 1) * w.spawnIntervalStep);
     }
-  } else if (!game.enemies.length) {
+  } else if (!game.enemies.length && game.supplyReady !== false) {
     if (!game.nextWave) {
       if (game.waveSilent) game.stats.silentWaves++;
       game.alert = Math.max(0, game.alert - CONFIG.alert.waveDecay - (game.waveSilent ? CONFIG.alert.silentBonus : 0));
       game.nextWave = CONFIG.waves.intermission; notify(t('toast.cleared')); addScore(CONFIG.score.waveBonus * game.wave);
+      buildWaveClear();
       if (challengeOpen(game.challenge?.type) && !challengeGoal()) completeChallenge();
       p.bolts = CONFIG.weapons.crossbow.ammo;
       const cleared = route();
@@ -2765,9 +3581,9 @@ function drawMission() {
 function drawPreview(w) {
   const wave = game.wave + 1, theme = game.nextTheme, boss = isBossWave(wave);
   const kinds = theme ? CONFIG.themes.list[theme].kinds : rosterWeights(wave).sort((a, b) => b[1] - a[1]).slice(0, CONFIG.preview.kinds).map(([kind]) => kind);
-  const fresh = CONFIG.waves.roster.find(r => r.from === wave && r.from > 1);
-  const head = [t('preview.wave', { wave: String(wave).padStart(2, '0'), count: waveCount(wave, game.nextRoute, theme) }), boss && t('preview.boss', { name: t(`enemy.${bossKind(wave)}`) }), theme && t('preview.theme', { name: t(`theme.${theme}`) }), fresh && t('preview.fresh', { name: t(`enemy.${fresh.kind}`) })].filter(Boolean).join(' · ');
-  const body = t('preview.kinds', { list: kinds.map(kind => t(`enemy.${kind}`)).join('、') });
+  const operation = game.nextOperation?.type;
+  const head = [t('preview.wave', { wave: String(wave).padStart(2, '0'), count: operation === 'supply' ? 0 : waveCount(wave, game.nextRoute, theme) }), operation && t(`operation.${operation}`), boss && t('preview.boss', { name: t(`enemy.${bossKind(wave)}`) }), operation !== 'supply' && theme && t('preview.theme', { name: t(`theme.${theme}`) })].filter(Boolean).join(' · ');
+  const body = operation === 'supply' ? t('operation.supply.desc', { heal: CONFIG.operations.supplyHeal }) : t('preview.kinds', { list: kinds.map(kind => t(`enemy.${kind}`)).join('、') });
   ctx.font = "bold 13px 'DM Mono', 'Noto Sans TC', sans-serif"; ctx.textAlign = 'center';
   const bw = Math.max(ctx.measureText(head).width, ctx.measureText(body).width) + 28, y = 112; // below the toast
   ctx.fillStyle = '#10251cd8'; ctx.fillRect((w - bw) / 2, y, bw, 46); ctx.strokeStyle = '#9fe3ff88'; ctx.lineWidth = 1.5; ctx.strokeRect((w - bw) / 2, y, bw, 46);
@@ -2959,6 +3775,8 @@ function draw() {
   ctx.translate(-camera.x + (game.shake ? rand(-game.shake, game.shake) : 0), -camera.y + (game.shake ? rand(-game.shake, game.shake) : 0));
   drawWorld();
   drawHazards();
+  environmentDraw();
+  stealthDraw();
   for (const b of game.barrels) drawBarrel(b);
   for (const c of game.chests) drawChest(c);
   for (const l of game.lights) drawTower(l);
@@ -2967,7 +3785,7 @@ function draw() {
   drawObjectives();
   drawMission();
   drawGadgets();
-  for (const e of game.enemies) drawEnemy(e);
+  for (const e of game.enemies) { drawEnemy(e); stealthDrawEnemy(e); }
   if (game.player) drawPlayer(game.player);
   drawProjectiles();
   for (const part of game.particles) { ctx.globalAlpha = part.life / part.maxLife; ctx.fillStyle = part.color; ctx.fillRect(part.x, part.y, 3, 3); } ctx.globalAlpha = 1;
@@ -3058,6 +3876,9 @@ window.addEventListener('keydown', event => {
   else if (key === 'escape' && game.mode === 'shop') toggleShop();
   else if (key === 'escape' && game.mode === 'market') resume();
   else if ((key === 'm' || key === 'n') && !event.repeat) { sound.toggle(key === 'm' ? 'music' : 'sfx'); renderSettings(); }
+  else if (game.mode === 'perk' && !event.repeat && key === 'r') rerollPerks();
+  else if (game.mode === 'perk' && !event.repeat && key === 'x') armPerkBanish();
+  else if (game.mode === 'perk' && !event.repeat && key === 's') skipPerks();
   else if (CHOICE_MODES.includes(game.mode) && !event.repeat && key >= '1' && key <= '9') choose(Number(key) - 1);
   else if (game.mode !== 'playing' || event.repeat) game.keys.add(key);
   else if (key >= '1' && key <= String(GUN_KEYS.length)) equip(GUN_KEYS[Number(key) - 1]);

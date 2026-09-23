@@ -45,8 +45,10 @@
 6. **文件**：玩法、數值、兵種、武器、裝備、流程有變動時，同步更新 `DESIGN.md`；使用方式或部署有變動時更新 `README.md`；功能、數值或驗收結果有變動時更新 `ACCEPTANCE.md`（見下節）。
 7. **Git**：每完成一個里程碑自動提交（訊息用英文、祈使句）。**只有使用者要求時才 `git push`**。
 8. **隨機性**：影響「同一種子是否得到相同內容」的抽選（地圖、木牆、探照燈、變體、突變、兵種、精英詞綴、事件、波次挑戰、黑市出現與商品、天賦與路線選項、敵軍編組、首領任務）必須使用 run 的 seeded 串流（`seededRandom` / `game.rng` 的 `roster`、`perks`、`challenge`、`market`、`theme`（敵軍編組）、`mission`（首領任務）），不可用 `Math.random`；戰鬥與特效隨機才用 `rand`。每日挑戰與自訂種子都依賴這點；改變這些抽選的呼叫順序會改變每日挑戰與既有種子的內容。
+   - 章節作戰分支、換場木牆與通訊站分別使用 `${seed}:operations:${chapter}`、`${seed}:battlefield:${chapter}`、`${seed}:stealth-map:${mapIndex}` 的獨立 seeded 來源；天賦重抽與槍械進化抽選沿用 `perks` 串流。
 9. **本機儲存**：`localStorage` 鍵為 `bushwhack-profile`（紀錄含最佳撤離波次、累計值（含 `clears`）、擊倒過的首領種類、成就、難度、兵種、外觀、威脅條件，以及長期進度：`mastery` 各兵種 XP、`threatRecords` 以 `難度:兵種` 為鍵的最高撤離威脅、`weekly` 本週合約、`streak` 每日連續出擊、`intel` 情報檔案、`analytics` 各來源承受傷害與致死次數、`chapters` 各難度章節最佳評價、`badges` 徽章數、`training` 當日訓練 XP、`seedRuns` 近週每週種子挑戰最佳）、`bushwhack-music`／`bushwhack-sfx` 與其 `-volume`。修改 `profile` 結構時要相容舊資料（缺欄位補預設值、保留未知欄位、未解鎖的兵種、外觀與威脅條件退回預設，威脅總點數超過上限時截去多出的條件）。
 10. **嚴苛機制**：懲罰性機制（自動武器過熱、敵軍編組、精英隊長、首領反制、拖延增援、首領任務失敗懲罰）只在 `CONFIG.difficulty` 標記 `harsh` 的難度（困難、地獄）啟用，一律以 `harsh()` 判斷；新增懲罰性機制時沿用同一判斷，普通與每日挑戰不得受影響。
+   - 涉水噪音、延遲呼喊、屍體警戒、通訊／滲透增援及環境火對玩家的傷害也須沿用 `harsh()`；敵方誤傷、方向視野、追蹤犬與水中電弧則適用所有難度。
 11. **右鍵**：整個頁面停用瀏覽器右鍵選單（`document` 的 `contextmenu`），不要在個別元素上重新開啟。
 
 ## 驗證
@@ -58,6 +60,7 @@
   - `game.js` 是 IIFE，內部狀態無法從頁面存取。測試時以請求攔截改寫回應，只在測試中暴露內部物件，例如把結尾 `})();` 換成 `Object.assign(window,{game,CONFIG});})();`。
   - `tab.run` 的 `page.evaluate` 在隔離環境執行，看不到頁面的 `window` 屬性；需插入 `<script>` 在主環境執行，再把結果寫到 DOM（如 `document.documentElement.dataset`）讀回。
   - 版面檢查：`document.documentElement.scrollHeight` 不得大於 `innerHeight`（常用 1440×900、1280×720 驗證）；確認無 `pageerror`、無未翻譯鍵值外露。
+  - 新玩法版面涵蓋五欄作戰地圖、四張天賦與操作按鈕、六張槍械進化配方及燃燒瓶商店；三語均檢查對話框與側欄自身的溢出，不只檢查頁面高度。
 
 ## ACCEPTANCE.md（驗收紀錄）
 
