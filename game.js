@@ -520,7 +520,7 @@ const sound = (() => {
     else if (!active && timer) { clearInterval(timer); timer = 0; }
   }
   function init() {
-    if (ac) { if (ac.state === 'suspended' && !document.hidden) ac.resume(); return; }
+    if (ac) { if (ac.state !== 'running' && !document.hidden) ac.resume(); return; }
     const Context = window.AudioContext || window.webkitAudioContext;
     if (!Context) return;
     ac = new Context();
@@ -531,6 +531,9 @@ const sound = (() => {
     const data = noise.getChannelData(0); for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
     pulse25 = pulseWave(.25); pulse12 = pulseWave(.125);
     document.addEventListener('visibilitychange', () => { if (document.hidden) ac.suspend(); else ac.resume(); });
+    // Safari may create the context suspended (or interrupt it later) even inside a click; retry on every user gesture.
+    for (const type of ['pointerdown', 'keydown']) window.addEventListener(type, init, true);
+    ac.resume();
   }
   function play(name, source) {
     if (!ac || !enabled.sfx || !volume.sfx || ac.state !== 'running') return;
