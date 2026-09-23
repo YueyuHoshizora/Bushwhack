@@ -20,8 +20,8 @@
   - 30 張隨機地圖全部連通。
 - **Gate D：通過（部署需另行確認 SSL 設定）。**
   - 本機功能驗收：全部通過。
-  - GitHub Pages：API 回報 `status: built`，最新建置為 `cf06c6d`，自訂網域 `bushwhack.yustellar.dev`；`https_enforced` 為 `false`。
-  - 外網網址：`https://bushwhack.yustellar.dev/` 回傳 200（經 Cloudflare），頁面引用的 `game.js?v=b61b6c7efc` 與本機建置相同。
+  - GitHub Pages（v1.7）：API 回報 `status: built`，最新建置為 `5a60ea2`，自訂網域 `bushwhack.yustellar.dev`；`https_enforced` 為 `false`。
+  - 外網網址：`https://bushwhack.yustellar.dev/` 回傳 200（經 Cloudflare），頁面引用的 `game.js?v=402e71fe64` 與本機建置相同。
   - 靜態檔：`/sitemap.xml` 回傳 200 `application/xml`；`/assets/og-cover.png` 回傳 200。
   - 舊路徑：`/en/` 已回傳 404（舊語系資料夾已移除）。
 
