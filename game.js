@@ -4,7 +4,7 @@
 const CONFIG = Object.freeze({
   world: { width: 1800, height: 1200, grid: 30, walls: 11, ponds: 7, bushes: 19, wallWidth: [72, 128], wallHeight: [48, 88], pondSize: [90, 145], bushSize: [80, 132], terrainGap: 20, spawnClearance: 200, borderMargin: 16, placementMargin: 42, spawnMargin: 65, terrainSpawnPadding: 12, chestSpacing: 65, placementAttempts: 250, spawnAttempts: 400 },
   player: { hp: 100, radius: 15, speed: 245, invulnerability: 0.65, pickupRadius: 40, waterMultiplier: 0.5, revealSeconds: 2.4 },
-  gun: { damage: 18, shotsPerSecond: 3.3, pellets: 1, spreadRadians: 0.14, range: 480, bulletSpeed: 800, bulletRadius: 4, damageStep: 6, rateStep: 0.65, rangeStep: 90, maxLevel: 5, spreadMax: 4 },
+  gun: { damage: 18, shotsPerSecond: 3.3, pellets: 1, spreadRadians: 0.14, range: 480, bulletSpeed: 800, bulletRadius: 4, damageStep: 6, rateStep: 0.65, rangeStep: 90, maxLevel: 5, spreadMax: 5 },
   enemies: {
     melee: { hp: 42, speed: 94, radius: 16, sight: 305, reach: 30, damage: 9, cooldown: 1.05, wanderSpeed: 0.45, color: '#e99c77' },
     ranged: { hp: 32, speed: 76, radius: 15, sight: 365, reach: 270, damage: 8, cooldown: 1.9, projectileSpeed: 310, projectileRadius: 5, retreatRatio: 0.52, retreatSpeed: 0.65, wanderSpeed: 0.35, color: '#c4a7db' },

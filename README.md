@@ -27,3 +27,7 @@
 ## 分享預覽
 
 頁面含 Open Graph／X（Twitter）大型圖片標籤，分享封面為 `assets/og-cover.png`（1200 × 630）；可編輯 `assets/og-cover.svg` 後重新輸出 PNG。`og:url`、canonical 與圖片絕對網址已設定為 `https://bushwhack.yustellar.dev/`。實際對外分享前須先完成上述 DNS 與 Pages 部署。
+
+## 授權
+
+Copyright © 2026 YueyuHoshizora。採用 [GNU AGPL 第三版](LICENSE)（SPDX：`AGPL-3.0-only`），不含「或任何更新版本」授權。程式不提供任何擔保；使用、修改及再散布須遵守授權全文。網站頁尾提供授權與公開原始碼連結。
