@@ -2,16 +2,16 @@
 'use strict';
 // All gameplay and balance values live here. Rendering-only colors and layout live below.
 const CONFIG = Object.freeze({
-  world: { width: 1800, height: 1200, grid: 30, walls: 11, ponds: 7, bushes: 19, wallWidth: [72, 128], wallHeight: [48, 88], pondSize: [90, 145], bushSize: [80, 132], terrainGap: 20, spawnClearance: 200 },
-  player: { hp: 100, radius: 15, speed: 245, invulnerability: 0.65, pickupRadius: 40, contactDamageCooldown: 0.75, waterMultiplier: 0.5, revealSeconds: 2.4 },
+  world: { width: 1800, height: 1200, grid: 30, walls: 11, ponds: 7, bushes: 19, wallWidth: [72, 128], wallHeight: [48, 88], pondSize: [90, 145], bushSize: [80, 132], terrainGap: 20, spawnClearance: 200, borderMargin: 16, placementMargin: 42, spawnMargin: 65, terrainSpawnPadding: 12, chestSpacing: 65, placementAttempts: 250, spawnAttempts: 400 },
+  player: { hp: 100, radius: 15, speed: 245, invulnerability: 0.65, pickupRadius: 40, waterMultiplier: 0.5, revealSeconds: 2.4 },
   gun: { damage: 18, shotsPerSecond: 3.3, pellets: 1, spreadRadians: 0.14, range: 480, bulletSpeed: 800, bulletRadius: 4, damageStep: 6, rateStep: 0.65, rangeStep: 90, maxLevel: 5, spreadMax: 4 },
   enemies: {
     melee: { hp: 42, speed: 94, radius: 16, sight: 305, reach: 30, damage: 9, cooldown: 1.05, wanderSpeed: 0.45, color: '#e99c77' },
-    ranged: { hp: 32, speed: 76, radius: 15, sight: 365, reach: 270, damage: 8, cooldown: 1.9, projectileSpeed: 310, wanderSpeed: 0.35, color: '#c4a7db' },
-    wanderInterval: [1.8, 3.6], alertSeconds: 0.28, loseTargetSeconds: 2.5, healthPerWave: 0.14, damagePerWave: 0.095
+    ranged: { hp: 32, speed: 76, radius: 15, sight: 365, reach: 270, damage: 8, cooldown: 1.9, projectileSpeed: 310, projectileRadius: 5, retreatRatio: 0.52, retreatSpeed: 0.65, wanderSpeed: 0.35, color: '#c4a7db' },
+    wanderInterval: [1.8, 3.6], alertSeconds: 0.28, loseTargetSeconds: 2.5, bushRevealDistance: 110, healthPerWave: 0.14, damagePerWave: 0.095
   },
-  waves: { baseCount: 2, growth: 2, maxCount: 30, rangedFrom: 2, rangedChance: 0.26, rangedChancePerWave: 0.025, intermission: 3.5, spawnInterval: 0.72, enemySpawnDistance: 330 },
-  chests: { minimum: 2, maximum: 4, hpBase: 23, hpPerWave: 3, replenishSeconds: 5, spawnDistance: 130 },
+  waves: { baseCount: 2, growth: 2, maxCount: 30, rangedFrom: 2, rangedChance: 0.26, rangedChancePerWave: 0.025, rangedMaxChance: 0.62, intermission: 3.5, initialSpawnDelay: 0.5, spawnInterval: 0.72, enemySpawnDistance: 330 },
+  chests: { minimum: 2, maximum: 4, initial: 3, radius: 23, hpBase: 23, hpPerWave: 3, replenishSeconds: 5, spawnDistance: 130 },
   loot: { coinEnemy: [3, 6], coinChest: [8, 13], scrapEnemyChance: 0.38, scrapChest: [1, 2], healChestChance: 0.28, healAmount: 18, pickupLifetime: 30 },
   upgrades: {
     damage: { title: '高能彈頭', icon: '✦', description: '每發傷害 +6', gold: 12, scrap: 1, goldStep: 10, scrapStep: 1 },
@@ -31,17 +31,17 @@ const circleRect = (x, y, radius, r) => Math.hypot(x - clamp(x, r.x, r.x + r.w),
 const overlap = (a, b, gap = 0) => a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y;
 const rectCenter = r => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 const worldCenter = { x: CONFIG.world.width / 2, y: CONFIG.world.height / 2 };
-const game = { mode: 'menu', wave: 1, walls: [], ponds: [], bushes: [], enemies: [], bullets: [], chests: [], loot: [], particles: [], keys: new Set(), mouse: { x: 0, y: 0, down: false, active: false }, player: null, kills: 0, earned: 0, waveRemaining: 0, spawnTimer: 0, nextWave: 0, chestTimer: 0, time: 0, flash: 0, shake: 0, mapId: 0, toastUntil: 0 };
-// Read-only reference for browser smoke tests; normal play does not depend on this export.
-window.Bushwhack = { game, config: CONFIG };
+const game = { mode: 'menu', wave: 1, walls: [], ponds: [], bushes: [], enemies: [], bullets: [], chests: [], loot: [], particles: [], keys: new Set(), mouse: { x: 0, y: 0, down: false, active: false }, player: null, kills: 0, earned: 0, waveRemaining: 0, spawnTimer: 0, nextWave: 0, chestTimer: 0, time: 0, flash: 0, shake: 0, toastUntil: 0 };
 function passable(x, y, radius) {
-  return x >= radius + 16 && y >= radius + 16 && x <= CONFIG.world.width - radius - 16 && y <= CONFIG.world.height - radius - 16 && !game.walls.some(r => circleRect(x, y, radius, r));
+  const margin = CONFIG.world.borderMargin;
+  return x >= radius + margin && y >= radius + margin && x <= CONFIG.world.width - radius - margin && y <= CONFIG.world.height - radius - margin && !game.walls.some(r => circleRect(x, y, radius, r));
 }
 function connected(walls) {
   const step = CONFIG.world.grid, cols = Math.floor(CONFIG.world.width / step), rows = Math.floor(CONFIG.world.height / step);
   const blocked = new Uint8Array(cols * rows), visited = new Uint8Array(cols * rows);
   for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-    if (walls.some(r => circleRect((x + .5) * step, (y + .5) * step, CONFIG.player.radius + 2, r))) blocked[y * cols + x] = 1;
+    const px = (x + .5) * step, py = (y + .5) * step, edge = CONFIG.player.radius + CONFIG.world.borderMargin;
+    if (px < edge || py < edge || px > CONFIG.world.width - edge || py > CONFIG.world.height - edge || walls.some(r => circleRect(px, py, CONFIG.player.radius + 2, r))) blocked[y * cols + x] = 1;
   }
   let start = Math.floor(rows / 2) * cols + Math.floor(cols / 2);
   if (blocked[start]) return false;
@@ -61,8 +61,8 @@ function generateMap() {
   const items = [];
   function add(type, count, minW, maxW, minH, maxH) {
     for (let i = 0; i < count; i++) {
-      for (let attempt = 0; attempt < 250; attempt++) {
-        const rect = { x: rand(42, w.width - maxW - 42), y: rand(42, w.height - maxH - 42), w: rand(minW, maxW), h: rand(minH, maxH) };
+      for (let attempt = 0; attempt < w.placementAttempts; attempt++) {
+        const rect = { x: rand(w.placementMargin, w.width - maxW - w.placementMargin), y: rand(w.placementMargin, w.height - maxH - w.placementMargin), w: rand(minW, maxW), h: rand(minH, maxH) };
         if (distance(rectCenter(rect), worldCenter) < w.spawnClearance || items.some(other => overlap(rect, other, w.terrainGap))) continue;
         if (type === 'walls' && !connected([...game.walls, rect])) continue;
         game[type].push(rect); items.push(rect); break;
@@ -72,43 +72,42 @@ function generateMap() {
   add('walls', w.walls, ...w.wallWidth, ...w.wallHeight);
   add('ponds', w.ponds, ...w.pondSize, ...w.pondSize);
   add('bushes', w.bushes, ...w.bushSize, ...w.bushSize);
-  game.mapId++;
 }
 function freeSpot(radius, minDistance, avoidTerrain = false) {
-  for (let attempt = 0; attempt < 400; attempt++) {
-    const x = rand(65, CONFIG.world.width - 65), y = rand(65, CONFIG.world.height - 65);
+  for (let attempt = 0; attempt < CONFIG.world.spawnAttempts; attempt++) {
+    const margin = CONFIG.world.spawnMargin, x = rand(margin, CONFIG.world.width - margin), y = rand(margin, CONFIG.world.height - margin);
     if (!passable(x, y, radius) || distance({ x, y }, game.player) < minDistance) continue;
-    if (avoidTerrain && [...game.ponds, ...game.bushes].some(r => circleRect(x, y, radius + 12, r))) continue;
-    if (game.chests.some(c => distance(c, { x, y }) < radius + c.radius + 65)) continue;
+    if (avoidTerrain && [...game.ponds, ...game.bushes].some(r => circleRect(x, y, radius + CONFIG.world.terrainSpawnPadding, r))) continue;
+    if (game.chests.some(c => distance(c, { x, y }) < radius + c.radius + CONFIG.world.chestSpacing)) continue;
     return { x, y };
   }
   return null;
 }
 function spawnChest() {
-  const pos = freeSpot(24, CONFIG.chests.spawnDistance, true);
-  if (pos) game.chests.push({ ...pos, radius: 23, hp: CONFIG.chests.hpBase + CONFIG.chests.hpPerWave * (game.wave - 1), maxHp: CONFIG.chests.hpBase + CONFIG.chests.hpPerWave * (game.wave - 1), hit: 0 });
+  const pos = freeSpot(CONFIG.chests.radius + 1, CONFIG.chests.spawnDistance, true);
+  if (pos) game.chests.push({ ...pos, radius: CONFIG.chests.radius, hp: CONFIG.chests.hpBase + CONFIG.chests.hpPerWave * (game.wave - 1), maxHp: CONFIG.chests.hpBase + CONFIG.chests.hpPerWave * (game.wave - 1), hit: 0 });
 }
 function spawnEnemy() {
   const pos = freeSpot(18, CONFIG.waves.enemySpawnDistance);
   if (!pos) return false;
-  const ranged = game.wave >= CONFIG.waves.rangedFrom && Math.random() < Math.min(.62, CONFIG.waves.rangedChance + (game.wave - 2) * CONFIG.waves.rangedChancePerWave);
+  const ranged = game.wave >= CONFIG.waves.rangedFrom && Math.random() < Math.min(CONFIG.waves.rangedMaxChance, CONFIG.waves.rangedChance + (game.wave - CONFIG.waves.rangedFrom) * CONFIG.waves.rangedChancePerWave);
   const kind = ranged ? 'ranged' : 'melee', stats = CONFIG.enemies[kind];
   const hp = Math.round(stats.hp * (1 + (game.wave - 1) * CONFIG.enemies.healthPerWave));
-  game.enemies.push({ ...pos, kind, radius: stats.radius, hp, maxHp: hp, state: 'wander', direction: rand(-Math.PI, Math.PI), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, lost: 0, cooldown: rand(0, .6), hit: 0, phase: rand(0, 7) });
+  game.enemies.push({ ...pos, kind, radius: stats.radius, hp, maxHp: hp, state: 'wander', direction: rand(-Math.PI, Math.PI), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, lost: 0, cooldown: rand(0, .6), hit: 0 });
   return true;
 }
 function startWave() {
   game.waveRemaining = Math.min(CONFIG.waves.maxCount, CONFIG.waves.baseCount + game.wave * CONFIG.waves.growth);
-  game.spawnTimer = .5; game.nextWave = 0;
+  game.spawnTimer = CONFIG.waves.initialSpawnDelay; game.nextWave = 0;
   notify(`第 ${game.wave} 波敵人來襲`);
 }
 function startGame() {
   game.mode = 'playing'; game.time = 0; game.wave = 1; game.kills = 0; game.earned = 0;
   game.enemies = []; game.bullets = []; game.chests = []; game.loot = []; game.particles = [];
   game.keys.clear(); game.mouse.down = false; game.chestTimer = 0; game.flash = 0;
-  game.player = { ...worldCenter, radius: CONFIG.player.radius, hp: CONFIG.player.hp, maxHp: CONFIG.player.hp, gold: 0, scrap: 0, levels: { damage: 0, rate: 0, spread: 0, range: 0 }, cooldown: 0, invulnerable: 0, revealedUntil: 0, facing: 0, steps: 0 };
+  game.player = { ...worldCenter, radius: CONFIG.player.radius, hp: CONFIG.player.hp, maxHp: CONFIG.player.hp, gold: 0, scrap: 0, levels: { damage: 0, rate: 0, spread: 0, range: 0 }, cooldown: 0, invulnerable: 0, revealedUntil: 0, facing: 0 };
   generateMap();
-  for (let i = 0; i < CONFIG.chests.minimum + 1; i++) spawnChest();
+  for (let i = 0; i < Math.min(CONFIG.chests.initial, CONFIG.chests.maximum); i++) spawnChest();
   UI.start.hidden = true; UI.end.hidden = true; UI.shop.hidden = true;
   startWave(); updateHUD();
 }
@@ -251,10 +250,10 @@ function updateEnemy(e, dt) {
     if (e.kind === 'melee') {
       if (e.cooldown <= 0 && d < stats.reach + p.radius) { hurtPlayer(Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave))); e.cooldown = stats.cooldown; }
     } else {
-      if (d < stats.reach * .52) steer(e, Math.atan2(e.y - p.y, e.x - p.x), stats.speed * .65, dt);
+      if (d < stats.reach * stats.retreatRatio) steer(e, Math.atan2(e.y - p.y, e.x - p.x), stats.speed * stats.retreatSpeed, dt);
       if (e.cooldown <= 0) {
         const a = Math.atan2(p.y - e.y, p.x - e.x);
-        game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * stats.projectileSpeed, vy: Math.sin(a) * stats.projectileSpeed, range: stats.sight, traveled: 0, damage: Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave)), radius: 5, friendly: false });
+        game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * stats.projectileSpeed, vy: Math.sin(a) * stats.projectileSpeed, range: stats.sight, traveled: 0, damage: Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave)), radius: stats.projectileRadius, friendly: false });
         e.cooldown = stats.cooldown;
       }
     }
@@ -293,7 +292,7 @@ function update(dt) {
   let dx = Number(game.keys.has('d') || game.keys.has('arrowright')) - Number(game.keys.has('a') || game.keys.has('arrowleft'));
   let dy = Number(game.keys.has('s') || game.keys.has('arrowdown')) - Number(game.keys.has('w') || game.keys.has('arrowup'));
   const len = Math.hypot(dx, dy);
-  if (len) { dx /= len; dy /= len; const speed = CONFIG.player.speed * (inTerrain(p, game.ponds) ? CONFIG.player.waterMultiplier : 1); move(p, dx * speed * dt, dy * speed * dt); p.steps += dt * 11; }
+  if (len) { dx /= len; dy /= len; const speed = CONFIG.player.speed * (inTerrain(p, game.ponds) ? CONFIG.player.waterMultiplier : 1); move(p, dx * speed * dt, dy * speed * dt); }
   const camera = getCamera();
   if (game.mouse.active) p.facing = Math.atan2(game.mouse.y + camera.y - p.y, game.mouse.x + camera.x - p.x);
   if (game.mouse.down && p.cooldown <= 0) shoot();
@@ -381,7 +380,7 @@ function drawChest(c) {
 }
 function drawEnemy(e) {
   const stats = CONFIG.enemies[e.kind], hidden = inTerrain(e, game.bushes);
-  ctx.save(); ctx.globalAlpha = hidden && distance(e, game.player) > 110 ? .18 : 1;
+  ctx.save(); ctx.globalAlpha = hidden && distance(e, game.player) > CONFIG.enemies.bushRevealDistance ? .18 : 1;
   ctx.translate(e.x, e.y); ctx.fillStyle = '#10251ca0'; ctx.beginPath(); ctx.ellipse(3, 10, 16, 8, 0, 0, Math.PI * 2); ctx.fill();
   ctx.rotate(Math.atan2(game.player.y - e.y, game.player.x - e.x));
   ctx.fillStyle = '#26372e'; ctx.fillRect(1, -5, 23, 10);
