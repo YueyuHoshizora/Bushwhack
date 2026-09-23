@@ -2,7 +2,7 @@
 'use strict';
 // All gameplay and balance values live here. Rendering-only colors and layout live below.
 const CONFIG = Object.freeze({
-  world: { width: 1800, height: 1200, grid: 30, walls: 11, wallWidth: [72, 128], wallHeight: [48, 88], ponds: { clusters: 4, pieces: [2, 4], size: [80, 130] }, bushes: { clusters: 8, pieces: [3, 6], size: [72, 118] }, clusterReach: 0.62, terrainGap: 20, spawnClearance: 200, borderMargin: 16, placementMargin: 42, spawnMargin: 65, terrainSpawnPadding: 12, chestSpacing: 65, placementAttempts: 250, spawnAttempts: 400 },
+  world: { width: 1800, height: 1200, grid: 30, walls: 11, wallWidth: [72, 128], wallHeight: [48, 88], ponds: { clusters: 4, pieces: [2, 4], size: [80, 130] }, bushes: { clusters: 8, pieces: [3, 6], size: [72, 118] }, clusterReach: 0.62, terrainGap: 20, spawnClearance: 200, borderMargin: 16, placementMargin: 42, spawnMargin: 65, terrainSpawnPadding: 12, chestSpacing: 65, placementAttempts: 250, spawnAttempts: 400, burnSeconds: 25 },
   // Shield recharges only while hidden in grass (not firing) and unharmed for shieldRegenDelay seconds.
   player: { hp: 100, radius: 15, speed: 245, invulnerability: 0.65, pickupRadius: 40, waterMultiplier: 0.5, revealSeconds: 2.4, shieldRegenDelay: 3, shieldRegenRate: 4.5, switchDelay: 0.25 },
   // Shared weapon upgrades scale every gun: damage/rate/range are fractions of the gun's base value per level.
@@ -30,6 +30,8 @@ const CONFIG = Object.freeze({
     stalker: { hp: 41, speed: 160, radius: 14, sight: 320, reach: 28, damage: 15, cooldown: 1.1, wanderSpeed: 0.5, cloakAlpha: 0.1, revealDistance: 150, revealSeconds: 0.9, sense: 120, bounty: 1.6, color: '#86b8a8' },
     // Lights a fuse within reach, keeps closing at fuseSpeed, then detonates for damage in blast px (hits hidden players too) and dies without loot.
     bomber: { hp: 63, speed: 115, radius: 17, sight: 330, reach: 50, damage: 34, fuse: 0.75, fuseSpeed: 0.45, blast: 88, wanderSpeed: 0.4, bounty: 1.5, color: '#d9745b' },
+    // Boss wave commander (see `boss` for attack patterns). Senses hidden players within sense px; loot comes from boss.loot.
+    boss: { hp: 1100, speed: 72, radius: 30, sight: 520, sense: 160, reach: 56, damage: 18, cooldown: 1.2, wanderSpeed: 0.5, bounty: 0, color: '#c7866f' },
     wanderInterval: [1.8, 3.6], alertSeconds: 0.28, loseTargetSeconds: 2.5, bushRevealDistance: 110, healthPerWave: 0.14, damagePerWave: 0.095
   },
   waves: {
@@ -61,6 +63,72 @@ const CONFIG = Object.freeze({
     boots: { icon: '➶', max: 3, gold: 16, scrap: 1, goldStep: 12, scrapStep: 1, speed: 0.08 },
     medkit: { icon: '✚', consumable: true, gold: 15, scrap: 0, heal: 40 }
   },
+  // Between-wave perks: `offer` distinct random picks; each pick adds one stack (up to max). Values are per stack.
+  // `unlock` names the achievement that adds a perk to the pool (never offered in daily runs).
+  perks: {
+    offer: 3,
+    list: {
+      ambush: { icon: '◎', max: 2, bonus: 1 },
+      vampire: { icon: '♥', max: 3, heal: 2 },
+      volatile: { icon: '✺', max: 2, chance: 0.2, damage: 24, blast: 70 },
+      shadow: { icon: '◐', max: 2, seconds: 1 },
+      scavenger: { icon: '⚙', max: 2, scrap: 0.5 },
+      tough: { icon: '▲', max: 3, hp: 20 },
+      greed: { icon: '¤', max: 2, gold: 0.25 },
+      trigger: { icon: '≫', max: 3, rate: 0.1 },
+      magnet: { icon: '⊕', max: 2, pickup: 0.6 },
+      mender: { icon: '❀', max: 2, regen: 1 },
+      phantom: { icon: '☾', max: 1, unlock: 'ambushMaster' }
+    }
+  },
+  // Difficulty multipliers on enemy HP / damage / speed, wave size and gold; `elite` adds to the elite chance.
+  difficulty: {
+    normal: { hp: 1, damage: 1, speed: 1, count: 1, gold: 1, elite: 0 },
+    hard: { hp: 1.3, damage: 1.25, speed: 1.06, count: 1.2, gold: 1.1, elite: 0.04 },
+    hell: { hp: 1.65, damage: 1.5, speed: 1.12, count: 1.4, gold: 1.2, elite: 0.08, unlock: 'fearless' }
+  },
+  // Elite affix chance per regular spawn: base + (wave - from) × perWave, capped at max, plus the difficulty's elite. Elites: HP × hp, loot × bounty.
+  elites: {
+    from: 4, base: 0.05, perWave: 0.012, max: 0.3, hp: 1.5, bounty: 2,
+    affixes: { swift: { speed: 1.35, color: '#ffe36e' }, regen: { rate: 0.04, color: '#8ef08a' }, splitter: { count: 2, hp: 0.5, radius: 10, color: '#d59bff' }, armored: { reduction: 0.35, color: '#a9d4ff' } }
+  },
+  // Every `every` waves a commander joins a wave of regularShare × the normal size. Below phase2.at HP it speeds up,
+  // shortens every cooldown (× pace), throws more bombs and fires bullet rings. Minions it summons drop no loot.
+  boss: {
+    every: 5, regularShare: 0.5, spawnDistance: 420,
+    volley: { interval: 1.7, count: 3, spread: 0.2, speed: 330, radius: 7, damage: 10 },
+    bombs: { interval: 5, count: 1, scatter: 70, fall: 1.1, blast: 85, damage: 24, range: 560 },
+    summon: { interval: 9, count: 3, kinds: ['melee', 'runner'], distance: 70 },
+    phase2: { at: 0.5, speed: 1.35, pace: 0.65, bombs: 3, ring: 12, ringInterval: 3.2 },
+    loot: { gold: 90, scrap: 8, heal: 30 }
+  },
+  // Achievements persist in localStorage; rewards apply to later non-daily runs.
+  achievements: {
+    veteran: { icon: '✪', wave: 15, startGun: 'smg' },
+    ambushMaster: { icon: '◎', ambushKills: 100, perk: 'phantom' },
+    fearless: { icon: '☠', wave: 10, difficulty: 'hard', unlocks: 'hell' },
+    slayer: { icon: '♛', bossKills: 1, startAuto: 'drone' }
+  },
+  // Map variants, picked per run by weight. bushes/ponds scale cluster counts, sight scales enemy sight, vision limits the player's view.
+  variants: {
+    standard: { weight: 2, bushes: 1, ponds: 1, barrels: 5, sight: 1 },
+    night: { weight: 1, bushes: 1, ponds: 1, barrels: 5, sight: 0.8, vision: 260 },
+    rain: { weight: 1, bushes: 1.5, ponds: 1.25, barrels: 4, sight: 0.9 },
+    scorched: { weight: 1, bushes: 0.5, ponds: 2, barrels: 8, sight: 1 }
+  },
+  // Explosive barrels: damage × wave HP scale to enemies in blast px, playerDamage to the player; they chain and burn grass.
+  barrels: { radius: 14, hp: 20, blast: 95, damage: 55, playerDamage: 22, spacing: 90, chainDelay: 0.12 },
+  // Mid-wave events: rolled at wave start (not on boss waves); airdrop and hold begin once `trigger` of the wave has spawned.
+  events: {
+    from: 3, chance: 0.4, trigger: 0.4,
+    types: {
+      airdrop: { hp: 30, gold: [30, 45], scrap: [3, 4], heal: 30, distance: 250 },
+      hold: { radius: 90, seconds: 8, limit: 40, gold: [40, 60], scrap: 4, heal: 25, distance: 240 },
+      stalkers: { from: 5 }
+    }
+  },
+  // Daily challenge: map, variant, spawn roster, affixes, events and perk offers are seeded by the UTC date.
+  daily: { difficulty: 'normal' },
   audio: { master: 0.5, music: 0.3, sfx: 0.7, duck: 0.35, tempo: 140, falloff: 900 }
 });
 // UI text comes from i18n.js; ?lang=<code> selects the dictionary and switching rewrites the page in place (no reload).
@@ -74,8 +142,36 @@ let locale = resolveLocale(new URLSearchParams(location.search).get('lang')), ST
 const t = (key, vars = {}) => (STRINGS[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => vars[name] ?? `{${name}}`);
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d'), arena = $('arena');
-const UI = { start: $('startOverlay'), shop: $('shopOverlay'), end: $('endOverlay'), toast: $('toast') };
+const UI = { start: $('startOverlay'), shop: $('shopOverlay'), end: $('endOverlay'), perk: $('perkOverlay'), toast: $('toast') };
 const rand = (a, b) => a + Math.random() * (b - a);
+// Seeded PRNG (string hash → mulberry32). Each run has seeded streams for the map, the wave roster and perk offers,
+// so a daily challenge is identical for everyone; combat rolls and effects keep using Math.random.
+function seededRandom(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  let s = h >>> 0;
+  return () => { s = s + 0x6D2B79F5 | 0; let x = Math.imul(s ^ s >>> 15, 1 | s); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; };
+}
+const between = (random, a, b) => a + random() * (b - a);
+function pickWeighted(random, entries) {
+  let roll = random() * entries.reduce((sum, [, weight]) => sum + weight, 0);
+  for (const [key, weight] of entries) if ((roll -= weight) < 0) return key;
+  return entries[0][0];
+}
+const todayUTC = () => new Date().toISOString().slice(0, 10);
+const variantFor = seed => pickWeighted(seededRandom(`${seed}:variant`), Object.entries(CONFIG.variants).map(([key, v]) => [key, v.weight]));
+const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+// Personal records, cumulative totals, unlocked achievements and the chosen difficulty, kept in localStorage.
+const PROFILE_KEY = 'bushwhack-profile';
+const profile = (() => {
+  let data; try { data = JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch {}
+  if (!data || typeof data !== 'object') data = {};
+  return { records: data.records ?? {}, daily: data.daily ?? null, totals: { ambushKills: 0, bossKills: 0, ...data.totals }, achievements: Array.isArray(data.achievements) ? data.achievements : [], difficulty: data.difficulty ?? 'normal' };
+})();
+function saveProfile() { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {} }
+const unlocked = id => profile.achievements.includes(id);
+const difficultyOpen = key => !CONFIG.difficulty[key].unlock || unlocked(CONFIG.difficulty[key].unlock);
+if (!CONFIG.difficulty[profile.difficulty] || !difficultyOpen(profile.difficulty)) profile.difficulty = 'normal';
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const pointIn = (x, y, r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
@@ -83,7 +179,7 @@ const circleRect = (x, y, radius, r) => Math.hypot(x - clamp(x, r.x, r.x + r.w),
 const overlap = (a, b, gap = 0) => a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y;
 const rectCenter = r => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 const worldCenter = { x: CONFIG.world.width / 2, y: CONFIG.world.height / 2 };
-const game = { mode: 'menu', wave: 1, walls: [], ponds: [], bushes: [], enemies: [], bullets: [], missiles: [], arcs: [], chests: [], loot: [], particles: [], shopTab: 'guns', keys: new Set(), mouse: { x: 0, y: 0, down: false, active: false }, player: null, kills: 0, earned: 0, waveRemaining: 0, spawnTimer: 0, nextWave: 0, chestTimer: 0, time: 0, flash: 0, shake: 0, toastUntil: 0 };
+const game = { mode: 'menu', wave: 1, walls: [], ponds: [], bushes: [], barrels: [], enemies: [], bullets: [], missiles: [], arcs: [], bombs: [], blasts: [], chests: [], loot: [], particles: [], shopTab: 'guns', keys: new Set(), mouse: { x: 0, y: 0, down: false, active: false }, player: null, kills: 0, earned: 0, waveRemaining: 0, waveTotal: 0, spawnTimer: 0, nextWave: 0, chestTimer: 0, time: 0, flash: 0, shake: 0, toastUntil: 0, difficulty: 'normal', variant: 'standard', daily: null, rng: null, stats: null, event: null, boss: null, perks: {}, perkOffer: null, summary: null, seenAffixes: new Set(), newAchievements: [] };
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 // Chiptune synth: every sound is generated with WebAudio oscillators and a noise buffer; no audio files.
 const sound = (() => {
@@ -235,16 +331,17 @@ function connected(walls) {
   }
   return tail === blocked.length - blocked.reduce((sum, value) => sum + value, 0);
 }
-function generateMap() {
-  const w = CONFIG.world;
-  game.walls = []; game.ponds = []; game.bushes = [];
+// Map layout comes from a seeded stream so a daily challenge produces the same field for everyone.
+function generateMap(random, variant) {
+  const w = CONFIG.world, v = CONFIG.variants[variant], r = (a, b) => between(random, a, b);
+  game.walls = []; game.ponds = []; game.bushes = []; game.barrels = [];
   const items = [];
   const fits = (rect, blockers) => rect.x >= w.placementMargin && rect.y >= w.placementMargin && rect.x + rect.w <= w.width - w.placementMargin && rect.y + rect.h <= w.height - w.placementMargin && distance(rectCenter(rect), worldCenter) >= w.spawnClearance && !blockers.some(other => overlap(rect, other, w.terrainGap));
   function addWalls() {
     for (let i = 0; i < w.walls; i++) {
       for (let attempt = 0; attempt < w.placementAttempts; attempt++) {
-        const width = rand(...w.wallWidth), height = rand(...w.wallHeight);
-        const rect = { x: rand(w.placementMargin, w.width - width - w.placementMargin), y: rand(w.placementMargin, w.height - height - w.placementMargin), w: width, h: height };
+        const width = r(...w.wallWidth), height = r(...w.wallHeight);
+        const rect = { x: r(w.placementMargin, w.width - width - w.placementMargin), y: r(w.placementMargin, w.height - height - w.placementMargin), w: width, h: height };
         if (!fits(rect, items) || !connected([...game.walls, rect])) continue;
         game.walls.push(rect); items.push(rect); break;
       }
@@ -253,13 +350,13 @@ function generateMap() {
   // Bushes and ponds grow as clusters of overlapping pieces, forming continuous patches and corridors.
   function addClusters(type, { clusters, pieces, size }) {
     for (let c = 0; c < clusters; c++) {
-      const cluster = [], target = Math.floor(rand(pieces[0], pieces[1] + 1));
+      const cluster = [], target = Math.floor(r(pieces[0], pieces[1] + 1));
       for (let attempt = 0; attempt < w.placementAttempts && cluster.length < target; attempt++) {
-        const pw = rand(...size), ph = rand(...size);
+        const pw = r(...size), ph = r(...size);
         let rect;
-        if (!cluster.length) rect = { x: rand(w.placementMargin, w.width - pw - w.placementMargin), y: rand(w.placementMargin, w.height - ph - w.placementMargin), w: pw, h: ph };
+        if (!cluster.length) rect = { x: r(w.placementMargin, w.width - pw - w.placementMargin), y: r(w.placementMargin, w.height - ph - w.placementMargin), w: pw, h: ph };
         else {
-          const base = cluster[Math.floor(Math.random() * cluster.length)], center = rectCenter(base), a = Math.floor(rand(0, 4)) * Math.PI / 2 + rand(-.45, .45);
+          const base = cluster[Math.floor(random() * cluster.length)], center = rectCenter(base), a = Math.floor(r(0, 4)) * Math.PI / 2 + r(-.45, .45);
           const cx = center.x + Math.cos(a) * (base.w + pw) / 2 * w.clusterReach, cy = center.y + Math.sin(a) * (base.h + ph) / 2 * w.clusterReach;
           rect = { x: cx - pw / 2, y: cy - ph / 2, w: pw, h: ph };
         }
@@ -268,9 +365,18 @@ function generateMap() {
       game[type].push(...cluster); items.push(...cluster);
     }
   }
+  function addBarrels(count) {
+    const B = CONFIG.barrels;
+    for (let i = 0; i < count; i++) for (let attempt = 0; attempt < w.placementAttempts; attempt++) {
+      const x = r(w.placementMargin, w.width - w.placementMargin), y = r(w.placementMargin, w.height - w.placementMargin);
+      if (!passable(x, y, B.radius + 4) || distance({ x, y }, worldCenter) < w.spawnClearance || [...game.ponds, ...game.bushes].some(o => circleRect(x, y, B.radius, o)) || game.barrels.some(b => distance(b, { x, y }) < B.spacing)) continue;
+      game.barrels.push({ x, y, radius: B.radius, hp: B.hp, fuse: 0, hit: 0, barrel: true }); break;
+    }
+  }
   addWalls();
-  addClusters('ponds', w.ponds);
-  addClusters('bushes', w.bushes);
+  addClusters('ponds', { ...w.ponds, clusters: Math.round(w.ponds.clusters * v.ponds) });
+  addClusters('bushes', { ...w.bushes, clusters: Math.round(w.bushes.clusters * v.bushes) });
+  addBarrels(v.barrels);
 }
 function freeSpot(radius, minDistance, avoidTerrain = false) {
   for (let attempt = 0; attempt < CONFIG.world.spawnAttempts; attempt++) {
@@ -286,50 +392,128 @@ function spawnChest() {
   const pos = freeSpot(CONFIG.chests.radius + 1, CONFIG.chests.spawnDistance, true);
   if (pos) game.chests.push({ ...pos, radius: CONFIG.chests.radius, hp: CONFIG.chests.hpBase + CONFIG.chests.hpPerWave * (game.wave - 1), maxHp: CONFIG.chests.hpBase + CONFIG.chests.hpPerWave * (game.wave - 1), hit: 0 });
 }
+// Roster, elite affix and event rolls use the run's seeded roster stream.
 function pickEnemyKind() {
-  const pool = CONFIG.waves.roster.filter(r => game.wave >= r.from).map(r => [r.kind, Math.min(r.max, r.weight + (game.wave - r.from) * r.perWave)]);
-  let roll = Math.random() * pool.reduce((sum, [, weight]) => sum + weight, 0);
-  for (const [kind, weight] of pool) if ((roll -= weight) < 0) return kind;
-  return pool[0][0];
+  if (game.event?.type === 'stalkers') return 'stalker';
+  return pickWeighted(game.rng.roster, CONFIG.waves.roster.filter(r => game.wave >= r.from).map(r => [r.kind, Math.min(r.max, r.weight + (game.wave - r.from) * r.perWave)]));
 }
+const difficulty = () => CONFIG.difficulty[game.difficulty];
+const perk = key => game.perks[key] ?? 0;
 const waveScale = () => 1 + (game.wave - 1) * CONFIG.enemies.healthPerWave;
-const enemyDamage = stats => Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave));
+const enemyDamage = stats => Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave) * difficulty().damage);
+const goldAmount = n => Math.max(1, Math.round(n * difficulty().gold * (1 + perk('greed') * CONFIG.perks.list.greed.gold)));
+function scrapAmount(n) { const v = n * (1 + perk('scavenger') * CONFIG.perks.list.scavenger.scrap); return Math.floor(v) + (Math.random() < v % 1 ? 1 : 0); }
+function makeEnemy(kind, pos, { affix = null, noLoot = false, hpScale = 1, radius } = {}) {
+  const stats = CONFIG.enemies[kind], E = CONFIG.elites, scale = waveScale() * difficulty().hp * hpScale;
+  const hp = Math.round(stats.hp * scale * (affix ? E.hp : 1)), shieldHp = Math.round((stats.shieldHp || 0) * scale);
+  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * (affix === 'swift' ? E.affixes.swift.speed : 1), state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, lost: 0, cooldown: rand(0, .6), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0 };
+  game.enemies.push(e); return e;
+}
+function rollAffix() {
+  const E = CONFIG.elites;
+  if (game.wave < E.from) return null;
+  const chance = Math.min(E.max, E.base + (game.wave - E.from) * E.perWave) + difficulty().elite;
+  return game.rng.roster() < chance ? pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1])) : null;
+}
 function spawnEnemy() {
   const pos = freeSpot(18, CONFIG.waves.enemySpawnDistance);
   if (!pos) return false;
-  const kind = pickEnemyKind(), stats = CONFIG.enemies[kind];
-  const hp = Math.round(stats.hp * waveScale()), shieldHp = Math.round((stats.shieldHp || 0) * waveScale());
-  game.enemies.push({ ...pos, kind, radius: stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, lost: 0, cooldown: rand(0, .6), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0 });
+  const e = makeEnemy(pickEnemyKind(), pos, { affix: rollAffix() });
+  if (e.affix && !game.seenAffixes.has(e.affix)) { game.seenAffixes.add(e.affix); notify(t('toast.elite', { name: t(`affix.${e.affix}`), desc: t(`affix.${e.affix}.desc`) })); }
   return true;
+}
+// Enemies created mid-fight (boss minions, splitter halves) start already hunting the player.
+function spawnNear(kind, from, reach, options) {
+  const a = rand(0, Math.PI * 2), pos = { x: from.x + Math.cos(a) * reach, y: from.y + Math.sin(a) * reach };
+  if (!passable(pos.x, pos.y, options?.radius ?? CONFIG.enemies[kind].radius)) return;
+  Object.assign(makeEnemy(kind, pos, options), { state: 'chase', lost: CONFIG.enemies.loseTargetSeconds });
+}
+function spawnBoss() {
+  const B = CONFIG.boss, radius = CONFIG.enemies.boss.radius, pos = freeSpot(radius, B.spawnDistance) ?? freeSpot(radius, 0);
+  if (!pos) return;
+  game.boss = Object.assign(makeEnemy('boss', pos), { phase: 1, volley: B.volley.interval, bombs: B.bombs.interval, summon: B.summon.interval, ring: B.phase2.ringInterval });
+  notify(t('toast.boss', { wave: game.wave, name: t('enemy.boss') }));
 }
 function waveSize(wave) {
   const w = CONFIG.waves;
   return Math.min(w.maxCount, w.baseCount + wave * w.growth + Math.max(0, wave - w.lateFrom) * w.lateGrowth);
 }
+const isBossWave = () => game.wave % CONFIG.boss.every === 0;
 function startWave() {
-  game.waveRemaining = waveSize(game.wave);
+  const boss = isBossWave();
+  game.waveRemaining = game.waveTotal = Math.round(waveSize(game.wave) * difficulty().count * (boss ? CONFIG.boss.regularShare : 1));
   game.spawnTimer = CONFIG.waves.initialSpawnDelay; game.nextWave = 0;
+  if (game.event && !(game.event.zone && !game.event.done)) game.event = null;
   const fresh = CONFIG.waves.roster.find(r => r.from === game.wave && r.from > 1);
   notify(fresh ? t('toast.newEnemy', { wave: game.wave, name: t(`enemy.${fresh.kind}`) }) : t('toast.wave', { wave: game.wave }));
   sound.play('wave');
+  if (boss) spawnBoss(); else if (!game.event) rollEvent();
 }
-function startGame() {
+// Stalker waves announce at once; airdrops and hold points begin once `trigger` of the wave has spawned.
+function rollEvent() {
+  const E = CONFIG.events, random = game.rng.roster;
+  if (game.wave < E.from || random() >= E.chance) return;
+  const type = pickWeighted(random, Object.entries(E.types).filter(([, v]) => game.wave >= (v.from ?? 0)).map(([key]) => [key, 1]));
+  game.event = { type, started: type === 'stalkers', done: type === 'stalkers' };
+  if (type === 'stalkers') notify(t('event.stalkers', { wave: game.wave }));
+}
+function beginEvent(ev) {
+  const cfg = CONFIG.events.types[ev.type]; ev.started = true;
+  if (ev.type === 'airdrop') {
+    const pos = freeSpot(CONFIG.chests.radius + 1, cfg.distance, true);
+    if (!pos) { ev.done = true; return; }
+    const hp = Math.round(cfg.hp * waveScale());
+    game.chests.push({ ...pos, radius: CONFIG.chests.radius, hp, maxHp: hp, hit: 0, airdrop: true }); ev.done = true;
+    notify(t('event.airdrop')); sound.play('wave');
+  } else {
+    const pos = freeSpot(cfg.radius / 2, cfg.distance);
+    if (!pos) { ev.done = true; return; }
+    Object.assign(ev, { zone: pos, progress: 0, limit: cfg.limit });
+    notify(t('event.hold', { seconds: cfg.seconds })); sound.play('wave');
+  }
+}
+function updateEvent(dt) {
+  const ev = game.event, p = game.player;
+  if (!ev) return;
+  if (!ev.started && game.waveTotal && (game.waveTotal - game.waveRemaining) / game.waveTotal >= CONFIG.events.trigger) beginEvent(ev);
+  if (!ev.zone || ev.done) return;
+  const cfg = CONFIG.events.types.hold;
+  ev.limit -= dt;
+  if (distance(p, ev.zone) < cfg.radius) ev.progress += dt;
+  if (ev.progress >= cfg.seconds) {
+    ev.done = true; const { x, y } = ev.zone;
+    drop(x, y, 'gold', goldAmount(rand(cfg.gold[0], cfg.gold[1] + 1))); drop(x, y, 'scrap', scrapAmount(cfg.scrap)); drop(x, y, 'heal', cfg.heal);
+    burst(x, y, '#f2d782', 24); sound.play('chest'); notify(t('event.holdDone'));
+  } else if (ev.limit <= 0) { ev.done = true; notify(t('event.holdFailed')); }
+}
+// A run is either a normal game (random seed, chosen difficulty, achievement rewards) or today's daily challenge.
+function startGame(daily) {
   sound.init();
+  const seed = daily ? todayUTC() : `${Date.now()}:${Math.random()}`;
+  game.daily = daily ? seed : null; game.difficulty = daily ? CONFIG.daily.difficulty : profile.difficulty; game.variant = variantFor(seed);
+  game.rng = { roster: seededRandom(`${seed}:roster`), perks: seededRandom(`${seed}:perks`) };
   game.mode = 'playing'; game.time = 0; game.wave = 1; game.kills = 0; game.earned = 0;
-  game.enemies = []; game.bullets = []; game.missiles = []; game.arcs = []; game.chests = []; game.loot = []; game.particles = [];
+  game.enemies = []; game.bullets = []; game.missiles = []; game.arcs = []; game.bombs = []; game.blasts = []; game.chests = []; game.loot = []; game.particles = [];
+  game.boss = null; game.event = null; game.perks = {}; game.perkOffer = null; game.seenAffixes = new Set(); game.newAchievements = [];
+  game.stats = { damage: {}, ambushKills: 0, taken: 0, bosses: 0, perks: [] };
   game.keys.clear(); game.mouse.down = false; game.chestTimer = 0; game.flash = 0;
   const levels = Object.fromEntries([...Object.keys(CONFIG.upgrades), ...Object.keys(CONFIG.gear), ...Object.keys(CONFIG.autoWeapons)].map(key => [key, 0]));
   const autoCooldowns = Object.fromEntries(Object.keys(CONFIG.autoWeapons).map(key => [key, 0]));
-  game.player = { ...worldCenter, radius: CONFIG.player.radius, hp: CONFIG.player.hp, maxHp: CONFIG.player.hp, shield: 0, lastHurt: 0, gold: 0, scrap: 0, levels, weapon: 'rifle', owned: new Set(['rifle']), autoCooldowns, cooldown: 0, invulnerable: 0, revealedUntil: 0, facing: 0 };
-  generateMap();
+  const p = game.player = { ...worldCenter, radius: CONFIG.player.radius, hp: CONFIG.player.hp, maxHp: CONFIG.player.hp, shield: 0, lastHurt: 0, gold: 0, scrap: 0, levels, weapon: 'rifle', owned: new Set(['rifle']), autoCooldowns, cooldown: 0, invulnerable: 0, revealedUntil: 0, bushTime: -Infinity, facing: 0 };
+  if (!daily) for (const [id, a] of Object.entries(CONFIG.achievements)) {
+    if (!unlocked(id)) continue;
+    if (a.startGun) { p.owned.add(a.startGun); p.weapon = a.startGun; }
+    if (a.startAuto) p.levels[a.startAuto] = Math.max(1, p.levels[a.startAuto]);
+  }
+  generateMap(seededRandom(`${seed}:map`), game.variant);
   for (let i = 0; i < Math.min(CONFIG.chests.initial, CONFIG.chests.maximum); i++) spawnChest();
-  UI.start.hidden = true; UI.end.hidden = true; UI.shop.hidden = true;
+  UI.start.hidden = true; UI.end.hidden = true; UI.shop.hidden = true; UI.perk.hidden = true;
   sound.music('play'); startWave(); updateHUD();
 }
 function notify(text) { UI.toast.textContent = text; UI.toast.classList.add('show'); game.toastUntil = performance.now() + 1900; }
 function gunStats(key = game.player.weapon) {
   const l = game.player.levels, g = CONFIG.gun, w = CONFIG.weapons[key];
-  return { ...w, damage: Math.round(w.damage * (1 + l.damage * g.damageStep)), shotsPerSecond: w.shotsPerSecond * (1 + l.rate * g.rateStep), pellets: w.pellets + l.spread, range: Math.round(w.range * (1 + l.range * g.rangeStep)) };
+  return { ...w, damage: Math.round(w.damage * (1 + l.damage * g.damageStep)), shotsPerSecond: w.shotsPerSecond * (1 + l.rate * g.rateStep) * (1 + perk('trigger') * CONFIG.perks.list.trigger.rate), pellets: w.pellets + l.spread, range: Math.round(w.range * (1 + l.range * g.rangeStep)) };
 }
 function gearStats() {
   const l = game.player.levels, g = CONFIG.gear;
@@ -408,6 +592,60 @@ function toggleShop() {
   if (game.mode === 'playing') { game.mode = 'shop'; game.mouse.down = false; renderShop(); UI.shop.hidden = false; sound.music('duck'); }
   else if (game.mode === 'shop') { game.mode = 'playing'; UI.shop.hidden = true; game.keys.clear(); sound.music('play'); }
 }
+// Perk offers come from the run's seeded perk stream: `offer` distinct perks that are below max stacks and unlocked.
+function offerPerks() {
+  const pool = Object.entries(CONFIG.perks.list).filter(([key, v]) => perk(key) < v.max && (!v.unlock || (!game.daily && unlocked(v.unlock)))).map(([key]) => key), offer = [];
+  while (offer.length < CONFIG.perks.offer && pool.length) offer.push(pool.splice(Math.floor(game.rng.perks() * pool.length), 1)[0]);
+  if (!offer.length) return false;
+  game.perkOffer = offer; game.mode = 'perk'; game.mouse.down = false; game.keys.clear();
+  renderPerks(); UI.perk.hidden = false; sound.music('duck'); return true;
+}
+function perkVars(key) {
+  const v = CONFIG.perks.list[key], pct = n => Math.round(n * 100);
+  return { pct: pct(v.bonus ?? v.chance ?? v.scrap ?? v.gold ?? v.rate ?? v.pickup ?? 0), heal: v.heal, hp: v.hp, seconds: v.seconds, regen: v.regen };
+}
+function renderPerks() {
+  $('perkWave').textContent = String(game.wave).padStart(2, '0');
+  $('perkChoices').replaceChildren(...game.perkOffer.map((key, i) => {
+    const item = CONFIG.perks.list[key], button = document.createElement('button');
+    button.type = 'button'; button.className = 'perk-card';
+    button.innerHTML = `<span class="keycap">${i + 1}</span><span class="perk-icon">${item.icon}</span><b>${t(`perk.${key}.title`)}</b><small>${t('perk.stack', { level: perk(key) + 1, max: item.max })}</small><span>${t(`perk.${key}.desc`, perkVars(key))}</span>`;
+    button.addEventListener('click', () => choosePerk(i));
+    return button;
+  }));
+}
+function choosePerk(index) {
+  const key = game.perkOffer?.[index], p = game.player;
+  if (game.mode !== 'perk' || !key) return;
+  game.perks[key] = perk(key) + 1; game.stats.perks.push(key);
+  if (key === 'tough') { p.maxHp += CONFIG.perks.list.tough.hp; p.hp += CONFIG.perks.list.tough.hp; }
+  game.perkOffer = null; game.mode = 'playing'; UI.perk.hidden = true;
+  burst(p.x, p.y, '#e9e597', 17); sound.music('play'); sound.play('buy'); notify(t('toast.perk', { name: t(`perk.${key}.title`) })); updateHUD();
+}
+function achievementVars(a) {
+  return { wave: a.wave, count: a.ambushKills ?? a.bossKills, progress: Math.min(profile.totals.ambushKills, a.ambushKills ?? 0), difficulty: a.difficulty && t(`difficulty.${a.difficulty}`) };
+}
+// Start screen: difficulty picker (locked tiers name their achievement), best record, today's daily and achievements.
+function renderMenu() {
+  const today = todayUTC(), record = profile.records[profile.difficulty], daily = profile.daily?.date === today ? profile.daily : null;
+  $('difficultyPicker').replaceChildren(...Object.entries(CONFIG.difficulty).map(([key, d]) => {
+    const button = document.createElement('button'), open = difficultyOpen(key);
+    button.type = 'button'; button.className = 'tab-btn'; button.textContent = t(`difficulty.${key}`);
+    button.setAttribute('aria-pressed', key === profile.difficulty); button.disabled = !open;
+    button.title = open ? t(`difficulty.${key}.desc`) : t('menu.locked', { name: t(`achievement.${d.unlock}.title`) });
+    button.addEventListener('click', () => { profile.difficulty = key; saveProfile(); renderMenu(); });
+    return button;
+  }));
+  $('recordLine').textContent = record ? t('menu.record', { wave: record.wave, kills: record.kills, time: formatTime(record.time) }) : t('menu.noRecord');
+  $('dailyInfo').textContent = t('menu.daily', { date: today, variant: t(`variant.${variantFor(today)}`) }) + (daily ? t('menu.dailyBest', { wave: daily.wave, kills: daily.kills }) : '');
+  $('achievementList').replaceChildren(...Object.entries(CONFIG.achievements).map(([id, a]) => {
+    const chip = document.createElement('span');
+    chip.className = unlocked(id) ? 'achievement' : 'achievement locked';
+    chip.textContent = `${a.icon} ${t(`achievement.${id}.title`)}`;
+    chip.title = `${t(`achievement.${id}.desc`, achievementVars(a))}\n${t(`achievement.${id}.reward`)}`;
+    return chip;
+  }));
+}
 function renderSettings() {
   for (const kind of ['music', 'sfx']) {
     const button = $(`${kind}Btn`), slider = $(`${kind}Volume`);
@@ -430,7 +668,9 @@ function applyLocale(lang) {
   if (query) url.searchParams.set('lang', lang); else url.searchParams.delete('lang');
   history.replaceState(history.state, '', url);
   document.querySelector('link[rel=canonical]').href = document.querySelector('meta[property="og:url"]').content = new URL(query, SITE_URL).href;
-  renderSettings(); updateHUD(); if (game.mode === 'shop') renderShop();
+  renderSettings(); renderMenu(); updateHUD(); if (game.mode === 'shop') renderShop();
+  if (game.mode === 'perk') renderPerks();
+  if (game.mode === 'ended') renderEnd();
 }
 function updateHUD() {
   if (!game.player) return;
@@ -440,7 +680,8 @@ function updateHUD() {
   $('shieldText').textContent = gear.maxShield ? `${Math.floor(p.shield)} / ${gear.maxShield}` : t('hud.noShield');
   $('shieldFill').style.width = `${gear.maxShield ? 100 * p.shield / gear.maxShield : 0}%`;
   $('waveText').textContent = String(game.wave).padStart(2, '0');
-  $('wavePill').textContent = `WAVE ${String(game.wave).padStart(2, '0')} / ${t(game.nextWave ? 'hud.intermission' : 'hud.combat')}`;
+  const tags = [t(game.nextWave ? 'hud.intermission' : 'hud.combat'), game.variant !== 'standard' && t(`variant.${game.variant}`), game.daily ? t('hud.daily') : game.difficulty !== 'normal' && t(`difficulty.${game.difficulty}`)].filter(Boolean);
+  $('wavePill').textContent = `WAVE ${String(game.wave).padStart(2, '0')} / ${tags.join(' · ')}`;
   $('killsText').textContent = game.kills; $('goldText').textContent = p.gold; $('scrapText').textContent = p.scrap;
   $('damageStat').textContent = gun.damage; $('rateStat').textContent = `${gun.shotsPerSecond.toFixed(1)}/s`;
   $('spreadStat').textContent = gun.pellets; $('rangeStat').textContent = gun.range;
@@ -450,12 +691,22 @@ function updateHUD() {
   const autos = Object.entries(CONFIG.autoWeapons).filter(([key]) => p.levels[key]);
   $('autoList').textContent = `${t('hud.auto')}${autos.length ? autos.map(([key, item]) => `${item.icon} ${p.levels[key]}`).join('　') : t('hud.none')}`;
   $('autoList').title = autos.map(([key]) => `${t(`auto.${key}.title`)} LV. ${p.levels[key]}`).join('\n');
+  const perks = Object.entries(CONFIG.perks.list).filter(([key]) => perk(key));
+  $('perkList').textContent = `${t('hud.perks')}${perks.length ? perks.map(([key, item]) => `${item.icon} ${perk(key)}`).join('　') : t('hud.none')}`;
+  $('perkList').title = perks.map(([key]) => `${t(`perk.${key}.title`)} ×${perk(key)}`).join('\n');
   const hidden = isHidden(), inBush = inTerrain(p, game.bushes), holding = inBush && autos.length ? t('hud.autoHold') : '';
   $('stealthText').textContent = (hidden ? t('hud.hidden') : inBush ? t('hud.revealed') : inTerrain(p, game.ponds) ? t('hud.wading') : t('hud.exposed')) + holding;
-  $('fieldStatus').textContent = hidden ? t('hud.concealed') : `● HOSTILES ${game.enemies.length + game.waveRemaining}`;
+  const ev = game.event, hold = ev?.zone && !ev.done ? t('hud.hold', { progress: Math.floor(ev.progress), seconds: CONFIG.events.types.hold.seconds, left: Math.ceil(ev.limit) }) : '';
+  $('fieldStatus').textContent = hold || (hidden ? t('hud.concealed') : `● HOSTILES ${game.enemies.length + game.waveRemaining}`);
 }
-function inTerrain(entity, terrain) { return terrain.some(r => pointIn(entity.x, entity.y, r)); }
-function isHidden() { return !!game.player && inTerrain(game.player, game.bushes) && game.time >= game.player.revealedUntil; }
+// Burned bushes stop concealing anyone until they regrow.
+function inTerrain(entity, terrain) { return terrain.some(r => !r.burned && pointIn(entity.x, entity.y, r)); }
+// Hidden = in grass (or within the Shadow Step grace after leaving it) and not revealed by recent fire.
+function isHidden() {
+  const p = game.player;
+  if (!p || game.time < p.revealedUntil) return false;
+  return inTerrain(p, game.bushes) || game.time - p.bushTime < perk('shadow') * CONFIG.perks.list.shadow.seconds;
+}
 function move(entity, dx, dy) {
   if (passable(entity.x + dx, entity.y, entity.radius)) entity.x += dx;
   if (passable(entity.x, entity.y + dy, entity.radius)) entity.y += dy;
@@ -469,13 +720,15 @@ function lineRect(x1, y1, x2, y2, r) {
   return true;
 }
 function clearSight(a, b) { return !game.walls.some(r => lineRect(a.x, a.y, b.x, b.y, r)); }
+// Shots fired while hidden are ambush shots: they get the Ambush perk bonus and count toward ambush kills.
 function shoot() {
-  const p = game.player, gun = gunStats(), angle = p.facing;
+  const p = game.player, gun = gunStats(), angle = p.facing, ambush = isHidden();
+  const damage = Math.round(gun.damage * (ambush ? 1 + perk('ambush') * CONFIG.perks.list.ambush.bonus : 1));
   p.cooldown = 1 / gun.shotsPerSecond;
   p.revealedUntil = game.time + CONFIG.player.revealSeconds;
   for (let i = 0; i < gun.pellets; i++) {
     const a = angle + (i - (gun.pellets - 1) / 2) * gun.spreadRadians + rand(-gun.jitter, gun.jitter), x = p.x + Math.cos(a) * 21, y = p.y + Math.sin(a) * 21;
-    game.bullets.push({ x, y, vx: Math.cos(a) * gun.bulletSpeed, vy: Math.sin(a) * gun.bulletSpeed, traveled: 0, range: gun.range, damage: gun.damage, radius: CONFIG.gun.bulletRadius, friendly: true, pierce: gun.pierce, hits: gun.pierce ? new Set() : null, color: gun.color, trail: p.weapon === 'rail' });
+    game.bullets.push({ x, y, vx: Math.cos(a) * gun.bulletSpeed, vy: Math.sin(a) * gun.bulletSpeed, traveled: 0, range: gun.range, damage, radius: CONFIG.gun.bulletRadius, friendly: true, pierce: gun.pierce, hits: gun.pierce ? new Set() : null, color: gun.color, trail: p.weapon === 'rail', source: p.weapon, ambush });
   }
   burst(p.x + Math.cos(angle) * 23, p.y + Math.sin(angle) * 23, '#f3e8aa', 5);
   sound.play(gun.sound); game.shake = gun.shake; updateHUD();
@@ -484,19 +737,42 @@ function burst(x, y, color, count) {
   for (let i = 0; i < count; i++) { const a = rand(0, Math.PI * 2), speed = rand(35, 160), life = rand(.2, .7); game.particles.push({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, color, life, maxLife: life }); }
 }
 function drop(x, y, kind, amount) { game.loot.push({ x: x + rand(-13, 13), y: y + rand(-13, 13), kind, amount, age: 0, phase: rand(0, 6) }); }
-function enemyDeath(enemy) {
+function enemyDeath(enemy, ambush) {
   game.enemies.splice(game.enemies.indexOf(enemy), 1); game.kills++;
-  const l = CONFIG.loot, stats = CONFIG.enemies[enemy.kind];
-  drop(enemy.x, enemy.y, 'gold', Math.round(rand(l.coinEnemy[0], l.coinEnemy[1] + 1) * stats.bounty));
-  if (Math.random() < l.scrapEnemyChance * stats.bounty) drop(enemy.x, enemy.y, 'scrap', 1);
-  burst(enemy.x, enemy.y, stats.color, 13); sound.play('kill', enemy); updateHUD();
+  const l = CONFIG.loot, stats = CONFIG.enemies[enemy.kind], P = CONFIG.perks.list, p = game.player;
+  if (enemy.kind === 'boss') bossDeath(enemy);
+  else if (!enemy.noLoot) {
+    const bounty = stats.bounty * (enemy.affix ? CONFIG.elites.bounty : 1);
+    drop(enemy.x, enemy.y, 'gold', goldAmount(rand(l.coinEnemy[0], l.coinEnemy[1] + 1) * bounty));
+    if (Math.random() < l.scrapEnemyChance * bounty) drop(enemy.x, enemy.y, 'scrap', scrapAmount(1));
+  }
+  if (ambush) { game.stats.ambushKills++; if (perk('phantom')) p.revealedUntil = game.time; }
+  if (perk('vampire')) p.hp = Math.min(p.maxHp, p.hp + perk('vampire') * P.vampire.heal);
+  if (enemy.affix === 'splitter') {
+    const s = CONFIG.elites.affixes.splitter;
+    for (let i = 0; i < s.count; i++) spawnNear(enemy.kind, enemy, enemy.radius, { hpScale: s.hp, radius: s.radius });
+  }
+  burst(enemy.x, enemy.y, stats.color, 13); sound.play('kill', enemy);
+  if (Math.random() < perk('volatile') * P.volatile.chance) explode(enemy.x, enemy.y, Math.round(P.volatile.damage * waveScale()), { blast: P.volatile.blast, source: 'perk' });
+  updateHUD();
+}
+function bossDeath(boss) {
+  const L = CONFIG.boss.loot;
+  drop(boss.x, boss.y, 'gold', goldAmount(L.gold)); drop(boss.x, boss.y, 'scrap', scrapAmount(L.scrap)); drop(boss.x, boss.y, 'heal', L.heal);
+  game.boss = null; game.stats.bosses++;
+  burst(boss.x, boss.y, '#f2d782', 40); game.shake = Math.max(game.shake, 10); sound.play('chest'); notify(t('toast.bossDown', { name: t('enemy.boss') }));
 }
 function chestDeath(chest) {
   game.chests.splice(game.chests.indexOf(chest), 1); const l = CONFIG.loot;
-  drop(chest.x, chest.y, 'gold', Math.floor(rand(l.coinChest[0], l.coinChest[1] + 1)));
-  drop(chest.x, chest.y, 'scrap', Math.floor(rand(l.scrapChest[0], l.scrapChest[1] + 1)));
-  if (Math.random() < l.healChestChance) drop(chest.x, chest.y, 'heal', l.healAmount);
-  burst(chest.x, chest.y, '#f2d782', 20); sound.play('chest'); notify(t('toast.chest'));
+  if (chest.airdrop) {
+    const a = CONFIG.events.types.airdrop;
+    drop(chest.x, chest.y, 'gold', goldAmount(rand(a.gold[0], a.gold[1] + 1))); drop(chest.x, chest.y, 'scrap', scrapAmount(Math.floor(rand(a.scrap[0], a.scrap[1] + 1)))); drop(chest.x, chest.y, 'heal', a.heal);
+  } else {
+    drop(chest.x, chest.y, 'gold', goldAmount(rand(l.coinChest[0], l.coinChest[1] + 1)));
+    drop(chest.x, chest.y, 'scrap', scrapAmount(Math.floor(rand(l.scrapChest[0], l.scrapChest[1] + 1))));
+    if (Math.random() < l.healChestChance) drop(chest.x, chest.y, 'heal', l.healAmount);
+  }
+  burst(chest.x, chest.y, '#f2d782', 20); sound.play('chest'); notify(t(chest.airdrop ? 'event.airdropOpen' : 'toast.chest'));
 }
 // Frontal shields absorb friendly bullets that arrive within ±shieldArc of the bearer's facing until depleted.
 function damageEnemy(e, b) {
@@ -507,18 +783,40 @@ function damageEnemy(e, b) {
     else { burst(e.x + Math.cos(e.facing) * 20, e.y + Math.sin(e.facing) * 20, '#bfe3f5', 18); sound.play('shieldBreak', e); }
     return;
   }
-  hitEnemyBody(e, b.damage);
+  hitEnemyBody(e, b.damage, b.source, b.ambush);
 }
 // Direct body damage: used by bullets past the shield and by blades, missiles and arcs, which ignore frontal shields.
-function hitEnemyBody(e, damage) {
+// `source` feeds the end-of-run damage breakdown; armored elites shrug off part of every hit.
+function hitEnemyBody(e, damage, source, ambush = false) {
   if (e.hp <= 0) return;
+  if (e.affix === 'armored') damage *= 1 - CONFIG.elites.affixes.armored.reduction;
+  game.stats.damage[source] = (game.stats.damage[source] ?? 0) + Math.min(e.hp, damage);
   e.hp -= damage; e.hit = .15; e.reveal = CONFIG.enemies[e.kind].revealSeconds ?? 0; burst(e.x, e.y, CONFIG.enemies[e.kind].color, 4);
-  if (e.hp <= 0) enemyDeath(e); else sound.play('hit', e);
+  if (e.hp <= 0) enemyDeath(e, ambush); else sound.play('hit', e);
 }
 function damageChest(c, damage) {
   if (c.hp <= 0) return;
   c.hp -= damage; c.hit = .15; burst(c.x, c.y, '#efd58a', 4);
   if (c.hp <= 0) chestDeath(c); else sound.play('hit', c);
+}
+// Barrels light a short fuse when destroyed so chained blasts ripple outward.
+function damageBarrel(b, damage) {
+  if (b.fuse > 0) return;
+  b.hp -= damage; b.hit = .15;
+  if (b.hp <= 0) b.fuse = CONFIG.barrels.chainDelay;
+}
+function updateBarrels(dt) {
+  const B = CONFIG.barrels;
+  for (const b of [...game.barrels]) {
+    b.hit = Math.max(0, b.hit - dt);
+    if (b.fuse > 0 && (b.fuse -= dt) <= 0) {
+      game.barrels.splice(game.barrels.indexOf(b), 1);
+      explode(b.x, b.y, Math.round(B.damage * waveScale()), { blast: B.blast, source: 'barrel', burn: true, playerDamage: B.playerDamage });
+    }
+  }
+}
+function burnGrass(x, y, radius) {
+  for (const r of game.bushes) if (circleRect(x, y, radius, r)) { r.burned = CONFIG.world.burnSeconds; burst(clamp(x, r.x, r.x + r.w), clamp(y, r.y, r.y + r.h), '#f0a24f', 6); }
 }
 function nearestEnemy(from, range, exclude) {
   let best = null, bestDistance = range;
@@ -542,7 +840,7 @@ function updateAutoWeapons(dt) {
   if (l.blades) {
     const s = A.blades, damage = s.damage[l.blades - 1];
     for (const blade of bladePositions(p)) for (const e of [...game.enemies]) {
-      if (e.bladeCooldown <= 0 && Math.hypot(e.x - blade.x, e.y - blade.y) < e.radius + s.size) { e.bladeCooldown = s.hitCooldown; sound.play('blade', e); hitEnemyBody(e, damage); }
+      if (e.bladeCooldown <= 0 && Math.hypot(e.x - blade.x, e.y - blade.y) < e.radius + s.size) { e.bladeCooldown = s.hitCooldown; sound.play('blade', e); hitEnemyBody(e, damage, 'blades'); }
     }
   }
   if (inTerrain(p, game.bushes)) return;
@@ -550,7 +848,7 @@ function updateAutoWeapons(dt) {
     const s = A.drone, from = dronePosition(p), target = nearestEnemy(from, s.range);
     if (target) {
       const a = Math.atan2(target.y - from.y, target.x - from.x);
-      game.bullets.push({ ...from, vx: Math.cos(a) * s.bulletSpeed, vy: Math.sin(a) * s.bulletSpeed, traveled: 0, range: s.range + 40, damage: s.damage[l.drone - 1], radius: 3, friendly: true, pierce: 0, hits: null, color: '#bfe8ff' });
+      game.bullets.push({ ...from, vx: Math.cos(a) * s.bulletSpeed, vy: Math.sin(a) * s.bulletSpeed, traveled: 0, range: s.range + 40, damage: s.damage[l.drone - 1], radius: 3, friendly: true, pierce: 0, hits: null, color: '#bfe8ff', source: 'drone' });
       cd.drone = 1 / s.rate[l.drone - 1]; sound.play('drone', from);
     }
   }
@@ -567,16 +865,23 @@ function updateAutoWeapons(dt) {
       const chain = [first], hit = new Set(chain);
       while (chain.length < s.chains[l.tesla - 1]) { const next = nearestEnemy(chain.at(-1), s.chainRange, hit); if (!next) break; chain.push(next); hit.add(next); }
       game.arcs.push({ points: [{ x: p.x, y: p.y }, ...chain.map(e => ({ x: e.x, y: e.y }))], life: .16 });
-      for (const e of chain) hitEnemyBody(e, s.damage[l.tesla - 1]);
+      for (const e of chain) hitEnemyBody(e, s.damage[l.tesla - 1], 'tesla');
       cd.tesla = s.interval[l.tesla - 1]; sound.play('zap');
     }
   }
 }
-function explode(x, y, damage) {
-  const s = CONFIG.autoWeapons.missile;
-  burst(x, y, '#f6b36b', 22); burst(x, y, '#fff0c0', 8); sound.play('explosion', { x, y }); game.shake = Math.max(game.shake, 4);
-  for (const e of [...game.enemies]) if (Math.hypot(e.x - x, e.y - y) < s.blast + e.radius) hitEnemyBody(e, damage);
-  for (const c of [...game.chests]) if (Math.hypot(c.x - x, c.y - y) < s.blast + c.radius) damageChest(c, damage);
+// Shared blast: damages enemies and chests, sets off barrels, optionally hurts the player and burns grass.
+function explode(x, y, damage, { blast = CONFIG.autoWeapons.missile.blast, source = 'missile', burn = false, playerDamage = 0 } = {}) {
+  const p = game.player;
+  burst(x, y, '#f6b36b', 22); burst(x, y, '#fff0c0', 8); sound.play('explosion', { x, y }); game.shake = Math.max(game.shake, 4 + (burn ? 4 : 0));
+  game.blasts.push({ x, y, radius: blast, life: .35 });
+  if (damage) {
+    for (const e of [...game.enemies]) if (Math.hypot(e.x - x, e.y - y) < blast + e.radius) hitEnemyBody(e, damage, source);
+    for (const c of [...game.chests]) if (Math.hypot(c.x - x, c.y - y) < blast + c.radius) damageChest(c, damage);
+  }
+  for (const b of game.barrels) if (Math.hypot(b.x - x, b.y - y) < blast + b.radius) damageBarrel(b, CONFIG.barrels.hp);
+  if (playerDamage && distance(p, { x, y }) < blast + p.radius) hurtPlayer(playerDamage);
+  if (burn) burnGrass(x, y, blast);
 }
 function updateMissiles(dt) {
   const s = CONFIG.autoWeapons.missile;
@@ -590,22 +895,70 @@ function updateMissiles(dt) {
     else { m.x = nx; m.y = ny; if (Math.random() < .5) game.particles.push({ x: m.x, y: m.y, vx: rand(-20, 20), vy: rand(-20, 20), color: '#d9d2c0', life: .35, maxLife: .35 }); }
   }
   for (let i = game.arcs.length - 1; i >= 0; i--) if ((game.arcs[i].life -= dt) <= 0) game.arcs.splice(i, 1);
+  for (let i = game.blasts.length - 1; i >= 0; i--) if ((game.blasts[i].life -= dt) <= 0) game.blasts.splice(i, 1);
 }
 function hurtPlayer(damage) {
   const p = game.player;
   if (p.invulnerable > 0 || game.mode !== 'playing') return;
   let amount = damage * (1 - gearStats().reduction);
+  game.stats.taken += amount;
   p.invulnerable = CONFIG.player.invulnerability; p.lastHurt = game.time;
   const absorbed = Math.min(p.shield, amount); p.shield -= absorbed; amount -= absorbed;
   if (amount > 0) { p.hp = Math.max(0, p.hp - amount); game.flash = .35; game.shake = 7; burst(p.x, p.y, '#f29785', 9); sound.play('hurt'); }
   else { game.shake = 3; burst(p.x, p.y, '#a9dcee', 9); sound.play('shieldHit'); }
   updateHUD();
-  if (!p.hp) {
-    game.mode = 'ended'; game.mouse.down = false;
-    $('endWave').textContent = String(game.wave).padStart(2, '0');
-    $('endKills').textContent = game.kills; $('endGold').textContent = game.earned;
-    UI.end.hidden = false; sound.music('stop'); sound.play('gameOver');
+  if (!p.hp) finishRun();
+}
+// Game over: update personal records and cumulative totals, grant newly earned achievements, show the report.
+function finishRun() {
+  game.mode = 'ended'; game.mouse.down = false;
+  const run = { wave: game.wave, kills: game.kills, time: Math.floor(game.time) }, key = game.daily ? 'daily' : game.difficulty;
+  const best = { wave: 0, kills: 0, time: 0, ...profile.records[key] }, fresh = Object.keys(run).filter(field => run[field] > best[field]);
+  for (const field of fresh) best[field] = run[field];
+  profile.records[key] = best;
+  if (game.daily && (profile.daily?.date !== game.daily || run.wave > profile.daily.wave || (run.wave === profile.daily.wave && run.kills > profile.daily.kills))) profile.daily = { date: game.daily, ...run };
+  profile.totals.ambushKills += game.stats.ambushKills; profile.totals.bossKills += game.stats.bosses;
+  game.newAchievements = Object.entries(CONFIG.achievements).filter(([id, a]) => !unlocked(id) && achieved(a)).map(([id]) => id);
+  profile.achievements.push(...game.newAchievements); saveProfile();
+  game.summary = { run, fresh };
+  renderEnd(); renderMenu();
+  UI.end.hidden = false; UI.perk.hidden = true; sound.music('stop'); sound.play('gameOver');
+}
+const DIFFICULTY_KEYS = Object.keys(CONFIG.difficulty);
+function achieved(a) {
+  if (a.wave && game.wave < a.wave) return false;
+  if (a.difficulty && (game.daily || DIFFICULTY_KEYS.indexOf(game.difficulty) < DIFFICULTY_KEYS.indexOf(a.difficulty))) return false;
+  if (a.ambushKills && profile.totals.ambushKills < a.ambushKills) return false;
+  return !a.bossKills || profile.totals.bossKills >= a.bossKills;
+}
+const sourceName = key => CONFIG.weapons[key] ? t(`guns.${key}.title`) : CONFIG.autoWeapons[key] ? t(`auto.${key}.title`) : t(`source.${key}`);
+function renderEnd() {
+  const { run, fresh } = game.summary, s = game.stats, mark = field => fresh.includes(field) ? ` <em>${t('end.best')}</em>` : '';
+  $('endWave').innerHTML = String(run.wave).padStart(2, '0') + mark('wave');
+  $('endKills').innerHTML = run.kills + mark('kills');
+  $('endTime').innerHTML = formatTime(run.time) + mark('time');
+  $('endGold').textContent = game.earned;
+  $('endAmbush').textContent = s.ambushKills; $('endTaken').textContent = Math.round(s.taken); $('endBosses').textContent = s.bosses;
+  const sources = Object.entries(s.damage).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]);
+  $('endDamage').textContent = sources.length ? sources.map(([key, v]) => `${sourceName(key)} ${Math.round(v)}`).join(' · ') : t('hud.none');
+  $('endPerks').textContent = s.perks.length ? s.perks.map(key => CONFIG.perks.list[key].icon).join(' ') : t('hud.none');
+  $('endMode').textContent = [game.daily ? `${t('hud.daily')} ${game.daily}` : t(`difficulty.${game.difficulty}`), t(`variant.${game.variant}`)].join(' · ');
+  $('endAchievements').hidden = !game.newAchievements.length;
+  $('endAchievements').textContent = t('end.unlocked', { list: game.newAchievements.map(id => `${CONFIG.achievements[id].icon} ${t(`achievement.${id}.title`)}`).join('、') });
+  $('shareBtn').hidden = !game.daily; $('shareBtn').textContent = t('end.share');
+}
+function shareText() {
+  const run = game.summary.run;
+  return t('share.text', { date: game.daily, wave: run.wave, kills: run.kills, time: formatTime(run.time), variant: t(`variant.${game.variant}`), url: SITE_URL });
+}
+async function copyShare() {
+  const text = shareText();
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const area = Object.assign(document.createElement('textarea'), { value: text });
+    document.body.append(area); area.select(); document.execCommand('copy'); area.remove();
   }
+  $('shareBtn').textContent = t('end.copied');
 }
 function steer(enemy, angle, speed, dt) {
   const x = enemy.x, y = enemy.y;
@@ -619,21 +972,59 @@ function isCloaked(e) {
   const stats = CONFIG.enemies[e.kind];
   return !!stats.cloakAlpha && e.reveal <= 0 && distance(e, game.player) > stats.revealDistance;
 }
-// Bomber self-destruct: blast damage ignores grass concealment; the bomber dies without loot or a kill.
+// Bomber self-destruct: blast damage ignores grass concealment, burns grass and sets off barrels; the bomber dies without loot or a kill.
 function detonate(e) {
-  const stats = CONFIG.enemies[e.kind], p = game.player;
+  const stats = CONFIG.enemies[e.kind];
   game.enemies.splice(game.enemies.indexOf(e), 1);
-  burst(e.x, e.y, '#f6b36b', 30); burst(e.x, e.y, '#fff0c0', 12); burst(e.x, e.y, '#8a5a3c', 10);
-  sound.play('explosion', e); game.shake = Math.max(game.shake, 9);
-  if (distance(e, p) < stats.blast + p.radius) hurtPlayer(enemyDamage(stats));
+  burst(e.x, e.y, '#8a5a3c', 10);
+  explode(e.x, e.y, 0, { blast: stats.blast, burn: true, playerDamage: enemyDamage(stats) });
+}
+function enemyShot(e, angle, s) {
+  game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(angle) * s.speed, vy: Math.sin(angle) * s.speed, range: CONFIG.enemies.boss.sight * 1.4, traveled: 0, damage: enemyDamage(s), radius: s.radius, friendly: false });
+}
+// Commander attacks on top of its melee chase: aimed volleys, lobbed bombs, minion summons; phase 2 adds speed, pace and bullet rings.
+function updateBoss(e, dt) {
+  const B = CONFIG.boss, p = game.player;
+  if (e.phase === 1 && e.hp < e.maxHp * B.phase2.at) {
+    e.phase = 2; e.speed *= B.phase2.speed; burst(e.x, e.y, '#ff8a6a', 30); sound.play('shieldBreak', e); notify(t('toast.bossPhase', { name: t('enemy.boss') }));
+  }
+  if (e.state === 'wander' || e.state === 'alert') return;
+  const pace = e.phase === 2 ? B.phase2.pace : 1, aim = Math.atan2(p.y - e.y, p.x - e.x);
+  e.volley -= dt; e.bombs -= dt; e.summon -= dt; e.ring -= dt;
+  if (e.volley <= 0 && clearSight(e, p)) {
+    for (let i = 0; i < B.volley.count; i++) enemyShot(e, aim + (i - (B.volley.count - 1) / 2) * B.volley.spread, B.volley);
+    e.volley = B.volley.interval * pace; sound.play('enemyShot', e);
+  }
+  if (e.bombs <= 0 && distance(e, p) < B.bombs.range) {
+    for (let i = 0; i < (e.phase === 2 ? B.phase2.bombs : B.bombs.count); i++) game.bombs.push({ x: p.x + rand(-B.bombs.scatter, B.bombs.scatter) * Math.min(i, 1), y: p.y + rand(-B.bombs.scatter, B.bombs.scatter) * Math.min(i, 1), time: B.bombs.fall });
+    e.bombs = B.bombs.interval * pace; sound.play('fuse', e);
+  }
+  if (e.summon <= 0) {
+    for (let i = 0; i < B.summon.count && game.enemies.length < CONFIG.waves.maxAlive; i++) spawnNear(B.summon.kinds[i % B.summon.kinds.length], e, e.radius + B.summon.distance, { noLoot: true });
+    e.summon = B.summon.interval * pace; burst(e.x, e.y, '#c7866f', 16);
+  }
+  if (e.phase === 2 && e.ring <= 0) {
+    for (let i = 0; i < B.phase2.ring; i++) enemyShot(e, aim + i * Math.PI * 2 / B.phase2.ring, B.volley);
+    e.ring = B.phase2.ringInterval; sound.play('enemyShot', e);
+  }
+}
+function updateBombs(dt) {
+  const s = CONFIG.boss.bombs;
+  for (let i = game.bombs.length - 1; i >= 0; i--) {
+    const b = game.bombs[i];
+    if ((b.time -= dt) > 0) continue;
+    game.bombs.splice(i, 1);
+    explode(b.x, b.y, 0, { blast: s.blast, burn: true, playerDamage: enemyDamage(s) });
+  }
 }
 function updateEnemy(e, dt) {
-  const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), detect = !isHidden() || d < (stats.sense ?? 0);
-  const visible = detect && d < stats.sight && clearSight(e, p), melee = !stats.projectileSpeed && !stats.fuse;
+  const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), detect = !isHidden() || d < (stats.sense ?? 0), speed = stats.speed * e.speed;
+  const visible = detect && d < stats.sight * CONFIG.variants[game.variant].sight && clearSight(e, p), melee = !stats.projectileSpeed && !stats.fuse;
+  if (e.affix === 'regen') e.hp = Math.min(e.maxHp, e.hp + CONFIG.elites.affixes.regen.rate * e.maxHp * dt);
   e.cooldown -= dt; e.hit = Math.max(0, e.hit - dt); e.blocked = Math.max(0, e.blocked - dt); e.bladeCooldown -= dt; e.reveal -= dt;
   if (e.fuse > 0) {
     e.fuse -= dt; e.facing = Math.atan2(p.y - e.y, p.x - e.x);
-    steer(e, e.facing, stats.speed * stats.fuseSpeed, dt);
+    steer(e, e.facing, speed * stats.fuseSpeed, dt);
     if (e.fuse <= 0) detonate(e);
     return;
   }
@@ -652,17 +1043,17 @@ function updateEnemy(e, dt) {
   if (e.state === 'wander') {
     e.wanderTime -= dt;
     if (e.wanderTime <= 0) { e.direction = rand(-Math.PI, Math.PI); e.wanderTime = rand(...CONFIG.enemies.wanderInterval); }
-    steer(e, e.direction, stats.speed * stats.wanderSpeed, dt);
+    steer(e, e.direction, speed * stats.wanderSpeed, dt);
   } else if (e.state === 'chase') {
     if (!detect) return;
     const weave = stats.weave ? Math.sin(game.time * stats.weaveSpeed + e.seed) * stats.weave : 0;
-    steer(e, Math.atan2(p.y - e.y, p.x - e.x) + weave, stats.speed, dt);
+    steer(e, Math.atan2(p.y - e.y, p.x - e.x) + weave, speed, dt);
   } else if (e.state === 'attack') {
     if (stats.fuse) { e.fuse = stats.fuse; sound.play('fuse', e); }
     else if (melee) {
       if (e.cooldown <= 0 && d < stats.reach + p.radius) { hurtPlayer(enemyDamage(stats)); e.cooldown = stats.cooldown; e.reveal = stats.revealSeconds ?? 0; }
     } else {
-      if (d < stats.reach * stats.retreatRatio) steer(e, Math.atan2(e.y - p.y, e.x - p.x), stats.speed * stats.retreatSpeed, dt);
+      if (d < stats.reach * stats.retreatRatio) steer(e, Math.atan2(e.y - p.y, e.x - p.x), speed * stats.retreatSpeed, dt);
       if (e.cooldown <= 0) {
         const a = Math.atan2(p.y - e.y, p.x - e.x);
         game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(a) * stats.projectileSpeed, vy: Math.sin(a) * stats.projectileSpeed, range: stats.sight, traveled: 0, damage: enemyDamage(stats), radius: stats.projectileRadius, friendly: false });
@@ -670,6 +1061,7 @@ function updateEnemy(e, dt) {
       }
     }
   }
+  if (e.kind === 'boss') updateBoss(e, dt);
   if (melee && e.state !== 'wander' && d < e.radius + p.radius + 2 && e.cooldown <= 0 && detect) {
     hurtPlayer(enemyDamage(stats)); e.cooldown = stats.cooldown; e.reveal = stats.revealSeconds ?? 0;
   }
@@ -685,13 +1077,14 @@ function updateBullets(dt) {
     const wall = game.walls.some(r => lineRect(b.x, b.y, nx, ny, r));
     let target = null;
     if (!wall) {
-      if (b.friendly) target = [...game.enemies, ...game.chests].find(o => !b.hits?.has(o) && segmentCircle(b.x, b.y, nx, ny, o, o.radius + b.radius));
+      if (b.friendly) target = [...game.enemies, ...game.chests, ...game.barrels].find(o => !b.hits?.has(o) && !(o.fuse > 0 && o.barrel) && segmentCircle(b.x, b.y, nx, ny, o, o.radius + b.radius));
       else if (segmentCircle(b.x, b.y, nx, ny, game.player, game.player.radius + b.radius)) target = game.player;
     }
     let spent = !!target;
     if (target) {
       if (target === game.player) hurtPlayer(b.damage);
       else if (target.kind) { damageEnemy(target, b); if (b.pierce > 0) { b.pierce--; b.hits.add(target); spent = false; } }
+      else if (target.barrel) damageBarrel(target, b.damage);
       else damageChest(target, b.damage);
     }
     if (spent || wall || b.traveled >= b.range || nx < 0 || ny < 0 || nx > CONFIG.world.width || ny > CONFIG.world.height) {
@@ -707,6 +1100,9 @@ function update(dt) {
   let dy = Number(game.keys.has('s') || game.keys.has('arrowdown')) - Number(game.keys.has('w') || game.keys.has('arrowup'));
   const len = Math.hypot(dx, dy);
   if (len) { dx /= len; dy /= len; const speed = CONFIG.player.speed * gearStats().speed * (inTerrain(p, game.ponds) ? CONFIG.player.waterMultiplier : 1); move(p, dx * speed * dt, dy * speed * dt); }
+  if (inTerrain(p, game.bushes)) p.bushTime = game.time;
+  for (const r of game.bushes) if (r.burned) r.burned = Math.max(0, r.burned - dt);
+  if (perk('mender')) p.hp = Math.min(p.maxHp, p.hp + perk('mender') * CONFIG.perks.list.mender.regen * dt);
   const maxShield = gearStats().maxShield;
   if (p.shield < maxShield && isHidden() && game.time - p.lastHurt >= CONFIG.player.shieldRegenDelay) p.shield = Math.min(maxShield, p.shield + CONFIG.player.shieldRegenRate * dt);
   const camera = getCamera();
@@ -716,9 +1112,14 @@ function update(dt) {
   updateAutoWeapons(dt);
   updateBullets(dt);
   updateMissiles(dt);
+  updateBombs(dt);
+  updateBarrels(dt);
+  updateEvent(dt);
+  if (game.mode !== 'playing') return;
+  const pickup = CONFIG.player.pickupRadius * (1 + perk('magnet') * CONFIG.perks.list.magnet.pickup);
   for (let i = game.loot.length - 1; i >= 0; i--) {
     const item = game.loot[i]; item.age += dt;
-    if (distance(item, p) < CONFIG.player.pickupRadius) {
+    if (distance(item, p) < pickup) {
       if (item.kind === 'gold') { p.gold += item.amount; game.earned += item.amount; }
       else if (item.kind === 'scrap') p.scrap += item.amount;
       else p.hp = Math.min(p.maxHp, p.hp + item.amount);
@@ -738,7 +1139,7 @@ function update(dt) {
       game.spawnTimer = Math.max(w.minSpawnInterval, w.spawnInterval - (game.wave - 1) * w.spawnIntervalStep);
     }
   } else if (!game.enemies.length) {
-    if (!game.nextWave) { game.nextWave = CONFIG.waves.intermission; notify(t('toast.cleared')); }
+    if (!game.nextWave) { game.nextWave = CONFIG.waves.intermission; notify(t('toast.cleared')); if (offerPerks()) return; }
     game.nextWave -= dt;
     if (game.nextWave <= 0) { game.wave++; startWave(); }
   }
@@ -758,8 +1159,10 @@ function getCamera() {
   return { x: clamp(p.x - w / 2, 0, Math.max(0, CONFIG.world.width - w)), y: clamp(p.y - h / 2, 0, Math.max(0, CONFIG.world.height - h)) };
 }
 function roundRect(x, y, w, h, radius, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.roundRect(x, y, w, h, radius); ctx.fill(); }
+// Ground tint per map variant (rendering only).
+const GROUND = { standard: '#354c39', night: '#2c4033', rain: '#31493d', scorched: '#4a4a35' };
 function drawWorld() {
-  const w = CONFIG.world; ctx.fillStyle = '#354c39'; ctx.fillRect(0, 0, w.width, w.height);
+  const w = CONFIG.world; ctx.fillStyle = GROUND[game.variant]; ctx.fillRect(0, 0, w.width, w.height);
   ctx.strokeStyle = '#d3dfb008'; ctx.lineWidth = 1;
   for (let x = 0; x < w.width; x += 48) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, w.height); ctx.stroke(); }
   for (let y = 0; y < w.height; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w.width, y); ctx.stroke(); }
@@ -775,9 +1178,14 @@ function drawWorld() {
     ctx.strokeStyle = '#afd2ba7a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(r.x + r.w * .52, r.y + r.h * .52, r.w * .38, r.h * .27, -.2, 0, Math.PI * 1.25); ctx.stroke();
     ctx.strokeStyle = '#afd2ba3a'; ctx.beginPath(); ctx.ellipse(r.x + r.w * .52, r.y + r.h * .52, r.w * .28, r.h * .16, -.2, 0, Math.PI * 1.25); ctx.stroke();
   }
-  for (const r of game.bushes) roundRect(r.x - 5, r.y - 2, r.w + 10, r.h + 10, 25, '#253e2c');
-  for (const r of game.bushes) roundRect(r.x, r.y, r.w, r.h, 22, '#568253');
-  for (const r of game.bushes) {
+  const live = game.bushes.filter(r => !r.burned);
+  for (const r of game.bushes) if (r.burned) {
+    roundRect(r.x, r.y, r.w, r.h, 22, '#3b3a2c');
+    for (let i = 0; i < 6; i++) { const a = i * 1.9, bx = r.x + r.w * (.5 + .35 * Math.cos(a)), by = r.y + r.h * (.5 + .32 * Math.sin(a)); ctx.fillStyle = r.burned > CONFIG.world.burnSeconds - 3 && (i + Math.floor(game.time * 8)) % 3 === 0 ? '#f0a24f' : '#2a2820'; ctx.fillRect(bx - 3, by - 2, 6, 4); }
+  }
+  for (const r of live) roundRect(r.x - 5, r.y - 2, r.w + 10, r.h + 10, 25, '#253e2c');
+  for (const r of live) roundRect(r.x, r.y, r.w, r.h, 22, '#568253');
+  for (const r of live) {
     for (let i = 0; i < 10; i++) {
       const a = (i * 2.4) % (Math.PI * 2), bx = r.x + r.w * (.5 + .42 * Math.cos(a)), by = r.y + r.h * (.5 + .39 * Math.sin(a));
       ctx.fillStyle = i % 3 ? '#6e9d60' : '#87ac67'; ctx.beginPath(); ctx.ellipse(bx, by, 13, 7, a, 0, Math.PI * 2); ctx.fill();
@@ -794,12 +1202,39 @@ function drawHealth(x, y, ratio, width) { ctx.fillStyle = '#1b3029'; ctx.fillRec
 function drawChest(c) {
   ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(-.08);
   roundRect(-21, -15 + 5, 42, 33, 5, '#1a2920a0');
-  roundRect(-21, -19, 42, 33, 4, c.hit > 0 ? '#fff2c3' : '#9f683d');
+  roundRect(-21, -19, 42, 33, 4, c.hit > 0 ? '#fff2c3' : c.airdrop ? '#4f6f8f' : '#9f683d');
   ctx.strokeStyle = '#e3b466'; ctx.lineWidth = 3; ctx.strokeRect(-18, -16, 36, 27);
   ctx.fillStyle = '#e8cc7b'; ctx.fillRect(-4, -18, 8, 29); ctx.fillRect(-21, -3, 42, 5);
   ctx.fillStyle = '#5f452c'; ctx.fillRect(-3, -5, 6, 8);
   ctx.restore();
+  if (c.airdrop) { ctx.strokeStyle = '#dfe9f2aa'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(c.x - 18, c.y - 20); ctx.lineTo(c.x, c.y - 44); ctx.lineTo(c.x + 18, c.y - 20); ctx.stroke(); ctx.fillStyle = '#e7eef4'; ctx.beginPath(); ctx.ellipse(c.x, c.y - 46, 22, 9, 0, Math.PI, 0); ctx.fill(); }
   if (c.hp < c.maxHp) drawHealth(c.x, c.y - 30, c.hp / c.maxHp, 41);
+}
+function drawBarrel(b) {
+  const lit = b.fuse > 0 || b.hit > 0;
+  ctx.save(); ctx.translate(b.x, b.y);
+  ctx.fillStyle = '#10251ca0'; ctx.beginPath(); ctx.ellipse(3, 13, 13, 6, 0, 0, Math.PI * 2); ctx.fill();
+  roundRect(-11, -14, 22, 28, 5, lit ? '#fff0c0' : '#b5452f');
+  ctx.fillStyle = '#e8c35a'; ctx.fillRect(-11, -4, 22, 5); ctx.fillStyle = '#6e2a1d'; ctx.fillRect(-11, -12, 22, 2); ctx.fillRect(-11, 9, 22, 2);
+  ctx.restore();
+}
+// Boss bombs: shrinking target ring on the ground until impact.
+function drawHazards() {
+  const s = CONFIG.boss.bombs;
+  for (const b of game.bombs) {
+    const k = 1 - b.time / s.fall;
+    ctx.strokeStyle = `rgba(255,112,80,${.4 + .5 * k})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(b.x, b.y, s.blast, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,112,80,.18)'; ctx.beginPath(); ctx.arc(b.x, b.y, s.blast * k, 0, Math.PI * 2); ctx.fill();
+  }
+  for (const b of game.blasts) { ctx.strokeStyle = `rgba(255,214,150,${b.life / .35})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(b.x, b.y, b.radius * (1.2 - b.life / .35 * .4), 0, Math.PI * 2); ctx.stroke(); }
+  const ev = game.event;
+  if (ev?.zone && !ev.done) {
+    const cfg = CONFIG.events.types.hold, { x, y } = ev.zone;
+    ctx.fillStyle = 'rgba(243,209,130,.1)'; ctx.beginPath(); ctx.arc(x, y, cfg.radius, 0, Math.PI * 2); ctx.fill();
+    ctx.setLineDash([10, 8]); ctx.strokeStyle = '#f3d182aa'; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = '#f3d182'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, cfg.radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ev.progress / cfg.seconds); ctx.stroke();
+    ctx.fillStyle = '#f3d182'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`${Math.ceil(ev.limit)}s`, x, y + 5);
+  }
 }
 function drawEnemy(e) {
   const stats = CONFIG.enemies[e.kind], hidden = inTerrain(e, game.bushes), cloaked = isCloaked(e);
@@ -809,11 +1244,12 @@ function drawEnemy(e) {
     ctx.fillStyle = 'rgba(255,112,80,.16)'; ctx.beginPath(); ctx.arc(e.x, e.y, stats.blast * (1 - e.fuse / stats.fuse), 0, Math.PI * 2); ctx.fill();
   }
   ctx.save(); ctx.globalAlpha = cloaked ? stats.cloakAlpha * (1 + Math.sin(game.time * 5 + e.seed) * .5) : hidden && distance(e, game.player) > CONFIG.enemies.bushRevealDistance ? .18 : 1;
-  ctx.translate(e.x, e.y); ctx.fillStyle = '#10251ca0'; ctx.beginPath(); ctx.ellipse(3, 10, 16, 8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(e.x, e.y); ctx.fillStyle = '#10251ca0'; ctx.beginPath(); ctx.ellipse(3, 10, e.radius, e.radius / 2, 0, 0, Math.PI * 2); ctx.fill();
+  if (e.affix) { const color = CONFIG.elites.affixes[e.affix].color; ctx.strokeStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 14; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 0, e.radius + 5 + Math.sin(game.time * 6 + e.seed) * 1.5, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0; }
   ctx.rotate(e.facing);
   if (e.kind === 'runner') { ctx.strokeStyle = '#f7e7a680'; ctx.lineWidth = 2; ctx.beginPath(); for (const y of [-6, 0, 6]) { ctx.moveTo(-e.radius - 4, y); ctx.lineTo(-e.radius - 14 - Math.abs(y), y); } ctx.stroke(); }
   if (e.kind === 'bomber') { ctx.fillStyle = '#3a2a22'; ctx.beginPath(); ctx.arc(-e.radius + 2, 0, 9, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = e.fuse > 0 && Math.floor(game.time * 12) % 2 ? '#fff4c0' : '#f59a55'; ctx.beginPath(); ctx.arc(-e.radius - 6, -6, 3, 0, Math.PI * 2); ctx.fill(); }
-  else { ctx.fillStyle = '#26372e'; ctx.fillRect(1, -5, 23, 10); }
+  else { ctx.fillStyle = '#26372e'; ctx.fillRect(1, -5 * e.radius / 16, 23 * e.radius / 16, 10 * e.radius / 16); }
   ctx.fillStyle = e.hit > 0 || (e.fuse > 0 && Math.floor(game.time * 12) % 2) ? '#fff0d1' : stats.color; ctx.beginPath(); ctx.arc(0, 0, e.radius, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#3b3e37'; ctx.lineWidth = 3; ctx.stroke();
   ctx.fillStyle = '#26372e'; ctx.fillRect(6, -6, 6, 4); ctx.fillRect(6, 3, 6, 4);
@@ -829,11 +1265,15 @@ function drawEnemy(e) {
   }
   else if (e.kind === 'stalker') { ctx.fillStyle = '#2f4a42'; ctx.beginPath(); ctx.arc(-2, 0, e.radius - 3, Math.PI * .5, Math.PI * 1.5); ctx.fill(); ctx.fillStyle = '#c9f3e2'; ctx.fillRect(9, -5, 3, 3); ctx.fillRect(9, 2, 3, 3); }
   else if (e.kind === 'bomber') { ctx.strokeStyle = '#7a3a26'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-6, -e.radius + 3); ctx.lineTo(-6, e.radius - 3); ctx.stroke(); }
+  else if (e.kind === 'boss') {
+    ctx.fillStyle = e.phase === 2 ? '#8e2f22' : '#5a3a2e'; ctx.fillRect(-20, -e.radius + 6, 12, (e.radius - 6) * 2);
+    ctx.fillStyle = '#f2c94c'; ctx.beginPath(); ctx.moveTo(-6, -10); ctx.lineTo(-2, -4); ctx.lineTo(4, -10); ctx.lineTo(4, 10); ctx.lineTo(-2, 4); ctx.lineTo(-6, 10); ctx.fill();
+  }
   else { ctx.fillStyle = '#f2d4a3'; ctx.beginPath(); ctx.moveTo(-9, -12); ctx.lineTo(-16, -20); ctx.lineTo(-2, -14); ctx.fill(); }
   ctx.restore();
   if (cloaked) return;
-  if (e.hp < e.maxHp) drawHealth(e.x, e.y - e.radius - 14, e.hp / e.maxHp, 34);
-  if (e.state !== 'wander') { ctx.fillStyle = '#f3d182'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('!', e.x, e.y - 27); }
+  if (e.hp < e.maxHp && e.kind !== 'boss') drawHealth(e.x, e.y - e.radius - 14, e.hp / e.maxHp, 34);
+  if (e.state !== 'wander') { ctx.fillStyle = '#f3d182'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('!', e.x, e.y - e.radius - 11); }
 }
 // Barrel length, width and muzzle color per gun (rendering only).
 const GUN_LOOK = { rifle: [26, 12, '#e3eabc'], smg: [21, 10, '#f3e39a'], shotgun: [25, 15, '#f1c58f'], rail: [35, 8, '#9fe3ff'] };
@@ -901,6 +1341,8 @@ function draw() {
   const camera = getCamera(); ctx.save();
   ctx.translate(-camera.x + (game.shake ? rand(-game.shake, game.shake) : 0), -camera.y + (game.shake ? rand(-game.shake, game.shake) : 0));
   drawWorld();
+  drawHazards();
+  for (const b of game.barrels) drawBarrel(b);
   for (const c of game.chests) drawChest(c);
   for (const item of game.loot) drawLoot(item);
   for (const e of game.enemies) drawEnemy(e);
@@ -908,16 +1350,40 @@ function draw() {
   drawProjectiles();
   for (const part of game.particles) { ctx.globalAlpha = part.life / part.maxLife; ctx.fillStyle = part.color; ctx.fillRect(part.x, part.y, 3, 3); } ctx.globalAlpha = 1;
   ctx.restore();
+  drawWeather(camera, w, h);
+  if (game.boss) {
+    const e = game.boss, bw = Math.min(420, w - 80), x = (w - bw) / 2;
+    ctx.fillStyle = '#10251cd0'; ctx.fillRect(x - 4, 14, bw + 8, 16);
+    ctx.fillStyle = e.phase === 2 ? '#e0634e' : '#e9a071'; ctx.fillRect(x, 18, bw * Math.max(0, e.hp) / e.maxHp, 8);
+    ctx.fillStyle = '#f3ecd0'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`${t('enemy.boss')}${e.phase === 2 ? ' · II' : ''}`, w / 2, 46);
+  }
   if (game.flash > 0) { ctx.fillStyle = `rgba(226,71,62,${game.flash * .48})`; ctx.fillRect(0, 0, w, h); }
   if (game.mode === 'playing' && game.mouse.active) {
     ctx.strokeStyle = '#f1edcaaa'; ctx.lineWidth = 1.5; const x = game.mouse.x, y = game.mouse.y;
     ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.moveTo(x - 16, y); ctx.lineTo(x - 6, y); ctx.moveTo(x + 6, y); ctx.lineTo(x + 16, y); ctx.moveTo(x, y - 16); ctx.lineTo(x, y - 6); ctx.moveTo(x, y + 6); ctx.lineTo(x, y + 16); ctx.stroke();
   }
 }
+// Night limits the view to a lit circle around the player; rain adds falling streaks (rendering only).
+function drawWeather(camera, w, h) {
+  const v = CONFIG.variants[game.variant], p = game.player;
+  if (v.vision && p) {
+    const cx = p.x - camera.x, cy = p.y - camera.y, g = ctx.createRadialGradient(cx, cy, v.vision * .45, cx, cy, v.vision);
+    g.addColorStop(0, 'rgba(6,12,20,0)'); g.addColorStop(1, 'rgba(6,12,20,.92)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  }
+  if (game.variant === 'rain') {
+    ctx.strokeStyle = '#c8dcff38'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 0; i < 110; i++) { const x = (i * 137.5 + game.time * 90) % (w + 40) - 20, y = (i * 97.3 + game.time * 640) % (h + 40) - 20; ctx.moveTo(x, y); ctx.lineTo(x - 4, y + 14); }
+    ctx.stroke();
+  }
+}
 let last = performance.now();
 function frame(now) { const dt = Math.min((now - last) / 1000, .05); last = now; update(dt); draw(); requestAnimationFrame(frame); }
-$('startBtn').addEventListener('click', startGame);
-$('restartBtn').addEventListener('click', startGame);
+$('startBtn').addEventListener('click', () => startGame(false));
+$('dailyBtn').addEventListener('click', () => startGame(true));
+$('restartBtn').addEventListener('click', () => startGame(!!game.daily));
+$('menuBtn').addEventListener('click', () => { game.mode = 'menu'; UI.end.hidden = true; UI.start.hidden = false; renderMenu(); });
+$('shareBtn').addEventListener('click', copyShare);
 $('shopBtn').addEventListener('click', () => { if (game.mode === 'playing' || game.mode === 'shop') toggleShop(); });
 $('closeShop').addEventListener('click', toggleShop);
 for (const tab of document.querySelectorAll('[data-shop-tab]')) tab.addEventListener('click', () => { game.shopTab = tab.dataset.shopTab; renderShop(); });
@@ -934,6 +1400,7 @@ window.addEventListener('keydown', event => {
   if (key === 'b' && !event.repeat) toggleShop();
   else if (key === 'escape' && game.mode === 'shop') toggleShop();
   else if ((key === 'm' || key === 'n') && !event.repeat) { sound.toggle(key === 'm' ? 'music' : 'sfx'); renderSettings(); }
+  else if (game.mode === 'perk' && !event.repeat && key >= '1' && key <= String(CONFIG.perks.offer)) choosePerk(Number(key) - 1);
   else if (game.mode === 'playing' && !event.repeat && key >= '1' && key <= String(GUN_KEYS.length)) equip(GUN_KEYS[Number(key) - 1]);
   else if (game.mode === 'playing' && key === 'q' && !event.repeat) cycleWeapon();
   else game.keys.add(key);
@@ -955,6 +1422,6 @@ for (const link of document.querySelectorAll('[data-lang]')) link.addEventListen
   if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; // keep open-in-new-tab
   event.preventDefault(); link.blur(); if (link.dataset.lang !== locale) applyLocale(link.dataset.lang);
 });
-if (locale === DEFAULT_LOCALE) renderSettings(); else applyLocale(locale);
+if (locale === DEFAULT_LOCALE) { renderSettings(); renderMenu(); } else applyLocale(locale);
 new ResizeObserver(resize).observe(arena); resize(); requestAnimationFrame(frame);
 })();
