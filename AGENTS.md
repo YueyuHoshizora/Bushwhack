@@ -21,6 +21,7 @@
 | `tools/build-pages.mjs` | 產生 `index.html` 與 `sitemap.xml` |
 | `index.html`、`sitemap.xml` | **產生檔，勿手動編輯** |
 | `robots.txt`、`CNAME`、`assets/og-cover.{svg,png}` | 靜態檔 |
+| `.nojekyll` | 空檔，停用 GitHub Pages 的 Jekyll 處理；**不可刪除**，否則 Markdown 文件中的 `{{…}}` 會被 Liquid 解析而導致建置失敗 |
 | `DESIGN.md`、`README.md` | 必須與程式同步更新 |
 | `ACCEPTANCE.md` | 驗收紀錄：對應企劃 Q1–Q14 與後續需求的實測結果，必須與目前版本相符 |
 
@@ -64,5 +65,5 @@
 
 ## 部署注意
 
-- 推送 `main` 後 GitHub Pages 自動建置；Cloudflare 若仍快取舊的 `index.html`，清除 `/` 的快取。
+- 推送 `main` 後 GitHub Pages 直接發布靜態檔（`.nojekyll` 停用 Jekyll）；推送後以 `gh api repos/YueyuHoshizora/bushwhack/pages/builds/latest` 確認 `status: built`。Cloudflare 若仍快取舊的 `index.html`，清除 `/` 的快取。
 - 社群分享預覽爬蟲不執行 JavaScript，任何語系網址的 OG／Twitter 文字皆為預設語系（繁體中文）。

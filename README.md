@@ -34,7 +34,7 @@ node tools/build-pages.mjs
 2. 在 Cloudflare 的 `yustellar.dev` DNS 新增 `bushwhack` CNAME，目標為 `yueyuhoshizora.github.io`；先使用 **DNS only**（灰雲）完成 GitHub Pages 的網域驗證及憑證簽發，再改為 **Proxied**（橘雲）提供 CDN 快取。Cloudflare SSL/TLS 模式選 **Full (strict)**，避免 Flexible 引起重導迴圈。
 3. 開啟 `https://bushwhack.yustellar.dev/`，確認遊戲與分享圖片可載入。推送程式碼不會自動完成 GitHub Pages 啟用或 Cloudflare DNS 設定。
 
-遊戲檔案使用相對路徑；Cloudflare 僅代理／快取靜態檔案，不需要 Workers、API 或伺服器。`index.html` 本身若仍被快取成舊版，清除 Cloudflare 對 `/` 的快取。Cloudflare 快取規則需將查詢字串納入快取鍵（預設即是），或忽略 `lang` 參數皆可，因為三個語系回傳相同 HTML。
+遊戲檔案使用相對路徑；Cloudflare 僅代理／快取靜態檔案，不需要 Workers、API 或伺服器。根目錄的空檔 `.nojekyll` 讓 GitHub Pages 跳過 Jekyll、直接發布檔案（Markdown 文件含 `{{…}}` 範本語法，交給 Jekyll 會建置失敗），請勿刪除。`index.html` 本身若仍被快取成舊版，清除 Cloudflare 對 `/` 的快取。Cloudflare 快取規則需將查詢字串納入快取鍵（預設即是），或忽略 `lang` 參數皆可，因為三個語系回傳相同 HTML。
 
 ## 分享預覽
 
