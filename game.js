@@ -2374,7 +2374,8 @@ function drawSmoke() {
     }
   }
 }
-// Screen-edge arrows toward off-screen objectives (hold zone, marked officer, intel case / exit) and the black-market merchant.
+// Screen-edge arrows toward off-screen objectives (hold zone, marked officer, intel case / exit), the black-market merchant and the
+// wave's last enemy (once no reinforcements remain).
 function drawPointers(camera, w, h) {
   const ev = game.event, targets = [];
   if (ev?.started && !ev.done) {
@@ -2382,6 +2383,7 @@ function drawPointers(camera, w, h) {
     if (target) targets.push([target, ev.type === 'assassinate' ? '#ff8a6a' : '#f3d182']);
   }
   if (game.merchant) targets.push([game.merchant, '#6fb3a0']);
+  if (game.mode === 'playing' && game.waveRemaining <= 0 && game.enemies.length === 1) targets.push([game.enemies[0], '#ff5f4f']);
   for (const [target, color] of targets) {
     const sx = target.x - camera.x, sy = target.y - camera.y, m = 26;
     if (sx > 0 && sy > 0 && sx < w && sy < h) continue;
