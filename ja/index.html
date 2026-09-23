@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101c18">
+  <title>ブッシュワック Bushwhack</title>
+  <link rel="canonical" href="https://bushwhack.yustellar.dev/ja/">
+  <link rel="alternate" hreflang="zh-Hant" href="https://bushwhack.yustellar.dev/">
+  <link rel="alternate" hreflang="en" href="https://bushwhack.yustellar.dev/en/">
+  <link rel="alternate" hreflang="ja" href="https://bushwhack.yustellar.dev/ja/">
+  <link rel="alternate" hreflang="x-default" href="https://bushwhack.yustellar.dev/">
+  <meta name="description" content="ブッシュワックは見下ろし型のサバイバルシューター。敵を倒し、補給箱を漁り、草むらに潜み、武器を強化して次のウェーブへ。ブラウザですぐに遊べます。">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:locale:alternate" content="zh_TW">
+  <meta property="og:locale:alternate" content="en_US">
+  <meta property="og:site_name" content="ブッシュワック Bushwhack">
+  <meta property="og:url" content="https://bushwhack.yustellar.dev/ja/">
+  <meta property="og:title" content="ブッシュワック｜待ち伏せるか、待ち伏せられるか。">
+  <meta property="og:description" content="敵を撃ち、箱を漁り、草むらに消えろ。ブラウザで無料、押し寄せるウェーブを生き延びろ！">
+  <meta property="og:image" content="https://bushwhack.yustellar.dev/assets/og-cover.png">
+  <meta property="og:image:secure_url" content="https://bushwhack.yustellar.dev/assets/og-cover.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:alt" content="ブッシュワックのカバー画像：見下ろし視点の戦場で、プレイヤーが草むらと壁の間で敵と戦い補給箱を漁る。">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ブッシュワック｜待ち伏せるか、待ち伏せられるか。">
+  <meta name="twitter:description" content="敵を撃ち、箱を漁り、草むらに消えろ。ブラウザで無料、押し寄せるウェーブを生き延びろ！">
+  <meta name="twitter:image" content="https://bushwhack.yustellar.dev/assets/og-cover.png">
+  <meta name="twitter:image:alt" content="ブッシュワックのカバー画像：見下ろし視点の戦場で、プレイヤーが草むらと壁の間で敵と戦い補給箱を漁る。">
+  <link rel="license" href="../LICENSE">
+  <link rel="stylesheet" href="../style.css?v=a55b3720ab">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar"><div class="brand"><div class="brand-mark">✳</div><div class="brand-name">ブッシュワック<small>BUSHWHACK / FIELD OPS</small></div></div><div class="top-right"><span><i class="status-dot"></i> SINGLE PLAYER · OFFLINE READY</span><span class="divider"></span><nav class="lang-switch" aria-label="言語"><a href=".././" hreflang="zh-Hant" lang="zh-Hant">中文</a><a href="../en/" hreflang="en" lang="en">EN</a><a href="../ja/" hreflang="ja" lang="ja" aria-current="page">日本語</a></nav></div></header>
+    <main class="layout">
+      <section class="arena-column" aria-label="ゲームエリア"><div class="game-heading"><div><div class="eyebrow">TOP-DOWN SURVIVAL / 見下ろし型サバイバルシューター</div><h1>戦場へ。草むらに潜め。</h1></div><div class="wave-pill" id="wavePill">WAVE 01 / 待機</div></div>
+        <div class="arena-frame" id="arena"><canvas id="game" aria-label="ブッシュワックのゲーム画面"></canvas><div class="arena-tag">SECTOR <span>01</span> / THE OVERGROWTH</div><div class="toast" id="toast" role="status"></div><div class="arena-bottom"><div class="hint"><b>WASD</b> 移動　<b>左クリック</b> 射撃　<b>1–4 / Q / ホイール</b> 銃の切替　<b>B</b> 武器庫　<b>M</b> BGM　<b>N</b> 効果音</div><div class="minimap-note" id="fieldStatus">● 展開待ち</div></div>
+          <div class="overlay" id="startOverlay"><div class="dialog"><div class="eyebrow">MISSION 01 / SURVIVE THE WILD</div><h2>待ち伏せるか、待ち伏せられるか。</h2><p>敵が迫っている。敵を倒し補給箱を壊して、戦利品で銃・自動兵器・装備を手に入れよう。草むらでは発見されないが、撃てば位置がばれる。正面の弾を防ぐシールド兵は側面から叩け。</p><div class="controls"><span><span class="keycap">W A S D</span>移動</span><span><span class="keycap">MOUSE</span>照準 / 射撃</span><span><span class="keycap">1–4</span><span class="keycap">Q</span>銃の切替</span><span><span class="keycap">B</span>武器庫</span><span><span class="keycap">M</span>/<span class="keycap">N</span>BGM / 効果音</span></div><button class="primary-btn" id="startBtn">出撃 ↗</button></div></div>
+          <div class="overlay" id="shopOverlay" hidden><div class="dialog wide"><div class="dialog-head"><div><div class="eyebrow">ARMORY / FIELD UPGRADES</div><h2>武器庫</h2></div><button class="close-btn" id="closeShop" aria-label="武器庫を閉じる">✕　閉じる</button></div><div class="shop-balances"><span>ゴールド <b id="shopGold">0</b></span><span>パーツ <b id="shopScrap">0</b></span><span>一時停止中</span></div><div class="shop-tabs" role="tablist"><button class="tab-btn" role="tab" data-shop-tab="guns">銃</button><button class="tab-btn" role="tab" data-shop-tab="upgrade">強化</button><button class="tab-btn" role="tab" data-shop-tab="auto">自動兵器</button><button class="tab-btn" role="tab" data-shop-tab="gear">装備</button></div><div class="shop-grid" id="shopItems" role="tabpanel"></div></div></div>
+          <div class="overlay" id="endOverlay" hidden><div class="dialog"><div class="eyebrow">MISSION COMPLETE / 作戦終了</div><h2>戦場は待ってくれない。</h2><p>どのウェーブも新たなチャンス。補給箱、草むら、そして照準が生き残る鍵だ。</p><div class="summary"><span>到達ウェーブ<b id="endWave">01</b></span><span>撃破数<b id="endKills">0</b></span><span>獲得ゴールド<b id="endGold">0</b></span></div><button class="primary-btn" id="restartBtn">再出撃 ↗</button></div></div>
+        </div>
+      </section>
+      <aside class="sidebar"><section class="panel"><h2 class="section-title">ステータス <span class="index">01 / VITALS</span></h2><div class="health-line"><strong>体力</strong><span id="hpText">100 / 100</span></div><div class="meter"><div id="hpFill"></div></div><div class="health-line shield-line"><strong>エネルギーシールド</strong><span id="shieldText">—</span></div><div class="meter shield"><div id="shieldFill"></div></div><p class="health-caption" id="stealthText">状態：待機中</p><div class="hud-grid"><div class="hud-row"><span>ウェーブ</span><strong id="waveText">01</strong></div><div class="hud-row"><span>撃破</span><strong id="killsText">0</strong></div><div class="hud-row"><span>ゴールド</span><strong class="gold" id="goldText">0</strong></div><div class="hud-row"><span>パーツ</span><strong id="scrapText">0</strong></div></div></section>
+      <section class="panel"><h2 class="section-title">装備構成 <span class="index">02 / LOADOUT</span></h2><div class="weapon-name" id="weaponName">—</div><div class="weapon-sub" id="weaponTier">—</div><div class="stat-list"><div class="stat"><span>ダメージ</span><b id="damageStat">18</b></div><div class="stat"><span>連射</span><b id="rateStat">3.3/s</b></div><div class="stat"><span>弾数</span><b id="spreadStat">1</b></div><div class="stat"><span>射程</span><b id="rangeStat">480</b></div><div class="stat"><span>軽減</span><b id="armorStat">0%</b></div><div class="stat"><span>移動</span><b id="speedStat">100%</b></div></div><p class="auto-list" id="autoList"></p></section>
+      <section class="panel"><button class="shop-btn" id="shopBtn">武器庫 · 銃と装備 <span>↗ B</span></button><h2 class="section-title settings-title">設定 <span class="index">03 / SETTINGS</span></h2><div class="setting"><button class="toggle-btn" id="musicBtn" aria-pressed="true">BGM</button><input type="range" id="musicVolume" min="0" max="100" step="5" value="100" aria-label="BGM 音量"><output id="musicVolumeText">100%</output></div><div class="setting"><button class="toggle-btn" id="sfxBtn" aria-pressed="true">効果音</button><input type="range" id="sfxVolume" min="0" max="100" step="5" value="100" aria-label="効果音 音量"><output id="sfxVolumeText">100%</output></div></section>
+      <section class="panel intel"><h2 class="section-title">戦場ガイド <span class="index">04 / INTEL</span></h2><div class="legend"><span><i class="swatch" style="background:#88b578"></i>草むら / 隠密</span><span><i class="swatch" style="background:#689dab"></i>水たまり / 減速</span><span><i class="swatch" style="background:#afac8e"></i>石壁 / 遮蔽</span><span><i class="swatch" style="background:#e7bb68"></i>補給箱 / 報酬</span><span><i class="swatch round" style="background:#e99c77"></i>突撃兵</span><span><i class="swatch round" style="background:#c4a7db"></i>射手 / 遠距離</span><span><i class="swatch round" style="background:#f0d36b"></i>高速兵</span><span><i class="swatch round" style="background:#8fb3c9"></i>シールド兵 / 側面へ</span></div></section></aside>
+    </main><footer class="footer"><span>© 2026 YueyuHoshizora · <a href="../LICENSE">AGPL-3.0-only</a> · 無保証・ライセンスに従い再配布可 · <a href="https://github.com/YueyuHoshizora/bushwhack">ソースコード</a></span><span>キーボード + マウス　/　アカウント・ダウンロード不要</span></footer>
+  </div>
+  <script src="../i18n.js?v=a66d8b66a1"></script>
+  <script src="../game.js?v=694911bc25"></script>
+</body>
+</html>

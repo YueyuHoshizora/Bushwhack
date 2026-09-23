@@ -3,13 +3,28 @@
 // All gameplay and balance values live here. Rendering-only colors and layout live below.
 const CONFIG = Object.freeze({
   world: { width: 1800, height: 1200, grid: 30, walls: 11, wallWidth: [72, 128], wallHeight: [48, 88], ponds: { clusters: 4, pieces: [2, 4], size: [80, 130] }, bushes: { clusters: 8, pieces: [3, 6], size: [72, 118] }, clusterReach: 0.62, terrainGap: 20, spawnClearance: 200, borderMargin: 16, placementMargin: 42, spawnMargin: 65, terrainSpawnPadding: 12, chestSpacing: 65, placementAttempts: 250, spawnAttempts: 400 },
-  player: { hp: 100, radius: 15, speed: 245, invulnerability: 0.65, pickupRadius: 40, waterMultiplier: 0.5, revealSeconds: 2.4, shieldRegenDelay: 3, shieldRegenRate: 9 },
-  gun: { damage: 18, shotsPerSecond: 3.3, pellets: 1, spreadRadians: 0.14, range: 480, bulletSpeed: 800, bulletRadius: 4, damageStep: 6, rateStep: 0.65, rangeStep: 90 },
+  player: { hp: 100, radius: 15, speed: 245, invulnerability: 0.65, pickupRadius: 40, waterMultiplier: 0.5, revealSeconds: 2.4, shieldRegenDelay: 3, shieldRegenRate: 9, switchDelay: 0.25 },
+  // Shared weapon upgrades scale every gun: damage/rate/range are fractions of the gun's base value per level.
+  gun: { bulletRadius: 4, damageStep: 1 / 3, rateStep: 0.197, rangeStep: 0.1875 },
+  // Manual guns. Text lives in i18n.js under guns.<key>.*; color/sound/look are rendering hints.
+  weapons: {
+    rifle: { icon: '⟋', damage: 18, shotsPerSecond: 3.3, pellets: 1, spreadRadians: 0.14, jitter: 0, range: 480, bulletSpeed: 800, pierce: 0, shake: 2.5, gold: 0, scrap: 0, color: '#fff0af', sound: 'shoot' },
+    smg: { icon: '≡', damage: 8, shotsPerSecond: 9, pellets: 1, spreadRadians: 0.1, jitter: 0.09, range: 380, bulletSpeed: 860, pierce: 0, shake: 1.2, gold: 40, scrap: 3, color: '#ffe38a', sound: 'smg' },
+    shotgun: { icon: '⋔', damage: 11, shotsPerSecond: 1.25, pellets: 6, spreadRadians: 0.09, jitter: 0.03, range: 300, bulletSpeed: 720, pierce: 0, shake: 5, gold: 45, scrap: 4, color: '#ffc58a', sound: 'shotgun' },
+    rail: { icon: '⟶', damage: 70, shotsPerSecond: 0.9, pellets: 1, spreadRadians: 0.05, jitter: 0, range: 820, bulletSpeed: 1500, pierce: 2, shake: 4, gold: 65, scrap: 5, color: '#9fe3ff', sound: 'rail' }
+  },
+  // Automatic weapons: per-level arrays (index = level - 1). They never reveal the player and hold fire while the player is inside a bush (blades excepted).
+  autoWeapons: {
+    drone: { icon: '⌬', max: 3, gold: 35, scrap: 3, goldStep: 25, scrapStep: 2, damage: [10, 14, 18], rate: [1.8, 2.4, 3], range: 380, orbit: 34, orbitSpeed: 2.2, bulletSpeed: 700 },
+    blades: { icon: '✢', max: 3, gold: 30, scrap: 2, goldStep: 22, scrapStep: 2, damage: [12, 16, 20], count: [2, 3, 4], radius: 62, size: 9, spin: 3.2, hitCooldown: 0.45 },
+    missile: { icon: '➹', max: 3, gold: 45, scrap: 4, goldStep: 30, scrapStep: 2, damage: [30, 40, 52], interval: [2.4, 1.9, 1.5], range: 520, blast: 70, speed: 360, turn: 4.5, life: 3 },
+    tesla: { icon: 'ϟ', max: 3, gold: 40, scrap: 3, goldStep: 28, scrapStep: 2, damage: [16, 21, 27], interval: [1.5, 1.25, 1], range: 190, chains: [2, 3, 4], chainRange: 130 }
+  },
   enemies: {
-    melee: { title: '突擊兵', hp: 42, speed: 94, radius: 16, sight: 305, reach: 30, damage: 9, cooldown: 1.05, wanderSpeed: 0.45, bounty: 1, color: '#e99c77' },
-    ranged: { title: '射手', hp: 32, speed: 76, radius: 15, sight: 365, reach: 270, damage: 8, cooldown: 1.9, projectileSpeed: 310, projectileRadius: 5, retreatRatio: 0.52, retreatSpeed: 0.65, wanderSpeed: 0.35, bounty: 1.1, color: '#c4a7db' },
-    runner: { title: '高速兵', hp: 24, speed: 178, radius: 12, sight: 340, reach: 26, damage: 6, cooldown: 0.7, wanderSpeed: 0.55, weave: 0.55, weaveSpeed: 7, bounty: 1, color: '#f0d36b' },
-    shield: { title: '護盾兵', hp: 64, speed: 66, radius: 18, sight: 300, reach: 32, damage: 13, cooldown: 1.25, wanderSpeed: 0.4, turnRate: 1.7, shieldHp: 90, shieldArc: 1.15, bounty: 1.8, color: '#8fb3c9' },
+    melee: { hp: 42, speed: 94, radius: 16, sight: 305, reach: 30, damage: 9, cooldown: 1.05, wanderSpeed: 0.45, bounty: 1, color: '#e99c77' },
+    ranged: { hp: 32, speed: 76, radius: 15, sight: 365, reach: 270, damage: 8, cooldown: 1.9, projectileSpeed: 310, projectileRadius: 5, retreatRatio: 0.52, retreatSpeed: 0.65, wanderSpeed: 0.35, bounty: 1.1, color: '#c4a7db' },
+    runner: { hp: 24, speed: 178, radius: 12, sight: 340, reach: 26, damage: 6, cooldown: 0.7, wanderSpeed: 0.55, weave: 0.55, weaveSpeed: 7, bounty: 1, color: '#f0d36b' },
+    shield: { hp: 64, speed: 66, radius: 18, sight: 300, reach: 32, damage: 13, cooldown: 1.25, wanderSpeed: 0.4, turnRate: 1.7, shieldHp: 90, shieldArc: 1.15, bounty: 1.8, color: '#8fb3c9' },
     wanderInterval: [1.8, 3.6], alertSeconds: 0.28, loseTargetSeconds: 2.5, bushRevealDistance: 110, healthPerWave: 0.14, damagePerWave: 0.095
   },
   waves: {
@@ -27,20 +42,23 @@ const CONFIG = Object.freeze({
   chests: { minimum: 2, maximum: 4, initial: 3, radius: 23, hpBase: 23, hpPerWave: 3, replenishSeconds: 5, spawnDistance: 130 },
   loot: { coinEnemy: [3, 6], coinChest: [8, 13], scrapEnemyChance: 0.38, scrapChest: [1, 2], healChestChance: 0.28, healAmount: 18, pickupLifetime: 30 },
   upgrades: {
-    damage: { title: '高能彈頭', icon: '✦', description: '每發傷害 +6', max: 5, gold: 12, scrap: 1, goldStep: 10, scrapStep: 1 },
-    rate: { title: '急速槍機', icon: '≋', description: '每秒射擊 +0.65 發', max: 5, gold: 14, scrap: 1, goldStep: 11, scrapStep: 1 },
-    spread: { title: '多重槍管', icon: '❖', description: '每次射擊 +1 發散射彈', max: 5, gold: 18, scrap: 2, goldStep: 15, scrapStep: 1 },
-    range: { title: '長程瞄具', icon: '⌖', description: '射程 +90', max: 5, gold: 11, scrap: 1, goldStep: 9, scrapStep: 1 }
+    damage: { icon: '✦', max: 5, gold: 12, scrap: 1, goldStep: 10, scrapStep: 1 },
+    rate: { icon: '≋', max: 5, gold: 14, scrap: 1, goldStep: 11, scrapStep: 1 },
+    spread: { icon: '❖', max: 5, gold: 18, scrap: 2, goldStep: 15, scrapStep: 1 },
+    range: { icon: '⌖', max: 5, gold: 11, scrap: 1, goldStep: 9, scrapStep: 1 }
   },
   gear: {
-    helmet: { title: '戰術頭盔', icon: '◓', description: '受到傷害 -10%', max: 3, gold: 20, scrap: 2, goldStep: 16, scrapStep: 1, reduction: 0.1 },
-    vest: { title: '防彈背心', icon: '▣', description: '最大生命 +25，並補上增加量', max: 3, gold: 22, scrap: 2, goldStep: 16, scrapStep: 1, hp: 25 },
-    shield: { title: '能量護盾', icon: '◈', description: '護盾容量 +20，先於生命承受傷害；3 秒未受傷自動充能', max: 3, gold: 26, scrap: 3, goldStep: 18, scrapStep: 2, capacity: 20 },
-    boots: { title: '輕量戰靴', icon: '➶', description: '移動速度 +8%', max: 3, gold: 16, scrap: 1, goldStep: 12, scrapStep: 1, speed: 0.08 },
-    medkit: { title: '急救包', icon: '✚', description: '立即恢復 40 生命（可重複購買）', consumable: true, gold: 15, scrap: 0, heal: 40 }
+    helmet: { icon: '◓', max: 3, gold: 20, scrap: 2, goldStep: 16, scrapStep: 1, reduction: 0.1 },
+    vest: { icon: '▣', max: 3, gold: 22, scrap: 2, goldStep: 16, scrapStep: 1, hp: 25 },
+    shield: { icon: '◈', max: 3, gold: 26, scrap: 3, goldStep: 18, scrapStep: 2, capacity: 20 },
+    boots: { icon: '➶', max: 3, gold: 16, scrap: 1, goldStep: 12, scrapStep: 1, speed: 0.08 },
+    medkit: { icon: '✚', consumable: true, gold: 15, scrap: 0, heal: 40 }
   },
   audio: { master: 0.5, music: 0.3, sfx: 0.7, duck: 0.35, tempo: 140, falloff: 900 }
 });
+// UI text comes from i18n.js; the page's <html lang> (set per locale path by tools/build-pages.mjs) selects the dictionary.
+const STRINGS = (globalThis.BUSHWHACK_I18N[document.documentElement.lang] || globalThis.BUSHWHACK_I18N['zh-Hant']).game;
+const t = (key, vars = {}) => (STRINGS[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => vars[name] ?? `{${name}}`);
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d'), arena = $('arena');
 const UI = { start: $('startOverlay'), shop: $('shopOverlay'), end: $('endOverlay'), toast: $('toast') };
@@ -52,7 +70,7 @@ const circleRect = (x, y, radius, r) => Math.hypot(x - clamp(x, r.x, r.x + r.w),
 const overlap = (a, b, gap = 0) => a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y;
 const rectCenter = r => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 const worldCenter = { x: CONFIG.world.width / 2, y: CONFIG.world.height / 2 };
-const game = { mode: 'menu', wave: 1, walls: [], ponds: [], bushes: [], enemies: [], bullets: [], chests: [], loot: [], particles: [], keys: new Set(), mouse: { x: 0, y: 0, down: false, active: false }, player: null, kills: 0, earned: 0, waveRemaining: 0, spawnTimer: 0, nextWave: 0, chestTimer: 0, time: 0, flash: 0, shake: 0, toastUntil: 0 };
+const game = { mode: 'menu', wave: 1, walls: [], ponds: [], bushes: [], enemies: [], bullets: [], missiles: [], arcs: [], chests: [], loot: [], particles: [], shopTab: 'guns', keys: new Set(), mouse: { x: 0, y: 0, down: false, active: false }, player: null, kills: 0, earned: 0, waveRemaining: 0, spawnTimer: 0, nextWave: 0, chestTimer: 0, time: 0, flash: 0, shake: 0, toastUntil: 0 };
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 // Chiptune synth: every sound is generated with WebAudio oscillators and a noise buffer; no audio files.
 const sound = (() => {
@@ -113,7 +131,15 @@ const sound = (() => {
     chest: t => notes(sfxBus, [72, 76, 79, 84, 88], t, .045, .08, .09, pulse25),
     buy: t => notes(sfxBus, [79, 83, 86, 91], t, .04, .08, .1, pulse12),
     wave: t => notes(sfxBus, [69, 73, 76, 81], t, .09, .14, .09, pulse25),
-    gameOver: t => notes(sfxBus, [67, 64, 60, 55], t, .18, .3, .12, pulse25)
+    gameOver: t => notes(sfxBus, [67, 64, 60, 55], t, .18, .3, .12, pulse25),
+    smg: (t, v) => { tone(sfxBus, { wave: pulse12, from: 1400, to: 500, at: t, dur: .045, vol: .14 * v }); hiss(sfxBus, { at: t, dur: .03, vol: .07 * v, freq: 3500 }); },
+    shotgun: (t, v) => { hiss(sfxBus, { at: t, dur: .2, vol: .3 * v, filter: 'lowpass', freq: 2400 }); tone(sfxBus, { from: 220, to: 60, at: t, dur: .16, vol: .2 * v }); },
+    rail: (t, v) => { tone(sfxBus, { wave: pulse25, from: 2400, to: 300, at: t, dur: .22, vol: .18 * v }); tone(sfxBus, { type: 'triangle', from: 90, to: 50, at: t, dur: .2, vol: .3 * v }); },
+    drone: (t, v) => tone(sfxBus, { wave: pulse12, from: 1800, to: 900, at: t, dur: .04, vol: .07 * v }),
+    missile: (t, v) => hiss(sfxBus, { at: t, dur: .25, vol: .12 * v, filter: 'bandpass', freq: 1200 }),
+    explosion: (t, v) => { hiss(sfxBus, { at: t, dur: .4, vol: .32 * v, filter: 'lowpass', freq: 900 }); tone(sfxBus, { type: 'triangle', from: 160, to: 40, at: t, dur: .3, vol: .3 * v }); },
+    zap: (t, v) => { tone(sfxBus, { type: 'sawtooth', from: 900, to: 2400, at: t, dur: .08, vol: .1 * v }); hiss(sfxBus, { at: t, dur: .1, vol: .1 * v, filter: 'bandpass', freq: 5000 }); },
+    blade: (t, v) => tone(sfxBus, { type: 'triangle', from: 1300, to: 700, at: t, dur: .05, vol: .12 * v })
   };
   function playStep(s, t, len) {
     const bar = s >> 4, beat = s & 15, chord = chords[bar % 4], note = leadSteps[s];
@@ -259,7 +285,7 @@ function spawnEnemy() {
   if (!pos) return false;
   const kind = pickEnemyKind(), stats = CONFIG.enemies[kind];
   const hp = Math.round(stats.hp * waveScale()), shieldHp = Math.round((stats.shieldHp || 0) * waveScale());
-  game.enemies.push({ ...pos, kind, radius: stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, lost: 0, cooldown: rand(0, .6), hit: 0, blocked: 0 });
+  game.enemies.push({ ...pos, kind, radius: stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, lost: 0, cooldown: rand(0, .6), hit: 0, blocked: 0, bladeCooldown: 0 });
   return true;
 }
 function waveSize(wave) {
@@ -270,75 +296,108 @@ function startWave() {
   game.waveRemaining = waveSize(game.wave);
   game.spawnTimer = CONFIG.waves.initialSpawnDelay; game.nextWave = 0;
   const fresh = CONFIG.waves.roster.find(r => r.from === game.wave && r.from > 1);
-  notify(fresh ? `第 ${game.wave} 波 · 新敵情：${CONFIG.enemies[fresh.kind].title}` : `第 ${game.wave} 波敵人來襲`);
+  notify(fresh ? t('toast.newEnemy', { wave: game.wave, name: t(`enemy.${fresh.kind}`) }) : t('toast.wave', { wave: game.wave }));
   sound.play('wave');
 }
 function startGame() {
   sound.init();
   game.mode = 'playing'; game.time = 0; game.wave = 1; game.kills = 0; game.earned = 0;
-  game.enemies = []; game.bullets = []; game.chests = []; game.loot = []; game.particles = [];
+  game.enemies = []; game.bullets = []; game.missiles = []; game.arcs = []; game.chests = []; game.loot = []; game.particles = [];
   game.keys.clear(); game.mouse.down = false; game.chestTimer = 0; game.flash = 0;
-  const levels = Object.fromEntries([...Object.keys(CONFIG.upgrades), ...Object.keys(CONFIG.gear)].map(key => [key, 0]));
-  game.player = { ...worldCenter, radius: CONFIG.player.radius, hp: CONFIG.player.hp, maxHp: CONFIG.player.hp, shield: 0, lastHurt: 0, gold: 0, scrap: 0, levels, cooldown: 0, invulnerable: 0, revealedUntil: 0, facing: 0 };
+  const levels = Object.fromEntries([...Object.keys(CONFIG.upgrades), ...Object.keys(CONFIG.gear), ...Object.keys(CONFIG.autoWeapons)].map(key => [key, 0]));
+  const autoCooldowns = Object.fromEntries(Object.keys(CONFIG.autoWeapons).map(key => [key, 0]));
+  game.player = { ...worldCenter, radius: CONFIG.player.radius, hp: CONFIG.player.hp, maxHp: CONFIG.player.hp, shield: 0, lastHurt: 0, gold: 0, scrap: 0, levels, weapon: 'rifle', owned: new Set(['rifle']), autoCooldowns, cooldown: 0, invulnerable: 0, revealedUntil: 0, facing: 0 };
   generateMap();
   for (let i = 0; i < Math.min(CONFIG.chests.initial, CONFIG.chests.maximum); i++) spawnChest();
   UI.start.hidden = true; UI.end.hidden = true; UI.shop.hidden = true;
   sound.music('play'); startWave(); updateHUD();
 }
 function notify(text) { UI.toast.textContent = text; UI.toast.classList.add('show'); game.toastUntil = performance.now() + 1900; }
-function gunStats() {
-  const l = game.player.levels, g = CONFIG.gun;
-  return { damage: g.damage + l.damage * g.damageStep, shotsPerSecond: g.shotsPerSecond + l.rate * g.rateStep, pellets: g.pellets + l.spread, range: g.range + l.range * g.rangeStep };
+function gunStats(key = game.player.weapon) {
+  const l = game.player.levels, g = CONFIG.gun, w = CONFIG.weapons[key];
+  return { ...w, damage: Math.round(w.damage * (1 + l.damage * g.damageStep)), shotsPerSecond: w.shotsPerSecond * (1 + l.rate * g.rateStep), pellets: w.pellets + l.spread, range: Math.round(w.range * (1 + l.range * g.rangeStep)) };
 }
 function gearStats() {
   const l = game.player.levels, g = CONFIG.gear;
   return { reduction: l.helmet * g.helmet.reduction, maxShield: l.shield * g.shield.capacity, speed: 1 + l.boots * g.boots.speed };
 }
 function itemCost(item, level) {
-  return item.consumable ? { gold: item.gold, scrap: item.scrap } : { gold: item.gold + level * item.goldStep, scrap: item.scrap + level * item.scrapStep };
+  return item.goldStep === undefined ? { gold: item.gold, scrap: item.scrap } : { gold: item.gold + level * item.goldStep, scrap: item.scrap + level * item.scrapStep };
 }
-function purchase(key, item) {
-  const p = game.player, level = p.levels[key], cost = itemCost(item, level);
-  if (game.mode !== 'shop' || p.gold < cost.gold || p.scrap < cost.scrap) return;
-  if (item.consumable ? p.hp >= p.maxHp : level >= item.max) return;
+// Description variables for each shop entry; auto weapons describe the next level (or the current one at max).
+function itemVars(group, key, item, level) {
+  const pct = n => Math.round(n * 100);
+  if (group === 'upgrade') return { pct: pct(CONFIG.gun[`${key}Step`] ?? 0) };
+  if (group === 'gear') return { pct: pct(item.reduction ?? item.speed ?? 0), hp: item.hp, cap: item.capacity, delay: CONFIG.player.shieldRegenDelay, heal: item.heal };
+  if (group === 'auto') {
+    const i = Math.min(level, item.max - 1);
+    return { damage: item.damage[i], rate: item.rate?.[i], count: item.count?.[i], interval: item.interval?.[i], chains: item.chains?.[i], range: item.range };
+  }
+  const s = gunStats(key);
+  return { damage: s.damage, rate: s.shotsPerSecond.toFixed(1), pellets: s.pellets, range: s.range };
+}
+const SHOP_TABS = { guns: 'weapons', upgrade: 'upgrades', auto: 'autoWeapons', gear: 'gear' };
+function equip(key) {
+  const p = game.player;
+  if (!p.owned.has(key) || p.weapon === key) return;
+  p.weapon = key; p.cooldown = Math.max(p.cooldown, CONFIG.player.switchDelay);
+  notify(t('toast.equip', { name: t(`guns.${key}.title`) })); updateHUD();
+}
+function cycleWeapon() {
+  const owned = Object.keys(CONFIG.weapons).filter(key => game.player.owned.has(key));
+  equip(owned[(owned.indexOf(game.player.weapon) + 1) % owned.length]);
+}
+function purchase(group, key, item) {
+  const p = game.player;
+  if (game.mode !== 'shop') return;
+  if (group === 'guns' && p.owned.has(key)) { equip(key); renderShop(); return; }
+  const level = group === 'guns' ? 0 : p.levels[key], cost = itemCost(item, level);
+  if (p.gold < cost.gold || p.scrap < cost.scrap) return;
+  if (item.consumable ? p.hp >= p.maxHp : group !== 'guns' && level >= item.max) return;
   p.gold -= cost.gold; p.scrap -= cost.scrap;
-  if (key === 'medkit') { p.hp = Math.min(p.maxHp, p.hp + item.heal); notify(`${item.title}：生命恢復`); }
+  if (group === 'guns') { p.owned.add(key); equip(key); }
+  else if (key === 'medkit') { p.hp = Math.min(p.maxHp, p.hp + item.heal); notify(t('toast.healed', { name: t('gear.medkit.title') })); }
   else {
     p.levels[key]++;
     if (key === 'vest') { p.maxHp += item.hp; p.hp += item.hp; }
     if (key === 'shield') p.shield = gearStats().maxShield;
-    notify(`${item.title}升級至 LV. ${p.levels[key]}`);
+    notify(t('toast.upgraded', { name: t(`${group}.${key}.title`), level: p.levels[key] }));
   }
   burst(p.x, p.y, '#e9e597', 17); sound.play('buy');
   updateHUD(); renderShop();
 }
-function shopRow(key, item) {
-  const p = game.player, level = p.levels[key], cost = itemCost(item, level);
-  const full = item.consumable ? p.hp >= p.maxHp : level >= item.max;
+function shopRow(group, key, item) {
+  const p = game.player, gun = group === 'guns', level = gun ? 0 : p.levels[key], cost = itemCost(item, level);
+  const owned = gun && p.owned.has(key), full = item.consumable ? p.hp >= p.maxHp : !gun && level >= item.max;
   const row = document.createElement('div'); row.className = 'upgrade';
   const info = document.createElement('div');
-  info.innerHTML = `<div class="upgrade-title"><span class="upgrade-icon">${item.icon}</span>${item.title} <small>${item.consumable ? '消耗品' : `LV. ${level}/${item.max}`}</small></div><p>${item.description}</p>`;
+  const tag = gun ? (p.weapon === key ? t('shop.equipped') : owned ? t('shop.owned') : t('shop.gun')) : item.consumable ? t('shop.consumable') : `LV. ${level}/${item.max}`;
+  const vars = itemVars(group, key, item, level);
+  const next = group === 'auto' && level > 0 && level < item.max ? t('shop.nextLevel') : '';
+  info.innerHTML = `<div class="upgrade-title"><span class="upgrade-icon">${item.icon}</span>${t(`${group}.${key}.title`)} <small>${tag}</small></div><p>${next}${t(`${group}.${key}.desc`, vars)}${gun ? `<br>${t('shop.gunStats', vars)}` : ''}</p>`;
   const button = document.createElement('button'); button.className = 'buy-btn';
-  button.textContent = full ? (item.consumable ? '生命已滿' : '已達上限') : cost.scrap ? `${cost.gold} 金 / ${cost.scrap} 零件` : `${cost.gold} 金`;
-  button.disabled = full || p.gold < cost.gold || p.scrap < cost.scrap;
-  button.addEventListener('click', () => purchase(key, item));
+  if (owned) { button.textContent = p.weapon === key ? t('shop.inUse') : t('shop.switch'); button.disabled = p.weapon === key; }
+  else {
+    button.textContent = full ? (item.consumable ? t('shop.hpFull') : t('shop.maxed')) : cost.scrap ? t('shop.cost', cost) : t('shop.costGold', cost);
+    button.disabled = full || p.gold < cost.gold || p.scrap < cost.scrap;
+  }
+  button.addEventListener('click', () => purchase(group, key, item));
   row.append(info, button); return row;
 }
 function renderShop() {
   const p = game.player;
   $('shopGold').textContent = p.gold; $('shopScrap').textContent = p.scrap;
-  $('upgradeList').replaceChildren(...Object.entries(CONFIG.upgrades).map(([key, item]) => shopRow(key, item)));
-  $('gearList').replaceChildren(...Object.entries(CONFIG.gear).map(([key, item]) => shopRow(key, item)));
+  for (const tab of document.querySelectorAll('[data-shop-tab]')) tab.setAttribute('aria-selected', tab.dataset.shopTab === game.shopTab);
+  $('shopItems').replaceChildren(...Object.entries(CONFIG[SHOP_TABS[game.shopTab]]).map(([key, item]) => shopRow(game.shopTab, key, item)));
 }
 function toggleShop() {
   if (game.mode === 'playing') { game.mode = 'shop'; game.mouse.down = false; renderShop(); UI.shop.hidden = false; sound.music('duck'); }
   else if (game.mode === 'shop') { game.mode = 'playing'; UI.shop.hidden = true; game.keys.clear(); sound.music('play'); }
 }
-const AUDIO_LABELS = { music: '♪ 音樂', sfx: '◉ 音效' };
 function renderSettings() {
   for (const kind of ['music', 'sfx']) {
     const button = $(`${kind}Btn`), slider = $(`${kind}Volume`);
-    button.textContent = `${AUDIO_LABELS[kind]} ${sound.enabled[kind] ? '開' : '關'}`; button.setAttribute('aria-pressed', sound.enabled[kind]);
+    button.textContent = t(`settings.${kind}.${sound.enabled[kind] ? 'on' : 'off'}`); button.setAttribute('aria-pressed', sound.enabled[kind]);
     slider.value = sound.volume[kind]; slider.disabled = !sound.enabled[kind];
     $(`${kind}VolumeText`).textContent = `${sound.volume[kind]}%`;
   }
@@ -348,18 +407,22 @@ function updateHUD() {
   const p = game.player, gun = gunStats(), gear = gearStats(), total = Object.keys(CONFIG.upgrades).reduce((sum, key) => sum + p.levels[key], 0);
   $('hpText').textContent = `${Math.ceil(p.hp)} / ${p.maxHp}`;
   $('hpFill').style.width = `${100 * Math.max(0, p.hp) / p.maxHp}%`;
-  $('shieldText').textContent = gear.maxShield ? `${Math.floor(p.shield)} / ${gear.maxShield}` : '未配備';
+  $('shieldText').textContent = gear.maxShield ? `${Math.floor(p.shield)} / ${gear.maxShield}` : t('hud.noShield');
   $('shieldFill').style.width = `${gear.maxShield ? 100 * p.shield / gear.maxShield : 0}%`;
   $('waveText').textContent = String(game.wave).padStart(2, '0');
-  $('wavePill').textContent = `WAVE ${String(game.wave).padStart(2, '0')} / ${game.nextWave ? '整備中' : '作戰中'}`;
+  $('wavePill').textContent = `WAVE ${String(game.wave).padStart(2, '0')} / ${t(game.nextWave ? 'hud.intermission' : 'hud.combat')}`;
   $('killsText').textContent = game.kills; $('goldText').textContent = p.gold; $('scrapText').textContent = p.scrap;
   $('damageStat').textContent = gun.damage; $('rateStat').textContent = `${gun.shotsPerSecond.toFixed(1)}/s`;
   $('spreadStat').textContent = gun.pellets; $('rangeStat').textContent = gun.range;
   $('armorStat').textContent = `${Math.round(gear.reduction * 100)}%`; $('speedStat').textContent = `${Math.round(gear.speed * 100)}%`;
-  $('weaponTier').textContent = `FIELD STANDARD / LV. ${total}`;
-  const hidden = isHidden();
-  $('stealthText').textContent = hidden ? '狀態：草叢隱匿 · 敵人無法偵測' : inTerrain(p, game.bushes) ? '狀態：已暴露 · 停火後重新隱匿' : inTerrain(p, game.ponds) ? '狀態：涉水中 · 移動速度降低' : '狀態：暴露於戰場';
-  $('fieldStatus').textContent = hidden ? '● CONCEALED / 隱匿' : `● HOSTILES ${game.enemies.length + game.waveRemaining}`;
+  $('weaponName').textContent = t(`guns.${p.weapon}.title`);
+  $('weaponTier').textContent = t('hud.weaponTier', { owned: p.owned.size, total: Object.keys(CONFIG.weapons).length, level: total });
+  const autos = Object.entries(CONFIG.autoWeapons).filter(([key]) => p.levels[key]);
+  $('autoList').textContent = `${t('hud.auto')}${autos.length ? autos.map(([key, item]) => `${item.icon} ${p.levels[key]}`).join('　') : t('hud.none')}`;
+  $('autoList').title = autos.map(([key]) => `${t(`auto.${key}.title`)} LV. ${p.levels[key]}`).join('\n');
+  const hidden = isHidden(), inBush = inTerrain(p, game.bushes), holding = inBush && autos.length ? t('hud.autoHold') : '';
+  $('stealthText').textContent = (hidden ? t('hud.hidden') : inBush ? t('hud.revealed') : inTerrain(p, game.ponds) ? t('hud.wading') : t('hud.exposed')) + holding;
+  $('fieldStatus').textContent = hidden ? t('hud.concealed') : `● HOSTILES ${game.enemies.length + game.waveRemaining}`;
 }
 function inTerrain(entity, terrain) { return terrain.some(r => pointIn(entity.x, entity.y, r)); }
 function isHidden() { return !!game.player && inTerrain(game.player, game.bushes) && game.time >= game.player.revealedUntil; }
@@ -381,12 +444,11 @@ function shoot() {
   p.cooldown = 1 / gun.shotsPerSecond;
   p.revealedUntil = game.time + CONFIG.player.revealSeconds;
   for (let i = 0; i < gun.pellets; i++) {
-    const spread = (i - (gun.pellets - 1) / 2) * CONFIG.gun.spreadRadians;
-    const a = angle + spread, x = p.x + Math.cos(a) * 21, y = p.y + Math.sin(a) * 21;
-    game.bullets.push({ x, y, vx: Math.cos(a) * CONFIG.gun.bulletSpeed, vy: Math.sin(a) * CONFIG.gun.bulletSpeed, traveled: 0, range: gun.range, damage: gun.damage, radius: CONFIG.gun.bulletRadius, friendly: true });
+    const a = angle + (i - (gun.pellets - 1) / 2) * gun.spreadRadians + rand(-gun.jitter, gun.jitter), x = p.x + Math.cos(a) * 21, y = p.y + Math.sin(a) * 21;
+    game.bullets.push({ x, y, vx: Math.cos(a) * gun.bulletSpeed, vy: Math.sin(a) * gun.bulletSpeed, traveled: 0, range: gun.range, damage: gun.damage, radius: CONFIG.gun.bulletRadius, friendly: true, pierce: gun.pierce, hits: gun.pierce ? new Set() : null, color: gun.color, trail: p.weapon === 'rail' });
   }
   burst(p.x + Math.cos(angle) * 23, p.y + Math.sin(angle) * 23, '#f3e8aa', 5);
-  sound.play('shoot'); game.shake = 2.5; updateHUD();
+  sound.play(gun.sound); game.shake = gun.shake; updateHUD();
 }
 function burst(x, y, color, count) {
   for (let i = 0; i < count; i++) { const a = rand(0, Math.PI * 2), speed = rand(35, 160), life = rand(.2, .7); game.particles.push({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, color, life, maxLife: life }); }
@@ -404,7 +466,7 @@ function chestDeath(chest) {
   drop(chest.x, chest.y, 'gold', Math.floor(rand(l.coinChest[0], l.coinChest[1] + 1)));
   drop(chest.x, chest.y, 'scrap', Math.floor(rand(l.scrapChest[0], l.scrapChest[1] + 1)));
   if (Math.random() < l.healChestChance) drop(chest.x, chest.y, 'heal', l.healAmount);
-  burst(chest.x, chest.y, '#f2d782', 20); sound.play('chest'); notify('補給箱已開啟！拾取戰利品');
+  burst(chest.x, chest.y, '#f2d782', 20); sound.play('chest'); notify(t('toast.chest'));
 }
 // Frontal shields absorb friendly bullets that arrive within ±shieldArc of the bearer's facing until depleted.
 function damageEnemy(e, b) {
@@ -415,8 +477,89 @@ function damageEnemy(e, b) {
     else { burst(e.x + Math.cos(e.facing) * 20, e.y + Math.sin(e.facing) * 20, '#bfe3f5', 18); sound.play('shieldBreak', e); }
     return;
   }
-  e.hp -= b.damage; e.hit = .15; burst(e.x, e.y, stats.color, 4);
+  hitEnemyBody(e, b.damage);
+}
+// Direct body damage: used by bullets past the shield and by blades, missiles and arcs, which ignore frontal shields.
+function hitEnemyBody(e, damage) {
+  if (e.hp <= 0) return;
+  e.hp -= damage; e.hit = .15; burst(e.x, e.y, CONFIG.enemies[e.kind].color, 4);
   if (e.hp <= 0) enemyDeath(e); else sound.play('hit', e);
+}
+function damageChest(c, damage) {
+  if (c.hp <= 0) return;
+  c.hp -= damage; c.hit = .15; burst(c.x, c.y, '#efd58a', 4);
+  if (c.hp <= 0) chestDeath(c); else sound.play('hit', c);
+}
+function nearestEnemy(from, range, exclude) {
+  let best = null, bestDistance = range;
+  for (const e of game.enemies) {
+    const d = distance(from, e);
+    if (d < bestDistance && !exclude?.has(e) && clearSight(from, e)) { best = e; bestDistance = d; }
+  }
+  return best;
+}
+function dronePosition(p) {
+  const s = CONFIG.autoWeapons.drone, a = game.time * s.orbitSpeed;
+  return { x: p.x + Math.cos(a) * s.orbit, y: p.y + Math.sin(a) * s.orbit };
+}
+function bladePositions(p) {
+  const s = CONFIG.autoWeapons.blades, n = p.levels.blades ? s.count[p.levels.blades - 1] : 0;
+  return Array.from({ length: n }, (_, i) => { const a = game.time * s.spin + i * Math.PI * 2 / n; return { x: p.x + Math.cos(a) * s.radius, y: p.y + Math.sin(a) * s.radius, a }; });
+}
+function updateAutoWeapons(dt) {
+  const p = game.player, A = CONFIG.autoWeapons, l = p.levels, cd = p.autoCooldowns;
+  for (const key in cd) cd[key] -= dt;
+  if (l.blades) {
+    const s = A.blades, damage = s.damage[l.blades - 1];
+    for (const blade of bladePositions(p)) for (const e of [...game.enemies]) {
+      if (e.bladeCooldown <= 0 && Math.hypot(e.x - blade.x, e.y - blade.y) < e.radius + s.size) { e.bladeCooldown = s.hitCooldown; sound.play('blade', e); hitEnemyBody(e, damage); }
+    }
+  }
+  if (inTerrain(p, game.bushes)) return;
+  if (l.drone && cd.drone <= 0) {
+    const s = A.drone, from = dronePosition(p), target = nearestEnemy(from, s.range);
+    if (target) {
+      const a = Math.atan2(target.y - from.y, target.x - from.x);
+      game.bullets.push({ ...from, vx: Math.cos(a) * s.bulletSpeed, vy: Math.sin(a) * s.bulletSpeed, traveled: 0, range: s.range + 40, damage: s.damage[l.drone - 1], radius: 3, friendly: true, pierce: 0, hits: null, color: '#bfe8ff' });
+      cd.drone = 1 / s.rate[l.drone - 1]; sound.play('drone', from);
+    }
+  }
+  if (l.missile && cd.missile <= 0) {
+    const s = A.missile, target = nearestEnemy(p, s.range);
+    if (target) {
+      game.missiles.push({ x: p.x, y: p.y, angle: Math.atan2(target.y - p.y, target.x - p.x) + rand(-.7, .7), target, damage: s.damage[l.missile - 1], life: s.life });
+      cd.missile = s.interval[l.missile - 1]; sound.play('missile');
+    }
+  }
+  if (l.tesla && cd.tesla <= 0) {
+    const s = A.tesla, first = nearestEnemy(p, s.range);
+    if (first) {
+      const chain = [first], hit = new Set(chain);
+      while (chain.length < s.chains[l.tesla - 1]) { const next = nearestEnemy(chain.at(-1), s.chainRange, hit); if (!next) break; chain.push(next); hit.add(next); }
+      game.arcs.push({ points: [{ x: p.x, y: p.y }, ...chain.map(e => ({ x: e.x, y: e.y }))], life: .16 });
+      for (const e of chain) hitEnemyBody(e, s.damage[l.tesla - 1]);
+      cd.tesla = s.interval[l.tesla - 1]; sound.play('zap');
+    }
+  }
+}
+function explode(x, y, damage) {
+  const s = CONFIG.autoWeapons.missile;
+  burst(x, y, '#f6b36b', 22); burst(x, y, '#fff0c0', 8); sound.play('explosion', { x, y }); game.shake = Math.max(game.shake, 4);
+  for (const e of [...game.enemies]) if (Math.hypot(e.x - x, e.y - y) < s.blast + e.radius) hitEnemyBody(e, damage);
+  for (const c of [...game.chests]) if (Math.hypot(c.x - x, c.y - y) < s.blast + c.radius) damageChest(c, damage);
+}
+function updateMissiles(dt) {
+  const s = CONFIG.autoWeapons.missile;
+  for (let i = game.missiles.length - 1; i >= 0; i--) {
+    const m = game.missiles[i]; m.life -= dt;
+    if (!game.enemies.includes(m.target)) m.target = nearestEnemy(m, s.range);
+    if (m.target) m.angle += clamp(angleDiff(Math.atan2(m.target.y - m.y, m.target.x - m.x), m.angle), -s.turn * dt, s.turn * dt);
+    const nx = m.x + Math.cos(m.angle) * s.speed * dt, ny = m.y + Math.sin(m.angle) * s.speed * dt;
+    const wall = game.walls.some(r => lineRect(m.x, m.y, nx, ny, r)), hit = game.enemies.some(e => segmentCircle(m.x, m.y, nx, ny, e, e.radius + 4));
+    if (hit || wall || m.life <= 0 || !passable(nx, ny, 1)) { explode(m.x, m.y, m.damage); game.missiles.splice(i, 1); }
+    else { m.x = nx; m.y = ny; if (Math.random() < .5) game.particles.push({ x: m.x, y: m.y, vx: rand(-20, 20), vy: rand(-20, 20), color: '#d9d2c0', life: .35, maxLife: .35 }); }
+  }
+  for (let i = game.arcs.length - 1; i >= 0; i--) if ((game.arcs[i].life -= dt) <= 0) game.arcs.splice(i, 1);
 }
 function hurtPlayer(damage) {
   const p = game.player;
@@ -443,7 +586,7 @@ function steer(enemy, angle, speed, dt) {
 }
 function updateEnemy(e, dt) {
   const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), visible = !isHidden() && d < stats.sight && clearSight(e, p), melee = !stats.projectileSpeed;
-  e.cooldown -= dt; e.hit = Math.max(0, e.hit - dt); e.blocked = Math.max(0, e.blocked - dt);
+  e.cooldown -= dt; e.hit = Math.max(0, e.hit - dt); e.blocked = Math.max(0, e.blocked - dt); e.bladeCooldown -= dt;
   const turn = angleDiff(e.state === 'wander' ? e.direction : Math.atan2(p.y - e.y, p.x - e.x), e.facing), maxTurn = (stats.turnRate ?? Infinity) * dt;
   e.facing += clamp(turn, -maxTurn, maxTurn);
   if (visible) {
@@ -491,15 +634,16 @@ function updateBullets(dt) {
     const wall = game.walls.some(r => lineRect(b.x, b.y, nx, ny, r));
     let target = null;
     if (!wall) {
-      if (b.friendly) target = [...game.enemies, ...game.chests].find(t => segmentCircle(b.x, b.y, nx, ny, t, t.radius + b.radius));
+      if (b.friendly) target = [...game.enemies, ...game.chests].find(o => !b.hits?.has(o) && segmentCircle(b.x, b.y, nx, ny, o, o.radius + b.radius));
       else if (segmentCircle(b.x, b.y, nx, ny, game.player, game.player.radius + b.radius)) target = game.player;
     }
+    let spent = !!target;
     if (target) {
       if (target === game.player) hurtPlayer(b.damage);
-      else if (target.kind) damageEnemy(target, b);
-      else { target.hp -= b.damage; target.hit = .15; burst(target.x, target.y, '#efd58a', 4); if (target.hp <= 0) chestDeath(target); else sound.play('hit', target); }
+      else if (target.kind) { damageEnemy(target, b); if (b.pierce > 0) { b.pierce--; b.hits.add(target); spent = false; } }
+      else damageChest(target, b.damage);
     }
-    if (target || wall || b.traveled >= b.range || nx < 0 || ny < 0 || nx > CONFIG.world.width || ny > CONFIG.world.height) {
+    if (spent || wall || b.traveled >= b.range || nx < 0 || ny < 0 || nx > CONFIG.world.width || ny > CONFIG.world.height) {
       game.bullets.splice(i, 1); if (wall) burst(nx, ny, '#d9caa7', 3);
     } else { b.x = nx; b.y = ny; }
   }
@@ -518,7 +662,9 @@ function update(dt) {
   if (game.mouse.active) p.facing = Math.atan2(game.mouse.y + camera.y - p.y, game.mouse.x + camera.x - p.x);
   if (game.mouse.down && p.cooldown <= 0) shoot();
   for (const e of [...game.enemies]) updateEnemy(e, dt);
+  updateAutoWeapons(dt);
   updateBullets(dt);
+  updateMissiles(dt);
   for (let i = game.loot.length - 1; i >= 0; i--) {
     const item = game.loot[i]; item.age += dt;
     if (distance(item, p) < CONFIG.player.pickupRadius) {
@@ -541,7 +687,7 @@ function update(dt) {
       game.spawnTimer = Math.max(w.minSpawnInterval, w.spawnInterval - (game.wave - 1) * w.spawnIntervalStep);
     }
   } else if (!game.enemies.length) {
-    if (!game.nextWave) { game.nextWave = CONFIG.waves.intermission; notify('區域已清空，準備迎接下一波'); }
+    if (!game.nextWave) { game.nextWave = CONFIG.waves.intermission; notify(t('toast.cleared')); }
     game.nextWave -= dt;
     if (game.nextWave <= 0) { game.wave++; startWave(); }
   }
@@ -629,11 +775,15 @@ function drawEnemy(e) {
   if (e.hp < e.maxHp) drawHealth(e.x, e.y - e.radius - 14, e.hp / e.maxHp, 34);
   if (e.state !== 'wander') { ctx.fillStyle = '#f3d182'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('!', e.x, e.y - 27); }
 }
+// Barrel length, width and muzzle color per gun (rendering only).
+const GUN_LOOK = { rifle: [26, 12, '#e3eabc'], smg: [21, 10, '#f3e39a'], shotgun: [25, 15, '#f1c58f'], rail: [35, 8, '#9fe3ff'] };
 function drawPlayer(p) {
+  const [length, width, muzzle] = GUN_LOOK[p.weapon];
   ctx.save(); ctx.globalAlpha = isHidden() ? .58 : p.invulnerable > 0 && Math.floor(game.time * 18) % 2 ? .55 : 1;
   ctx.translate(p.x, p.y); ctx.fillStyle = '#0b261990'; ctx.beginPath(); ctx.ellipse(3, 12, 18, 8, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.rotate(p.facing); ctx.fillStyle = '#1f382c'; ctx.fillRect(3, -6, 26, 12);
-  ctx.fillStyle = '#e3eabc'; ctx.fillRect(19, -3, 10, 6);
+  ctx.rotate(p.facing); ctx.fillStyle = '#1f382c'; ctx.fillRect(3, -width / 2, length + 3, width);
+  ctx.fillStyle = muzzle; ctx.fillRect(length - 7, -3, 10, 6);
+  if (p.weapon === 'shotgun') { ctx.fillStyle = '#1f382c'; ctx.fillRect(length - 7, -1, 10, 2); }
   ctx.fillStyle = '#d3dd9a'; ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#f2edc7'; ctx.lineWidth = 3; ctx.stroke();
   ctx.fillStyle = '#38563b'; ctx.fillRect(5, -6, 5, 4); ctx.fillRect(5, 3, 5, 4);
@@ -643,6 +793,39 @@ function drawPlayer(p) {
   const maxShield = gearStats().maxShield;
   if (p.shield > 0 && maxShield) { ctx.strokeStyle = `rgba(150,215,240,${.2 + .6 * p.shield / maxShield})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 5, 0, Math.PI * 2); ctx.stroke(); }
   ctx.strokeStyle = isHidden() ? '#cfe9a6a0' : '#f4e5ad87'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, 24 + Math.sin(game.time * 3) * 2, 0, Math.PI * 2); ctx.stroke();
+  for (const blade of bladePositions(p)) {
+    ctx.save(); ctx.translate(blade.x, blade.y); ctx.rotate(blade.a + game.time * 9);
+    ctx.fillStyle = '#e8f1d4'; ctx.beginPath(); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.lineTo(Math.cos(a) * 10, Math.sin(a) * 10); ctx.lineTo(Math.cos(a + .78) * 3, Math.sin(a + .78) * 3); } ctx.fill();
+    ctx.restore();
+  }
+  if (p.levels.drone) {
+    const d = dronePosition(p);
+    ctx.save(); ctx.translate(d.x, d.y); ctx.fillStyle = '#0b261970'; ctx.beginPath(); ctx.ellipse(2, 9, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#bfe8ff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, 9, game.time * 20, game.time * 20 + 1.2); ctx.arc(0, 0, 9, game.time * 20 + Math.PI, game.time * 20 + Math.PI + 1.2); ctx.stroke();
+    ctx.fillStyle = '#6fa6bf'; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(6, 0); ctx.lineTo(0, 6); ctx.lineTo(-6, 0); ctx.fill();
+    ctx.restore();
+  }
+}
+function drawProjectiles() {
+  for (const b of game.bullets) {
+    const color = b.friendly ? b.color : '#eb9eae';
+    if (b.trail) { ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b.x - b.vx * .04, b.y - b.vy * .04); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  }
+  for (const m of game.missiles) {
+    ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.angle);
+    ctx.fillStyle = '#f6b36b'; ctx.fillRect(-9, -2, 5, 4); ctx.fillStyle = '#dad6c6'; ctx.fillRect(-5, -3, 11, 6); ctx.fillStyle = '#b84d3d'; ctx.beginPath(); ctx.moveTo(6, -3); ctx.lineTo(10, 0); ctx.lineTo(6, 3); ctx.fill();
+    ctx.restore();
+  }
+  for (const arc of game.arcs) {
+    ctx.strokeStyle = `rgba(190,230,255,${arc.life / .16})`; ctx.lineWidth = 2.5; ctx.shadowColor = '#9fe3ff'; ctx.shadowBlur = 10; ctx.beginPath();
+    arc.points.forEach((pt, i) => {
+      if (!i) { ctx.moveTo(pt.x, pt.y); return; }
+      const prev = arc.points[i - 1];
+      for (let k = 1; k <= 4; k++) { const f = k / 4, j = k < 4 ? 9 : 0; ctx.lineTo(prev.x + (pt.x - prev.x) * f + rand(-j, j), prev.y + (pt.y - prev.y) * f + rand(-j, j)); }
+    });
+    ctx.stroke(); ctx.shadowBlur = 0;
+  }
 }
 function drawLoot(item) {
   const y = item.y + Math.sin(game.time * 4 + item.phase) * 3;
@@ -662,7 +845,7 @@ function draw() {
   for (const item of game.loot) drawLoot(item);
   for (const e of game.enemies) drawEnemy(e);
   if (game.player) drawPlayer(game.player);
-  for (const b of game.bullets) { ctx.fillStyle = b.friendly ? '#fff0af' : '#eb9eae'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+  drawProjectiles();
   for (const part of game.particles) { ctx.globalAlpha = part.life / part.maxLife; ctx.fillStyle = part.color; ctx.fillRect(part.x, part.y, 3, 3); } ctx.globalAlpha = 1;
   ctx.restore();
   if (game.flash > 0) { ctx.fillStyle = `rgba(226,71,62,${game.flash * .48})`; ctx.fillRect(0, 0, w, h); }
@@ -677,6 +860,8 @@ $('startBtn').addEventListener('click', startGame);
 $('restartBtn').addEventListener('click', startGame);
 $('shopBtn').addEventListener('click', () => { if (game.mode === 'playing' || game.mode === 'shop') toggleShop(); });
 $('closeShop').addEventListener('click', toggleShop);
+for (const tab of document.querySelectorAll('[data-shop-tab]')) tab.addEventListener('click', () => { game.shopTab = tab.dataset.shopTab; renderShop(); });
+const GUN_KEYS = Object.keys(CONFIG.weapons);
 for (const kind of ['music', 'sfx']) {
   $(`${kind}Btn`).addEventListener('click', () => { sound.toggle(kind); renderSettings(); });
   $(`${kind}Volume`).addEventListener('input', event => { sound.init(); sound.setVolume(kind, Number(event.target.value)); renderSettings(); });
@@ -689,6 +874,8 @@ window.addEventListener('keydown', event => {
   if (key === 'b' && !event.repeat) toggleShop();
   else if (key === 'escape' && game.mode === 'shop') toggleShop();
   else if ((key === 'm' || key === 'n') && !event.repeat) { sound.toggle(key === 'm' ? 'music' : 'sfx'); renderSettings(); }
+  else if (game.mode === 'playing' && !event.repeat && key >= '1' && key <= String(GUN_KEYS.length)) equip(GUN_KEYS[Number(key) - 1]);
+  else if (game.mode === 'playing' && key === 'q' && !event.repeat) cycleWeapon();
   else game.keys.add(key);
 });
 window.addEventListener('keyup', event => game.keys.delete(event.key.toLowerCase()));
@@ -698,5 +885,11 @@ canvas.addEventListener('pointerdown', event => { if (event.button === 0 && game
 canvas.addEventListener('pointerup', () => { game.mouse.down = false; });
 canvas.addEventListener('pointercancel', () => { game.mouse.down = false; });
 canvas.addEventListener('contextmenu', event => event.preventDefault());
+let lastWheel = 0;
+canvas.addEventListener('wheel', event => {
+  event.preventDefault();
+  if (game.mode !== 'playing' || Math.abs(event.deltaY) < 4 || performance.now() - lastWheel < 250) return;
+  lastWheel = performance.now(); cycleWeapon();
+}, { passive: false });
 renderSettings(); new ResizeObserver(resize).observe(arena); resize(); requestAnimationFrame(frame);
 })();

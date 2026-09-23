@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101c18">
+  <title>Bushwhack</title>
+  <link rel="canonical" href="https://bushwhack.yustellar.dev/en/">
+  <link rel="alternate" hreflang="zh-Hant" href="https://bushwhack.yustellar.dev/">
+  <link rel="alternate" hreflang="en" href="https://bushwhack.yustellar.dev/en/">
+  <link rel="alternate" hreflang="ja" href="https://bushwhack.yustellar.dev/ja/">
+  <link rel="alternate" hreflang="x-default" href="https://bushwhack.yustellar.dev/">
+  <meta name="description" content="Bushwhack is a top-down survival shooter. Take down enemies, loot supply crates, hide in the grass and upgrade your arsenal for the next wave. Plays right in your browser.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="zh_TW">
+  <meta property="og:locale:alternate" content="ja_JP">
+  <meta property="og:site_name" content="Bushwhack">
+  <meta property="og:url" content="https://bushwhack.yustellar.dev/en/">
+  <meta property="og:title" content="Bushwhack | Ambush, or be ambushed.">
+  <meta property="og:description" content="Shoot enemies, loot crates, vanish into the grass. Free in your browser — survive wave after wave!">
+  <meta property="og:image" content="https://bushwhack.yustellar.dev/assets/og-cover.png">
+  <meta property="og:image:secure_url" content="https://bushwhack.yustellar.dev/assets/og-cover.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:alt" content="Bushwhack cover: a top-down battlefield where the player fights enemies among grass and walls and loots crates.">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Bushwhack | Ambush, or be ambushed.">
+  <meta name="twitter:description" content="Shoot enemies, loot crates, vanish into the grass. Free in your browser — survive wave after wave!">
+  <meta name="twitter:image" content="https://bushwhack.yustellar.dev/assets/og-cover.png">
+  <meta name="twitter:image:alt" content="Bushwhack cover: a top-down battlefield where the player fights enemies among grass and walls and loots crates.">
+  <link rel="license" href="../LICENSE">
+  <link rel="stylesheet" href="../style.css?v=a55b3720ab">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar"><div class="brand"><div class="brand-mark">✳</div><div class="brand-name">Bushwhack<small>BUSHWHACK / FIELD OPS</small></div></div><div class="top-right"><span><i class="status-dot"></i> SINGLE PLAYER · OFFLINE READY</span><span class="divider"></span><nav class="lang-switch" aria-label="Language"><a href=".././" hreflang="zh-Hant" lang="zh-Hant">中文</a><a href="../en/" hreflang="en" lang="en" aria-current="page">EN</a><a href="../ja/" hreflang="ja" lang="ja">日本語</a></nav></div></header>
+    <main class="layout">
+      <section class="arena-column" aria-label="Game area"><div class="game-heading"><div><div class="eyebrow">TOP-DOWN SURVIVAL / Survival shooter</div><h1>Enter the field. Hide in the grass.</h1></div><div class="wave-pill" id="wavePill">WAVE 01 / Standby</div></div>
+        <div class="arena-frame" id="arena"><canvas id="game" aria-label="Bushwhack game screen"></canvas><div class="arena-tag">SECTOR <span>01</span> / THE OVERGROWTH</div><div class="toast" id="toast" role="status"></div><div class="arena-bottom"><div class="hint"><b>WASD</b> Move　<b>Left click</b> Shoot　<b>1–4 / Q / Wheel</b> Switch gun　<b>B</b> Armory　<b>M</b> Music　<b>N</b> SFX</div><div class="minimap-note" id="fieldStatus">● Awaiting deployment</div></div>
+          <div class="overlay" id="startOverlay"><div class="dialog"><div class="eyebrow">MISSION 01 / SURVIVE THE WILD</div><h2>Ambush, or be ambushed.</h2><p>Enemies are closing in. Take them down, break supply crates and spend the loot on guns, automatic weapons and gear. Grass hides you from detection; firing gives your position away. Shield troopers block bullets from the front — flank them.</p><div class="controls"><span><span class="keycap">W A S D</span>Move</span><span><span class="keycap">MOUSE</span>Aim / Shoot</span><span><span class="keycap">1–4</span><span class="keycap">Q</span>Switch gun</span><span><span class="keycap">B</span>Armory</span><span><span class="keycap">M</span>/<span class="keycap">N</span>Music / SFX</span></div><button class="primary-btn" id="startBtn">Deploy ↗</button></div></div>
+          <div class="overlay" id="shopOverlay" hidden><div class="dialog wide"><div class="dialog-head"><div><div class="eyebrow">ARMORY / FIELD UPGRADES</div><h2>Armory</h2></div><button class="close-btn" id="closeShop" aria-label="Close armory">✕　Close</button></div><div class="shop-balances"><span>Gold <b id="shopGold">0</b></span><span>Parts <b id="shopScrap">0</b></span><span>Game paused</span></div><div class="shop-tabs" role="tablist"><button class="tab-btn" role="tab" data-shop-tab="guns">Guns</button><button class="tab-btn" role="tab" data-shop-tab="upgrade">Upgrades</button><button class="tab-btn" role="tab" data-shop-tab="auto">Auto weapons</button><button class="tab-btn" role="tab" data-shop-tab="gear">Gear</button></div><div class="shop-grid" id="shopItems" role="tabpanel"></div></div></div>
+          <div class="overlay" id="endOverlay" hidden><div class="dialog"><div class="eyebrow">MISSION COMPLETE / Mission over</div><h2>The battlefield never waits.</h2><p>Every wave is a new chance. Supply crates, tall grass and your aim are the keys to survival.</p><div class="summary"><span>Wave reached<b id="endWave">01</b></span><span>Enemies down<b id="endKills">0</b></span><span>Gold earned<b id="endGold">0</b></span></div><button class="primary-btn" id="restartBtn">Deploy again ↗</button></div></div>
+        </div>
+      </section>
+      <aside class="sidebar"><section class="panel"><h2 class="section-title">Vitals <span class="index">01 / VITALS</span></h2><div class="health-line"><strong>Health</strong><span id="hpText">100 / 100</span></div><div class="meter"><div id="hpFill"></div></div><div class="health-line shield-line"><strong>Energy shield</strong><span id="shieldText">—</span></div><div class="meter shield"><div id="shieldFill"></div></div><p class="health-caption" id="stealthText">Status: standing by</p><div class="hud-grid"><div class="hud-row"><span>Wave</span><strong id="waveText">01</strong></div><div class="hud-row"><span>Kills</span><strong id="killsText">0</strong></div><div class="hud-row"><span>Gold</span><strong class="gold" id="goldText">0</strong></div><div class="hud-row"><span>Parts</span><strong id="scrapText">0</strong></div></div></section>
+      <section class="panel"><h2 class="section-title">Loadout <span class="index">02 / LOADOUT</span></h2><div class="weapon-name" id="weaponName">—</div><div class="weapon-sub" id="weaponTier">—</div><div class="stat-list"><div class="stat"><span>Damage</span><b id="damageStat">18</b></div><div class="stat"><span>Fire rate</span><b id="rateStat">3.3/s</b></div><div class="stat"><span>Pellets</span><b id="spreadStat">1</b></div><div class="stat"><span>Range</span><b id="rangeStat">480</b></div><div class="stat"><span>Armor</span><b id="armorStat">0%</b></div><div class="stat"><span>Speed</span><b id="speedStat">100%</b></div></div><p class="auto-list" id="autoList"></p></section>
+      <section class="panel"><button class="shop-btn" id="shopBtn">Armory · Guns &amp; Gear <span>↗ B</span></button><h2 class="section-title settings-title">Settings <span class="index">03 / SETTINGS</span></h2><div class="setting"><button class="toggle-btn" id="musicBtn" aria-pressed="true">Music</button><input type="range" id="musicVolume" min="0" max="100" step="5" value="100" aria-label="Music volume"><output id="musicVolumeText">100%</output></div><div class="setting"><button class="toggle-btn" id="sfxBtn" aria-pressed="true">SFX</button><input type="range" id="sfxVolume" min="0" max="100" step="5" value="100" aria-label="SFX volume"><output id="sfxVolumeText">100%</output></div></section>
+      <section class="panel intel"><h2 class="section-title">Field guide <span class="index">04 / INTEL</span></h2><div class="legend"><span><i class="swatch" style="background:#88b578"></i>Grass / Stealth</span><span><i class="swatch" style="background:#689dab"></i>Pond / Slow</span><span><i class="swatch" style="background:#afac8e"></i>Wall / Cover</span><span><i class="swatch" style="background:#e7bb68"></i>Crate / Loot</span><span><i class="swatch round" style="background:#e99c77"></i>Assault</span><span><i class="swatch round" style="background:#c4a7db"></i>Gunner / Ranged</span><span><i class="swatch round" style="background:#f0d36b"></i>Runner</span><span><i class="swatch round" style="background:#8fb3c9"></i>Shield / Flank it</span></div></section></aside>
+    </main><footer class="footer"><span>© 2026 YueyuHoshizora · <a href="../LICENSE">AGPL-3.0-only</a> · No warranty; redistribution under the license · <a href="https://github.com/YueyuHoshizora/bushwhack">Source code</a></span><span>Keyboard + mouse　/　No account, no download</span></footer>
+  </div>
+  <script src="../i18n.js?v=a66d8b66a1"></script>
+  <script src="../game.js?v=694911bc25"></script>
+</body>
+</html>
