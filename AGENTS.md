@@ -44,9 +44,10 @@
 5. **不得在正式程式碼加入測試掛勾**（例如把內部狀態掛到 `window`）。
 6. **文件**：玩法、數值、兵種、武器、裝備、流程有變動時，同步更新 `DESIGN.md`；使用方式或部署有變動時更新 `README.md`；功能、數值或驗收結果有變動時更新 `ACCEPTANCE.md`（見下節）。
 7. **Git**：每完成一個里程碑自動提交（訊息用英文、祈使句）。**只有使用者要求時才 `git push`**。
-8. **隨機性**：影響「同一種子是否得到相同內容」的抽選（地圖、木牆、探照燈、變體、突變、兵種、精英詞綴、事件、波次挑戰、黑市出現與商品、天賦與路線選項）必須使用 run 的 seeded 串流（`seededRandom` / `game.rng` 的 `roster`、`perks`、`challenge`、`market`），不可用 `Math.random`；戰鬥與特效隨機才用 `rand`。每日挑戰與自訂種子都依賴這點；改變這些抽選的呼叫順序會改變每日挑戰與既有種子的內容。
-9. **本機儲存**：`localStorage` 鍵為 `bushwhack-profile`（紀錄含最佳撤離波次、累計值（含 `clears`）、擊倒過的首領種類、成就、難度、兵種、外觀、威脅條件，以及長期進度：`mastery` 各兵種 XP、`threatRecords` 以 `難度:兵種` 為鍵的最高撤離威脅、`weekly` 本週合約、`streak` 每日連續出擊、`intel` 情報檔案）、`bushwhack-music`／`bushwhack-sfx` 與其 `-volume`。修改 `profile` 結構時要相容舊資料（缺欄位補預設值、保留未知欄位、未解鎖的兵種、外觀與威脅條件退回預設，威脅總點數超過上限時截去多出的條件）。
-10. **右鍵**：整個頁面停用瀏覽器右鍵選單（`document` 的 `contextmenu`），不要在個別元素上重新開啟。
+8. **隨機性**：影響「同一種子是否得到相同內容」的抽選（地圖、木牆、探照燈、變體、突變、兵種、精英詞綴、事件、波次挑戰、黑市出現與商品、天賦與路線選項、敵軍編組、首領任務）必須使用 run 的 seeded 串流（`seededRandom` / `game.rng` 的 `roster`、`perks`、`challenge`、`market`、`theme`（敵軍編組）、`mission`（首領任務）），不可用 `Math.random`；戰鬥與特效隨機才用 `rand`。每日挑戰與自訂種子都依賴這點；改變這些抽選的呼叫順序會改變每日挑戰與既有種子的內容。
+9. **本機儲存**：`localStorage` 鍵為 `bushwhack-profile`（紀錄含最佳撤離波次、累計值（含 `clears`）、擊倒過的首領種類、成就、難度、兵種、外觀、威脅條件，以及長期進度：`mastery` 各兵種 XP、`threatRecords` 以 `難度:兵種` 為鍵的最高撤離威脅、`weekly` 本週合約、`streak` 每日連續出擊、`intel` 情報檔案、`analytics` 各來源承受傷害與致死次數、`chapters` 各難度章節最佳評價、`badges` 徽章數、`training` 當日訓練 XP、`seedRuns` 近週每週種子挑戰最佳）、`bushwhack-music`／`bushwhack-sfx` 與其 `-volume`。修改 `profile` 結構時要相容舊資料（缺欄位補預設值、保留未知欄位、未解鎖的兵種、外觀與威脅條件退回預設，威脅總點數超過上限時截去多出的條件）。
+10. **嚴苛機制**：懲罰性機制（自動武器過熱、敵軍編組、精英隊長、首領反制、拖延增援、首領任務失敗懲罰）只在 `CONFIG.difficulty` 標記 `harsh` 的難度（困難、地獄）啟用，一律以 `harsh()` 判斷；新增懲罰性機制時沿用同一判斷，普通與每日挑戰不得受影響。
+11. **右鍵**：整個頁面停用瀏覽器右鍵選單（`document` 的 `contextmenu`），不要在個別元素上重新開啟。
 
 ## 驗證
 

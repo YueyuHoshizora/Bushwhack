@@ -76,27 +76,6 @@ const CONFIG = Object.freeze({
       { kind: 'scout', from: 11, weight: 0.15, perWave: 0.02, max: 0.35 }
     ]
   },
-  // Enemies that lose sight of the player, or hear a noise, walk to that spot and sweep nearby grass until `seconds` run out.
-  // A hidden player within probe px of a searcher is found; searching gunners fire recon shots at their sweep point every reconFire s.
-  // Explosions make explosionNoise.
-  search: { speed: 0.75, seconds: 9, radius: 130, arrive: 24, probe: 62, reconFire: 1.8, explosionNoise: 620 },
-  waves: {
-    baseCount: 2, growth: 2, lateFrom: 5, lateGrowth: 2, maxCount: 64, maxAlive: 34,
-    spawnInterval: 0.72, spawnIntervalStep: 0.035, minSpawnInterval: 0.3, batchEvery: 4, maxBatch: 3,
-    intermission: 3.5, initialSpawnDelay: 0.5, enemySpawnDistance: 330,
-    // Relative spawn weight per kind: weight + (wave - from) × perWave, capped at max.
-    roster: [
-      { kind: 'melee', from: 1, weight: 1, perWave: 0, max: 1 },
-      { kind: 'ranged', from: 2, weight: 0.35, perWave: 0.04, max: 0.9 },
-      { kind: 'runner', from: 3, weight: 0.3, perWave: 0.04, max: 0.8 },
-      { kind: 'shield', from: 4, weight: 0.22, perWave: 0.035, max: 0.7 },
-      { kind: 'stalker', from: 6, weight: 0.22, perWave: 0.03, max: 0.6 },
-      { kind: 'flamer', from: 7, weight: 0.2, perWave: 0.03, max: 0.5 },
-      { kind: 'bomber', from: 8, weight: 0.2, perWave: 0.03, max: 0.55 },
-      { kind: 'flare', from: 9, weight: 0.2, perWave: 0.03, max: 0.5 },
-      { kind: 'scout', from: 11, weight: 0.15, perWave: 0.02, max: 0.35 }
-    ]
-  },
   chests: { minimum: 2, maximum: 4, initial: 3, radius: 23, hpBase: 23, hpPerWave: 3, replenishSeconds: 5, spawnDistance: 130 },
   loot: { coinEnemy: [3, 6], coinChest: [8, 13], scrapEnemyChance: 0.38, scrapChest: [1, 2], healChestChance: 0.28, healAmount: 18, pickupLifetime: 30 },
   upgrades: {
@@ -143,7 +122,7 @@ const CONFIG = Object.freeze({
   },
   // Between-wave perks: `offer` distinct picks weighted by rarity; each pick adds one stack (up to max). Values are per stack.
   // `unlock` names the achievement that adds a perk to the pool (never offered in daily runs). Evolved perks join the pool once every
-  // perk in `needs` is maxed. From wave curseFrom, with curseChance one slot becomes a curse (a trade-off perk).
+  // perk in `needs` is maxed. From wave curseFrom, with curseChance one slot becomes a curse (a trade-off perk; never in daily runs).
   perks: {
     offer: 3, curseFrom: 3, curseChance: 0.3,
     rarity: { common: 6, rare: 3, legendary: 1, evolved: 5 },
@@ -168,11 +147,17 @@ const CONFIG = Object.freeze({
       secondWind: { icon: '↻', rarity: 'legendary', max: 1, unlock: 'finaleClear', hp: 0.35, seconds: 1.5 },
       glassCannon: { icon: '✧', rarity: 'cursed', max: 1, damage: 0.4, hpCut: 0.25 },
       bloodPrice: { icon: '☍', rarity: 'cursed', max: 1, gold: 0.6, taken: 0.2 },
-      frenzy: { icon: 'ϟ', rarity: 'cursed', max: 1, rate: 0.3, reveal: 1 }
+      frenzy: { icon: 'ϟ', rarity: 'cursed', max: 1, rate: 0.3, reveal: 1 },
+      // Gun damage up, but every auto weapon (blades included) stays off.
+      purist: { icon: '⊗', rarity: 'cursed', max: 1, damage: 0.35 },
+      sprinter: { icon: '➟', rarity: 'cursed', max: 1, speed: 0.25, hpCut: 0.3 },
+      // Kills made while standing in grass heal `heal`; outside grass the player loses `drain` HP/s (never below 1 HP).
+      thornbound: { icon: '❦', rarity: 'cursed', max: 1, heal: 4, drain: 1.5 }
     }
   },
   // After the perk pick (from wave `from`), choose the next wave's route: calm, or one seeded alternative trading risk for reward.
-  // gold/scrap/count/hp/elite add to the wave's multipliers; vision limits the view; throwables are granted when the wave is cleared.
+  // gold/scrap/count/hp/elite add to the wave's multipliers; vision limits the view; sight adds to enemy sight; throwables are granted when
+  // the wave is cleared; perkCards adds cards to the next perk offer; blitz grants a perk of `rarities` if the wave is cleared within seconds.
   routes: {
     from: 2,
     list: {
@@ -180,7 +165,9 @@ const CONFIG = Object.freeze({
       bounty: { icon: '¤', gold: 0.5, elite: 0.15 },
       swarm: { icon: '⋙', count: 0.4, scrap: 1 },
       blackout: { icon: '◑', vision: 240, gold: 0.3 },
-      ironclad: { icon: '▣', hp: 0.3, throwables: 2 }
+      ironclad: { icon: '▣', hp: 0.3, throwables: 2 },
+      exposed: { icon: '◉', sight: 0.3, perkCards: 1 },
+      blitz: { icon: '⏱', blitz: { seconds: 60, rarities: ['rare', 'legendary'] } }
     }
   },
   // Threat modifiers retain their original mutator effects and contribute points.
@@ -194,12 +181,22 @@ const CONFIG = Object.freeze({
     earlyBoss: { icon: '☠', score: 0, points: 8 },
     expensiveMarket: { icon: '¤', price: 0.25, score: 0, points: 6 },
     nightRaid: { icon: '☾', vision: 300, score: 0.2, points: 5, unlock: { threat: 20 } },
-    ironSwarm: { icon: '▣', count: 0.15, score: 0.2, points: 10, unlock: { threat: 35 } }
+    ironSwarm: { icon: '▣', count: 0.15, score: 0.2, points: 10, unlock: { threat: 35 } },
+    // Rule modifiers. magazine: each manual gun (crossbow excepted) holds round(base shots/s × seconds) rounds and reloads for `reload` s
+    // (R reloads early); scorchedEarth: burned grass never regrows; oneShield: a shield broken to 0 stops recharging until refilled by
+    // the armory or the black market; blindSpot: no off-screen pointers and no ! / ? marks above enemies.
+    magazine: { icon: '▤', seconds: 3, reload: 1.6, score: 0.25, points: 8 },
+    scorchedEarth: { icon: '♨', score: 0.2, points: 6 },
+    oneShield: { icon: '◇', score: 0.15, points: 5 },
+    blindSpot: { icon: '◌', score: 0.2, points: 6 }
   },
   threat: { initialCap: 20, bossEvery: 4, milestones: [10, 25, 40], cosmetics: { 10: 'shadow', 25: 'gold', 40: 'crimson' } },
   // Class mastery (not in daily runs): XP per wave reached, extraction/clear and challenge; skillLevel adds each class's skill variant; skins name their own levels.
   mastery: { maxLevel: 10, thresholds: [0, 100, 250, 450, 700, 1000, 1400, 1850, 2350, 2950], waveXp: 12, extractionXp: 80, challengeXp: 25, skillLevel: 2, dodgeStealth: 1.25, engineerSmokeRadius: 105, engineerSmokeSeconds: 3, heavyPulseRadius: 150, heavyStunSeconds: .65, marksmanFocusPierce: 1, medicArea: 125, medicFieldSeconds: 4, medicFieldPulse: 1, medicFieldHeal: 5 },
   weekly: { contracts: 3, rewardXp: 75, pool: ['crossbow', 'night', 'silent', 'takedowns', 'bosses'], targets: { crossbow: 10, night: 1, silent: 3, takedowns: 15, bosses: 3 } },
+  // Weekly seed challenge: seed `prefix` + ISO week, fixed difficulty and `mutators` threat modifiers drawn (seeded by the week) from pool.
+  // The profile keeps the best score of the last `history` weeks.
+  seedChallenge: { prefix: 'WEEK-', difficulty: 'hard', mutators: 2, pool: ['brittle', 'sparse', 'eclipse', 'elites', 'noDecay', 'earlyBoss', 'expensiveMarket', 'magazine', 'scorchedEarth', 'oneShield', 'blindSpot'], history: 8 },
   streak: { graceDays: 1 },
   // Wave `wave` is the final operation: an empowered commander (HP × hpScale); defeating it clears the run and raises the threat cap by threatStep.
   finale: { wave: 25, hpScale: 2.5, threatStep: 15 },
@@ -208,10 +205,12 @@ const CONFIG = Object.freeze({
   // (ambush kills and takedowns count ambushCombo). Bosses pay `boss`; clearing wave N pays waveBonus × N.
   score: { kill: 100, boss: 2500, minion: 0.2, comboWindow: 4, comboStep: 0.1, comboMax: 3, ambushCombo: 2, waveBonus: 250 },
   // Difficulty multipliers on enemy HP / damage / speed, wave size, gold and score; `elite` adds to the elite chance.
+  // `harsh` difficulties switch on the punishing systems: auto-weapon heat, wave themes, elite captains, boss counters, reinforcements
+  // and the boss-mission failure penalty.
   difficulty: {
     normal: { hp: 1, damage: 1, speed: 1, count: 1, gold: 1, elite: 0, score: 1 },
-    hard: { hp: 1.3, damage: 1.25, speed: 1.06, count: 1.2, gold: 1.1, elite: 0.04, score: 1.3 },
-    hell: { hp: 1.65, damage: 1.5, speed: 1.12, count: 1.4, gold: 1.2, elite: 0.08, score: 1.6, unlock: 'fearless' }
+    hard: { hp: 1.3, damage: 1.25, speed: 1.06, count: 1.2, gold: 1.1, elite: 0.04, score: 1.3, harsh: true },
+    hell: { hp: 1.65, damage: 1.5, speed: 1.12, count: 1.4, gold: 1.2, elite: 0.08, score: 1.6, harsh: true, unlock: 'fearless' }
   },
   // Elite affix chance per regular spawn: base + (wave - from) × perWave, capped at max, plus the difficulty's elite. Elites: HP × hp, loot × bounty.
   elites: {
@@ -309,6 +308,55 @@ const CONFIG = Object.freeze({
     from: 3, chance: 0.35, distance: 260, reach: 48, offers: 3,
     goods: { perk: { gold: 70, scrap: 2, rarities: ['rare', 'legendary'] }, discount: { cut: 0.5 }, restock: { icon: '◌', gold: 30, scrap: 0 }, patch: { icon: '✚', gold: 35, scrap: 0 }, exchange: { icon: '⇄', gold: 45, scrap: 0, give: 6 } }
   },
+  // Harsh difficulties only (see difficulty.harsh). Auto weapons build `cost` heat per shot / blade hit and cool by `cool` per second;
+  // reaching max overheats every auto weapon (blades included) for `overheat` s.
+  autoHeat: { max: 100, cool: 18, overheat: 3.5, cost: { drone: 7, missile: 16, tesla: 14, blades: 3 } },
+  // Harsh only: from wave `from`, each non-boss wave rolls (theme stream) a theme open by that wave. A themed wave has count × the size
+  // and each spawn has `share` chance to be one of the theme's kinds instead of the usual roster pick.
+  themes: {
+    from: 6, share: 0.65, count: 0.85,
+    list: {
+      fieldHospital: { from: 6, kinds: ['medic', 'shield', 'melee'] },
+      scorch: { from: 7, kinds: ['flamer', 'stalker'] },
+      breach: { from: 8, kinds: ['shield', 'bomber'] },
+      flareSnipe: { from: 9, kinds: ['flare', 'ranged'] },
+      recon: { from: 11, kinds: ['scout', 'runner'] }
+    }
+  },
+  // Harsh only: from wave `from`, an elite spawn has `chance` (roster stream) to be a captain escorted by `guards` regular enemies of its
+  // kind. While the captain lives, guards within radius px take `reduction` less damage and move × speed.
+  captains: { from: 6, chance: 0.4, guards: 2, spread: 40, radius: 200, reduction: 0.3, speed: 1.15 },
+  // Harsh only: at phase 2 a boss counters the run's habits. Hidden for at least hiddenRatio of the run → flush (a flare of `flare` px for
+  // `seconds` plus burned grass of `burn` px on the player every `every` s); otherwise average manual-hit distance ≥ longRange → rush
+  // (speed × speed, attack intervals and sniper aim × pace).
+  bossCounters: { hiddenRatio: 0.35, longRange: 320, flush: { every: 4.5, flare: 150, seconds: 4, burn: 90 }, rush: { speed: 1.4, pace: 0.8 } },
+  // Harsh only, non-boss waves: after base + perEnemy × wave size seconds, every `every` s `count` enemies (kinds, no loot) arrive at least
+  // distance px away hunting the player and raise the alert by `alert`, up to `max` per wave. The HUD counts down the last `warn` s.
+  reinforcements: { base: 45, perEnemy: 2.2, every: 10, count: 2, max: 8, kinds: ['runner', 'melee'], alert: 5, warn: 20, distance: 330 },
+  // Boss-wave missions (all difficulties, not the finale): seeded type, completed before the boss falls pays reward and score × wave.
+  // Failure on a harsh difficulty cancels the extraction bonus offered after that wave.
+  // uplink: stay within radius for `seconds` in total. escort: an agent with hp walks toward an exit while the player is within follow px;
+  // enemy bullets and blasts hurt it. radar: `count` dishes (hp) spaced apart; a standing dish spotting a visible player within scan px
+  // raises an alarm of `alarm` px (every cooldown s per dish); destroying them all completes it.
+  missions: {
+    score: 400, reward: { gold: [50, 70], scrap: 5, heal: 20 },
+    types: {
+      uplink: { radius: 80, seconds: 20, distance: 260 },
+      escort: { hp: 120, speed: 70, follow: 150, radius: 13, reach: 55, distance: 420 },
+      radar: { count: 3, hp: 45, radius: 14, spacing: 240, scan: 170, alarm: 480, cooldown: 3 }
+    }
+  },
+  // Every `length` waves close a chapter (up to `count`). Rating = checks met among: time ≤ par (perEnemy × enemies + perWave × waves),
+  // detections ≤ detections, damage taken ≤ taken × max HP, and the chapter's boss mission (if any); grades by checks met.
+  // Chapter badges: flawless (no damage), silent (never detected), swift (time ≤ swift × par). Not in daily or training runs.
+  chapters: { length: 5, count: 5, par: { perEnemy: 3.2, perWave: 15 }, detections: 6, taken: 0.6, swift: 0.7, grades: ['C', 'C', 'B', 'A', 'S'] },
+  badges: { flawless: { icon: '✚' }, silent: { icon: '◐' }, swift: { icon: '⏱' } },
+  // Training range: fight one boss already met at wave `wave` (no regular enemies) with gold/scrap to spend first. No records; a win pays
+  // `xp` mastery, at most dailyXp per UTC day.
+  training: { wave: 10, gold: 160, scrap: 14, xp: 30, dailyXp: 90 },
+  // After-action report: the damage log keeps the last `window` s before the end and lists up to `entries` hits; preview names `kinds` foes.
+  report: { window: 5, entries: 4 },
+  preview: { kinds: 3 },
   audio: { master: 0.5, music: 0.3, sfx: 0.7, duck: 0.35, tempo: 140, falloff: 900 }
 });
 // UI text comes from i18n.js; ?lang=<code> selects the dictionary and switching rewrites the page in place (no reload).
@@ -321,7 +369,10 @@ function resolveLocale(value) {
 let locale = resolveLocale(new URLSearchParams(location.search).get('lang')), STRINGS = LOCALES[locale].game;
 const t = (key, vars = {}) => (STRINGS[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => vars[name] ?? `{${name}}`);
 const $ = id => document.getElementById(id);
-const canvas = $('game'), ctx = canvas.getContext('2d'), arena = $('arena');
+const canvas = $('game'), ctx = canvas.getContext('2d'), arena = $('arena'), arenaBottom = arena.querySelector('.arena-bottom');
+// Canvas y of the bottom hint bar's top edge; the kit line is drawn just above it (the bar grows when its text wraps).
+let hintTop = 0;
+const measureHint = () => { hintTop = arenaBottom.getBoundingClientRect().top - canvas.getBoundingClientRect().top; };
 const UI = { start: $('startOverlay'), shop: $('shopOverlay'), end: $('endOverlay'), perk: $('perkOverlay'), toast: $('toast') };
 const rand = (a, b) => a + Math.random() * (b - a);
 // Seeded PRNG (string hash → mulberry32). Each run has seeded streams for the map, the wave roster and perk offers,
@@ -361,7 +412,11 @@ const profile = (() => {
   const mutators = Array.isArray(data.mutators) ? data.mutators.filter(key => CONFIG.mutators[key]) : [];
   const bossKinds = Array.isArray(data.bossKinds) ? data.bossKinds.filter(key => CONFIG.enemies[key]?.boss) : [];
   const week = isoWeek(), weekly = data.weekly?.week === week ? data.weekly : { week, progress: {}, done: [] };
-  return { ...data, records: data.records ?? {}, daily: data.daily ?? null, totals: { ...Object.fromEntries(TOTAL_KEYS.map(key => [key, 0])), ...data.totals }, bossKinds, achievements: Array.isArray(data.achievements) ? data.achievements : [], difficulty: data.difficulty ?? 'normal', cls: CONFIG.classes[data.cls] ? data.cls : 'ranger', skin: CONFIG.skins[data.skin] ? data.skin : 'default', mutators, mastery: { ...Object.fromEntries(Object.keys(CONFIG.classes).map(k => [k, 0])), ...data.mastery }, threatRecords: data.threatRecords ?? {}, weekly, streak: { day: '', count: 0, ...data.streak }, intel: { enemies: [], bosses: [...bossKinds], perks: [], variants: [], ...data.intel } };
+  const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return { ...data, records: data.records ?? {}, daily: data.daily ?? null, totals: { ...Object.fromEntries(TOTAL_KEYS.map(key => [key, 0])), ...data.totals }, bossKinds, achievements: Array.isArray(data.achievements) ? data.achievements : [], difficulty: data.difficulty ?? 'normal', cls: CONFIG.classes[data.cls] ? data.cls : 'ranger', skin: CONFIG.skins[data.skin] ? data.skin : 'default', mutators, mastery: { ...Object.fromEntries(Object.keys(CONFIG.classes).map(k => [k, 0])), ...data.mastery }, threatRecords: data.threatRecords ?? {}, weekly, streak: { day: '', count: 0, ...data.streak }, intel: { enemies: [], bosses: [...bossKinds], perks: [], variants: [], ...data.intel },
+    // Balance data (damage taken and deaths by source), best chapter grades per difficulty, chapter badge counts, training XP today,
+    // and weekly seed-challenge bests keyed by ISO week.
+    analytics: { runs: 0, deaths: {}, taken: {}, ...object(data.analytics) }, chapters: object(data.chapters), badges: { ...Object.fromEntries(Object.keys(CONFIG.badges).map(k => [k, 0])), ...object(data.badges) }, training: { day: '', xp: 0, ...object(data.training) }, seedRuns: object(data.seedRuns) };
 })();
 function saveProfile() {
   try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {}
@@ -414,7 +469,8 @@ const worldCenter = { x: CONFIG.world.width / 2, y: CONFIG.world.height / 2 };
 const game = { mode: 'menu', wave: 1, walls: [], ponds: [], bushes: [], barrels: [], lights: [], enemies: [], bullets: [], missiles: [], arcs: [], bombs: [], blasts: [], chests: [], loot: [], particles: [], throws: [], gadgets: [], flares: [], pools: [], shopTab: 'guns', keys: new Set(), mouse: { x: 0, y: 0, down: false, active: false }, player: null, kills: 0, earned: 0, score: 0, combo: 0, comboTimer: 0, waveRemaining: 0, waveTotal: 0, spawnTimer: 0, nextWave: 0, chestTimer: 0, time: 0, flash: 0, shake: 0, toastUntil: 0, difficulty: 'normal', cls: 'ranger', mutators: [], variant: 'standard', seed: '', daily: null, rng: null, stats: null, event: null, boss: null, challenge: null, merchant: null, perks: {}, perkOffer: null, route: null, nextRoute: null, routeOffer: null, summary: null, seenAffixes: new Set(), newAchievements: [] };
 game.alert = 0; game.waveAlert = 0; game.waveSilent = true;
 function raiseAlert(amount) { game.alert = clamp(game.alert + amount, 0, CONFIG.alert.max); }
-function markDetected(amount) { game.waveSilent = false; raiseAlert(amount); }
+// Every sighting, scan, searchlight or radar alarm counts as one detection for the after-action report and chapter grade.
+function markDetected(amount) { game.waveSilent = false; game.stats.detections++; raiseAlert(amount); }
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 // Chiptune synth: every sound is generated with WebAudio oscillators and a noise buffer; no audio files.
 const sound = (() => {
@@ -654,12 +710,18 @@ function spawnChest() {
   const pos = freeSpot(CONFIG.chests.radius + 1, CONFIG.chests.spawnDistance, true);
   if (pos) game.chests.push({ ...pos, radius: CONFIG.chests.radius, hp: CONFIG.chests.hpBase + CONFIG.chests.hpPerWave * (game.wave - 1), maxHp: CONFIG.chests.hpBase + CONFIG.chests.hpPerWave * (game.wave - 1), hit: 0 });
 }
-// Roster, elite affix and event rolls use the run's seeded roster stream.
+// Roster, elite affix and event rolls use the run's seeded roster stream. A themed wave (harsh only) draws `share` of its spawns from
+// the theme's kinds.
 function pickEnemyKind() {
   if (game.event?.type === 'stalkers') return 'stalker';
-  return pickWeighted(game.rng.roster, CONFIG.waves.roster.filter(r => game.wave >= r.from).map(r => [r.kind, Math.min(r.max, r.weight + (game.wave - r.from) * r.perWave)]));
+  const theme = CONFIG.themes.list[game.theme];
+  if (theme && game.rng.roster() < CONFIG.themes.share) return theme.kinds[Math.floor(game.rng.roster() * theme.kinds.length)];
+  return pickWeighted(game.rng.roster, rosterWeights(game.wave));
 }
+const rosterWeights = wave => CONFIG.waves.roster.filter(r => wave >= r.from).map(r => [r.kind, Math.min(r.max, r.weight + (wave - r.from) * r.perWave)]);
 const difficulty = () => CONFIG.difficulty[game.difficulty];
+// Punishing systems run only on harsh difficulties (never in daily runs, which are fixed to normal).
+const harsh = () => !!difficulty().harsh && !game.daily;
 const perk = key => game.perks[key] ?? 0;
 const P = CONFIG.perks.list;
 const mutator = key => game.mutators.includes(key);
@@ -678,7 +740,7 @@ function scrapAmount(n) {
 function makeEnemy(kind, pos, { affix = null, noLoot = false, hpScale = 1, radius } = {}) {
   const stats = CONFIG.enemies[kind], E = CONFIG.elites, scale = waveScale() * difficulty().hp * hpScale * (1 + (route().hp ?? 0)) * (mutator('brittle') ? CONFIG.mutators.brittle.enemyHp : 1);
   const hp = Math.max(1, Math.round(stats.hp * scale * (affix ? E.hp : 1))), shieldHp = Math.round((stats.shieldHp || 0) * scale), pressure = clamp(game.waveAlert / CONFIG.alert.max, 0, 1);
-  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * (affix === 'swift' ? E.affixes.swift.speed : 1), sightScale: 1 + pressure * CONFIG.alert.sightBonus, patrolScale: 1 + pressure * CONFIG.alert.patrolBonus, reconScale: 1 + pressure * CONFIG.alert.reconBonus, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, cooldown: rand(0, .6), special: rand(0, 1), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0, lastSeen: null, goal: null, sweep: null, searchTime: 0, arrived: false, healTimer: stats.healEvery ?? 0 };
+  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * (affix === 'swift' ? E.affixes.swift.speed : 1), sightScale: (1 + pressure * CONFIG.alert.sightBonus) * (1 + (route().sight ?? 0)), patrolScale: 1 + pressure * CONFIG.alert.patrolBonus, reconScale: 1 + pressure * CONFIG.alert.reconBonus, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, cooldown: rand(0, .6), special: rand(0, 1), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0, lastSeen: null, goal: null, sweep: null, searchTime: 0, arrived: false, healTimer: stats.healEvery ?? 0 };
   game.enemies.push(e); return e;
 }
 function rollAffix() {
@@ -693,19 +755,36 @@ function spawnEnemy() {
   if (!pos) return false;
   const e = makeEnemy(pickEnemyKind(), pos, { affix: rollAffix() });
   if (e.affix && !game.seenAffixes.has(e.affix)) { game.seenAffixes.add(e.affix); notify(t('toast.elite', { name: t(`affix.${e.affix}`), desc: t(`affix.${e.affix}.desc`) })); }
+  if (e.affix && harsh() && game.wave >= CONFIG.captains.from && game.rng.roster() < CONFIG.captains.chance) makeCaptain(e);
   markIntel(CONFIG.enemies[e.kind].boss ? 'bosses' : 'enemies', e.kind);
   return true;
 }
+// Captain (harsh): an elite escorted by guards of its kind (assault troopers for support kinds) that start at its side.
+function makeCaptain(e) {
+  const C = CONFIG.captains, kind = CONFIG.enemies[e.kind].damage > 0 ? e.kind : 'melee';
+  e.captain = true;
+  for (let i = 0; i < C.guards && game.enemies.length < CONFIG.waves.maxAlive; i++) {
+    const a = rand(0, Math.PI * 2), pos = { x: e.x + Math.cos(a) * C.spread, y: e.y + Math.sin(a) * C.spread };
+    if (passable(pos.x, pos.y, CONFIG.enemies[kind].radius)) makeEnemy(kind, pos).guardOf = e;
+  }
+  if (!game.seenCaptain) { game.seenCaptain = true; notify(t('toast.captain', { pct: Math.round(C.reduction * 100) })); }
+}
+// A guard is shielded while its captain lives and stands within radius.
+const guarded = e => !!e.guardOf && e.guardOf.hp > 0 && game.enemies.includes(e.guardOf) && distance(e, e.guardOf) < CONFIG.captains.radius;
 // Enemies created mid-fight (boss minions, splitter halves) start already hunting the player.
 function spawnNear(kind, from, reach, options) {
   const a = rand(0, Math.PI * 2), pos = { x: from.x + Math.cos(a) * reach, y: from.y + Math.sin(a) * reach };
   if (!passable(pos.x, pos.y, options?.radius ?? CONFIG.enemies[kind].radius)) return;
   Object.assign(makeEnemy(kind, pos, options), { state: 'chase', lastSeen: { x: game.player.x, y: game.player.y } });
 }
-// Boss waves rotate through boss.order; a fresh boss starts searching the player's position.
+// Boss waves rotate through boss.order; a fresh boss starts searching the player's position. Training fights the chosen boss.
+function bossKind(wave) {
+  if (game.training) return game.training;
+  const interval = mutator('earlyBoss') ? CONFIG.threat.bossEvery : CONFIG.boss.every;
+  return wave === CONFIG.finale.wave ? 'commander' : CONFIG.boss.order[(Math.floor(wave / interval) - 1) % CONFIG.boss.order.length];
+}
 function spawnBoss() {
-  const B = CONFIG.boss, interval = mutator('earlyBoss') ? CONFIG.threat.bossEvery : B.every;
-  const kind = game.wave === CONFIG.finale.wave ? 'commander' : B.order[(Math.floor(game.wave / interval) - 1) % B.order.length], radius = CONFIG.enemies[kind].radius;
+  const B = CONFIG.boss, kind = bossKind(game.wave), radius = CONFIG.enemies[kind].radius;
   markIntel('bosses', kind);
   const pos = freeSpot(radius, B.spawnDistance) ?? freeSpot(radius, 0);
   if (!pos) return;
@@ -721,19 +800,36 @@ function waveSize(wave) {
   const w = CONFIG.waves;
   return Math.min(w.maxCount, w.baseCount + wave * w.growth + Math.max(0, wave - w.lateFrom) * w.lateGrowth);
 }
-const isBossWave = () => game.wave === CONFIG.finale.wave || game.wave % (mutator('earlyBoss') ? CONFIG.threat.bossEvery : CONFIG.boss.every) === 0;
+const isBossWave = (wave = game.wave) => !!game.training || wave === CONFIG.finale.wave || wave % (mutator('earlyBoss') ? CONFIG.threat.bossEvery : CONFIG.boss.every) === 0;
+// Regular enemies of a wave under a route and theme (boss waves bring a share; training brings none).
+function waveCount(wave, routeKey, theme) {
+  if (game.training) return 0;
+  const count = 1 + (CONFIG.routes.list[routeKey]?.count ?? 0) + (mutator('ironSwarm') && !game.daily ? CONFIG.mutators.ironSwarm.count : 0);
+  return Math.round(waveSize(wave) * difficulty().count * count * (isBossWave(wave) ? CONFIG.boss.regularShare : 1) * (theme ? CONFIG.themes.count : 1));
+}
+// Harsh only: a non-boss wave from themes.from rolls (theme stream) one theme open by that wave.
+function rollTheme(wave) {
+  const T = CONFIG.themes;
+  if (!harsh() || game.training || wave < T.from || isBossWave(wave)) return null;
+  const open = Object.keys(T.list).filter(key => wave >= T.list[key].from);
+  return open[Math.floor(game.rng.theme() * open.length)];
+}
 function startWave() {
-  const boss = isBossWave();
+  const boss = isBossWave(), R = CONFIG.reinforcements;
   if (game.wave === 2 && !mutator('rifleOnly')) game.player.owned.add('crossbow');
-  game.waveRemaining = game.waveTotal = Math.round(waveSize(game.wave) * difficulty().count * (1 + (route().count ?? 0) + (mutator('ironSwarm') && !game.daily ? CONFIG.mutators.ironSwarm.count : 0)) * (boss ? CONFIG.boss.regularShare : 1));
+  game.theme = game.nextTheme; game.nextTheme = null;
+  game.waveRemaining = game.waveTotal = waveCount(game.wave, game.route, game.theme);
   game.spawnTimer = CONFIG.waves.initialSpawnDelay; game.nextWave = 0; game.merchant = null;
-  game.waveAlert = game.alert; game.waveSilent = true;
+  game.waveAlert = game.alert; game.waveSilent = true; game.waveClock = 0; game.reinforced = 0; game.reinforceTimer = 0;
+  game.reinforceAt = harsh() && !boss ? R.base + R.perEnemy * game.waveTotal : Infinity;
+  if (!game.chapter || (game.wave - 1) % CONFIG.chapters.length === 0) game.chapter = { index: Math.ceil(game.wave / CONFIG.chapters.length), time: game.time, detections: game.stats.detections, taken: game.stats.taken, enemies: 0, waves: 0, mission: null };
+  game.chapter.enemies += game.waveTotal; game.chapter.waves++;
   if (game.event && !(game.event.started && !game.event.done)) game.event = null;
   const fresh = CONFIG.waves.roster.find(r => r.from === game.wave && r.from > 1);
-  notify(fresh ? t('toast.newEnemy', { wave: game.wave, name: t(`enemy.${fresh.kind}`) }) : t('toast.wave', { wave: game.wave }));
+  notify(game.training ? t('toast.training', { name: t(`enemy.${game.training}`) }) : game.theme ? t('toast.theme', { wave: game.wave, name: t(`theme.${game.theme}`) }) : fresh ? t('toast.newEnemy', { wave: game.wave, name: t(`enemy.${fresh.kind}`) }) : t('toast.wave', { wave: game.wave }));
   sound.play('wave');
-  rollChallenge();
-  if (boss) spawnBoss(); else { if (!game.event) rollEvent(); rollMarket(); }
+  if (!game.training) rollChallenge();
+  if (boss) { spawnBoss(); startMission(); } else { if (!game.event) rollEvent(); rollMarket(); }
 }
 // Wave 2 stages intel; later non-boss events use the seeded roster stream.
 function rollEvent() {
@@ -826,7 +922,7 @@ function buyOffer(index) {
   else if (offer.kind === 'discount') grantLevel(offer.group, offer.key, SHOP_TABS[offer.group][offer.key]);
   else {
     if (offer.kind === 'restock') { for (const key in p.items) p.items[key] = CONFIG.throwables.carry; p.bolts = CONFIG.weapons.crossbow.ammo; }
-    else if (offer.kind === 'patch') { p.hp = p.maxHp; p.shield = gearStats().maxShield; }
+    else if (offer.kind === 'patch') { p.hp = p.maxHp; p.shield = gearStats().maxShield; p.shieldBroken = false; }
     else p.scrap += CONFIG.market.goods.exchange.give;
     notify(t(`market.${offer.kind}.done`));
   }
@@ -926,25 +1022,119 @@ function completeIntelWipe() {
   payout(game.player.x, game.player.y, CONFIG.events.types.intel.elimination);
   notify(t('event.intelEliminateDone'));
 }
-// A run is either a normal game (random or typed seed, chosen difficulty/mutators, achievement rewards) or today's daily challenge
-// (date seed, seeded mutator). The seed drives every seeded stream, so a typed seed replays the same map and rolls.
-function startGame(daily) {
+// Boss-wave mission (seeded type from the mission stream): uplink zone, escorted agent or radar dishes. Not in training or the finale.
+function startMission() {
+  game.mission = null;
+  if (game.training || game.wave === CONFIG.finale.wave) return;
+  const M = CONFIG.missions.types, type = pickWeighted(game.rng.mission, Object.keys(M).map(key => [key, 1])), cfg = M[type], p = game.player, m = { type, done: false, failed: false };
+  if (type === 'uplink') {
+    const zone = freeSpot(cfg.radius / 2, cfg.distance);
+    if (!zone) return;
+    Object.assign(m, { zone, progress: 0 });
+  } else if (type === 'escort') {
+    const exit = freeSpot(cfg.reach, cfg.distance), start = [0, 1, 2, 3].map(i => ({ x: p.x + Math.cos(i * Math.PI / 2) * 40, y: p.y + Math.sin(i * Math.PI / 2) * 40 })).find(pt => passable(pt.x, pt.y, cfg.radius));
+    if (!exit || !start) return;
+    Object.assign(m, { exit, agent: { ...start, radius: cfg.radius, hp: cfg.hp, maxHp: cfg.hp, hit: 0, agent: true } });
+  } else {
+    const dishes = [];
+    for (let attempt = 0; attempt < CONFIG.world.placementAttempts && dishes.length < cfg.count; attempt++) {
+      const pos = freeSpot(cfg.radius + 4, CONFIG.waves.enemySpawnDistance, true);
+      if (pos && dishes.every(d => distance(d, pos) >= cfg.spacing)) dishes.push({ ...pos, radius: cfg.radius, hp: cfg.hp, maxHp: cfg.hp, hit: 0, alarm: 0, dish: true });
+    }
+    if (dishes.length < cfg.count) return;
+    m.dishes = dishes;
+  }
+  game.mission = m;
+  notify(t(`mission.${type}.start`, { seconds: cfg.seconds, count: cfg.count }));
+}
+const activeMission = () => game.mission && !game.mission.done && !game.mission.failed ? game.mission : null;
+const missionDishes = () => activeMission()?.dishes?.filter(d => d.hp > 0) ?? [];
+const escortAgent = () => activeMission()?.agent ?? null;
+function hurtAgent(damage) {
+  const a = escortAgent();
+  if (!a) return;
+  a.hp -= damage; a.hit = .15; burst(a.x, a.y, '#9fe3ff', 5);
+  if (a.hp <= 0) failMission();
+}
+function damageDish(d, damage) {
+  if (d.hp <= 0) return;
+  d.hp -= damage; d.hit = .15;
+  if (d.hp > 0) return;
+  burst(d.x, d.y, '#dfe9f2', 16); sound.play('shieldBreak', d);
+  if (!missionDishes().length) completeMission();
+}
+function updateMission(dt) {
+  const m = activeMission(), p = game.player;
+  if (!m) return;
+  const cfg = CONFIG.missions.types[m.type];
+  if (m.type === 'uplink') {
+    if (distance(p, m.zone) < cfg.radius) m.progress += dt;
+    if (m.progress >= cfg.seconds) completeMission();
+  } else if (m.type === 'escort') {
+    const a = m.agent;
+    a.hit = Math.max(0, a.hit - dt);
+    if (distance(p, a) < cfg.follow) steer(a, angleTo(a, m.exit), cfg.speed, dt);
+    if (distance(a, m.exit) < cfg.reach) completeMission();
+  } else for (const d of missionDishes()) {
+    d.hit = Math.max(0, d.hit - dt); d.alarm -= dt;
+    if (d.alarm <= 0 && distance(d, p) < cfg.scan && !isHidden() && clearSight(d, p)) {
+      d.alarm = cfg.cooldown; alertNoise(p.x, p.y, cfg.alarm); markDetected(CONFIG.alert.scan); sound.play('beep', d);
+    }
+  }
+}
+function completeMission() {
+  const m = game.mission, p = game.player, M = CONFIG.missions;
+  m.done = true; game.chapter.mission = true;
+  payout(p.x, p.y, M.reward); addScore(M.score * game.wave);
+  notify(t('mission.done', { name: t(`mission.${m.type}`) }));
+}
+function failMission() {
+  const m = game.mission;
+  m.failed = true; game.chapter.mission = false;
+  if (harsh()) game.missionPenalty = game.wave;
+  notify(t(harsh() ? 'mission.failedPenalty' : 'mission.failed', { name: t(`mission.${m.type}`) }));
+}
+// The boss fell: an unfinished mission fails.
+function resolveMission() { if (activeMission()) failMission(); }
+// Chapter close (every chapters.length waves, and the finale): grade the chapter's time, detections, damage and mission, count badges
+// and keep the best grade per difficulty. Not in daily or training runs.
+function closeChapter() {
+  const c = game.chapter, C = CONFIG.chapters, s = game.stats, p = game.player;
+  if (!c || c.closed || game.daily || game.training || c.index > C.count) return;
+  c.closed = true;
+  const time = game.time - c.time, par = C.par.perEnemy * c.enemies + C.par.perWave * c.waves, detections = s.detections - c.detections, taken = s.taken - c.taken;
+  const grade = [time <= par, detections <= C.detections, taken <= C.taken * p.maxHp, c.mission !== false].filter(Boolean).length;
+  const earned = { flawless: taken <= 0, silent: detections === 0, swift: time <= C.swift * par };
+  const badges = Object.keys(CONFIG.badges).filter(key => earned[key]);
+  s.chapters.push({ index: c.index, grade, badges });
+  const best = profile.chapters[game.difficulty] ?? [];
+  best[c.index - 1] = Math.max(best[c.index - 1] ?? -1, grade); profile.chapters[game.difficulty] = best;
+  for (const key of badges) profile.badges[key]++;
+  saveProfile();
+  notify(t('toast.chapter', { index: c.index, grade: C.grades[grade], badges: badges.map(key => `${CONFIG.badges[key].icon} ${t(`badge.${key}`)}`).join(' ') }));
+}
+// A run is a normal game (random or typed seed, chosen difficulty/mutators, achievement rewards), today's daily challenge (date seed,
+// seeded mutator), this week's seed challenge (week seed, fixed difficulty and seeded threat modifiers) or a training fight against one
+// boss. The seed drives every seeded stream, so a typed seed replays the same map and rolls.
+function startGame(daily, { training = null, seedWeek = null } = {}) {
   sound.init();
-  if (!daily && selectedThreat(profile.mutators) > threatCap()) { notify(t('threat.cap', { cap: threatCap() })); return; }
-  const seed = daily ? todayUTC() : normalizeSeed($('seedInput').value) || randomSeed(), T = CONFIG.throwables;
-  $('seedInput').blur();
-  game.seed = seed; game.daily = daily ? seed : null; game.difficulty = daily ? CONFIG.daily.difficulty : profile.difficulty; game.variant = variantFor(seed);
-  game.cls = profile.cls; game.mutators = daily ? [dailyMutator(seed)] : [...profile.mutators]; game.threat = daily ? 0 : selectedThreat(game.mutators);
-  game.rng = { roster: seededRandom(`${seed}:roster`), perks: seededRandom(`${seed}:perks`), challenge: seededRandom(`${seed}:challenge`), market: seededRandom(`${seed}:market`), contract: seededRandom(`${seed}:contract`) };
-  game.mode = 'playing'; game.time = 0; game.wave = 1; game.kills = 0; game.earned = 0; game.score = 0; game.combo = 0; game.comboTimer = 0; game.alert = 0; game.waveAlert = 0; game.waveSilent = true;
+  if (!daily && !seedWeek && selectedThreat(profile.mutators) > threatCap()) { notify(t('threat.cap', { cap: threatCap() })); return; }
+  const seed = daily ? todayUTC() : seedWeek ? seedChallengeSeed(seedWeek) : training ? randomSeed() : normalizeSeed($('seedInput').value) || randomSeed(), T = CONFIG.throwables;
+  $('seedInput').blur(); $('trainingOverlay').hidden = true; $('progressOverlay').hidden = true;
+  game.seed = seed; game.daily = daily ? seed : null; game.training = training; game.seedWeek = seedWeek;
+  game.difficulty = daily ? CONFIG.daily.difficulty : seedWeek ? CONFIG.seedChallenge.difficulty : profile.difficulty; game.variant = variantFor(seed);
+  game.cls = profile.cls; game.mutators = daily ? [dailyMutator(seed)] : seedWeek ? seedChallengeMutators(seedWeek) : training ? [] : [...profile.mutators]; game.threat = daily ? 0 : selectedThreat(game.mutators);
+  game.rng = { roster: seededRandom(`${seed}:roster`), perks: seededRandom(`${seed}:perks`), challenge: seededRandom(`${seed}:challenge`), market: seededRandom(`${seed}:market`), contract: seededRandom(`${seed}:contract`), theme: seededRandom(`${seed}:theme`), mission: seededRandom(`${seed}:mission`) };
+  game.mode = 'playing'; game.time = 0; game.wave = training ? CONFIG.training.wave : 1; game.kills = 0; game.earned = 0; game.score = 0; game.combo = 0; game.comboTimer = 0; game.alert = 0; game.waveAlert = 0; game.waveSilent = true;
   game.enemies = []; game.bullets = []; game.missiles = []; game.arcs = []; game.bombs = []; game.blasts = []; game.chests = []; game.loot = []; game.particles = [];
   game.throws = []; game.gadgets = []; game.flares = []; game.pools = [];
   game.boss = null; game.event = null; game.challenge = null; game.merchant = null; game.perks = {}; game.perkOffer = null; game.route = null; game.nextRoute = null; game.routeOffer = null; game.seenAffixes = new Set(); game.newAchievements = [];
-  game.stats = { damage: {}, crossbowKills: 0, silentWaves: 0, ambushKills: 0, takedowns: 0, taken: 0, bosses: 0, bossKinds: new Set(), challenges: 0, purchases: 0, shotWave: null, extracted: false, perks: [] };
+  game.mission = null; game.missionPenalty = 0; game.chapter = null; game.theme = null; game.nextTheme = null; game.seenCaptain = false; game.seenOverheat = false; game.perkBonus = 0;
+  game.stats = { damage: {}, crossbowKills: 0, silentWaves: 0, ambushKills: 0, takedowns: 0, taken: 0, bosses: 0, bossKinds: new Set(), challenges: 0, purchases: 0, shotWave: null, extracted: false, perks: [], hurtBy: {}, log: [], lastHit: null, detections: 0, hiddenTime: 0, hitRange: 0, hits: 0, chapters: [] };
   game.keys.clear(); game.mouse.down = false; game.chestTimer = 0; game.flash = 0;
   const levels = Object.fromEntries([...Object.keys(CONFIG.upgrades), ...Object.keys(CONFIG.gear), ...Object.keys(CONFIG.autoWeapons), ...Object.keys(CONFIG.mods)].map(key => [key, 0]));
   const autoCooldowns = Object.fromEntries(Object.keys(CONFIG.autoWeapons).map(key => [key, 0])), hp = CONFIG.player.hp + (classInfo().hp ?? 0);
-  const p = game.player = { ...worldCenter, radius: CONFIG.player.radius, hp, maxHp: hp, shield: 0, lastHurt: 0, gold: 0, scrap: 0, levels, weapon: 'rifle', owned: new Set(['rifle']), autoCooldowns, cooldown: 0, invulnerable: 0, revealedUntil: 0, bushTime: -Infinity, facing: 0, items: { ...T.start }, throwKind: Object.keys(T.items)[0], bolts: CONFIG.weapons.crossbow.ammo, skillCooldown: 0, takedownCooldown: 0, dash: null, bulwark: 0, focus: 0, hunterFocusIdle: 0, hunterFocusReady: false, shadeCircuitProgress: 0 };
+  const p = game.player = { ...worldCenter, radius: CONFIG.player.radius, hp, maxHp: hp, shield: 0, lastHurt: 0, gold: 0, scrap: 0, levels, weapon: 'rifle', owned: new Set(['rifle']), autoCooldowns, cooldown: 0, invulnerable: 0, revealedUntil: 0, bushTime: -Infinity, facing: 0, items: { ...T.start }, throwKind: Object.keys(T.items)[0], bolts: CONFIG.weapons.crossbow.ammo, skillCooldown: 0, takedownCooldown: 0, dash: null, bulwark: 0, focus: 0, hunterFocusIdle: 0, hunterFocusReady: false, shadeCircuitProgress: 0, heat: 0, overheat: 0, mag: {}, reload: 0, shieldBroken: false };
   if (!daily) for (const [id, a] of Object.entries(CONFIG.achievements)) {
     if (!unlocked(id)) continue;
     if (a.startGun && !mutator('rifleOnly')) { p.owned.add(a.startGun); p.weapon = a.startGun; }
@@ -952,25 +1142,36 @@ function startGame(daily) {
     if (a.startAuto) p.levels[a.startAuto] = Math.max(1, p.levels[a.startAuto]);
     if (a.startGold) p.gold += a.startGold;
   }
+  if (training) { p.gold += CONFIG.training.gold; p.scrap += CONFIG.training.scrap; if (!mutator('rifleOnly')) p.owned.add('crossbow'); }
   generateMap(seededRandom(`${seed}:map`), game.variant, mutator('sparse') ? CONFIG.mutators.sparse.bushes : 1);
   for (let i = 0; i < Math.min(CONFIG.chests.initial, CONFIG.chests.maximum); i++) spawnChest();
   UI.start.hidden = true; UI.end.hidden = true; UI.shop.hidden = true; UI.perk.hidden = true;
   sound.music('play'); startWave(); updateHUD();
+  if (training) toggleShop();
+}
+// Weekly seed challenge: the week's seed and threat modifiers (seeded by the week, distinct picks from the pool).
+const seedChallengeSeed = week => `${CONFIG.seedChallenge.prefix}${week}`;
+function seedChallengeMutators(week) {
+  const random = seededRandom(`seed-challenge:${week}`), pool = [...CONFIG.seedChallenge.pool], out = [];
+  while (out.length < CONFIG.seedChallenge.mutators && pool.length) out.push(pool.splice(Math.floor(random() * pool.length), 1)[0]);
+  return out;
 }
 function notify(text) { UI.toast.textContent = text; UI.toast.classList.add('show'); game.toastUntil = performance.now() + 1900; }
-// Marksman: class range bonus, and Focus adds damage and removes jitter while it lasts.
+// Marksman: class range bonus, and Focus adds damage and removes jitter while it lasts. `mag` is the magazine size under the magazine
+// modifier (0 = no magazine).
 function gunStats(key = game.player.weapon) {
   const p = game.player, l = p.levels, g = CONFIG.gun, w = CONFIG.weapons[key], M = CONFIG.mods, focus = p.focus > 0 ? CONFIG.classes.marksman.skill.damage : 0;
   return {
-    ...w, damage: Math.round(w.damage * (1 + l.damage * g.damageStep) * (1 + perk('glassCannon') * P.glassCannon.damage) * (1 + focus)),
+    ...w, damage: Math.round(w.damage * (1 + l.damage * g.damageStep) * (1 + perk('glassCannon') * P.glassCannon.damage + perk('purist') * P.purist.damage) * (1 + focus)),
     shotsPerSecond: w.shotsPerSecond * (1 + l.rate * g.rateStep) * (1 + perk('trigger') * P.trigger.rate + perk('frenzy') * P.frenzy.rate),
     pellets: w.pellets + l.spread, range: Math.round(w.range * (1 + l.range * g.rangeStep + (classInfo().range ?? 0))), pierce: w.pierce + l.piercing * M.piercing.pierce + (focus && !game.daily && game.cls === 'marksman' && masteryLevel('marksman') >= CONFIG.mastery.skillLevel ? CONFIG.mastery.marksmanFocusPierce : 0),
-    bounces: l.ricochet * M.ricochet.bounces, noise: w.noise * (1 - l.suppressor * M.suppressor.noise), jitter: focus ? 0 : w.jitter
+    bounces: l.ricochet * M.ricochet.bounces, noise: w.noise * (1 - l.suppressor * M.suppressor.noise), jitter: focus ? 0 : w.jitter,
+    mag: mutator('magazine') && !w.ammo ? Math.max(1, Math.round(w.shotsPerSecond * CONFIG.mutators.magazine.seconds)) : 0
   };
 }
 function gearStats() {
   const l = game.player.levels, g = CONFIG.gear;
-  return { reduction: l.helmet * g.helmet.reduction, maxShield: l.shield * g.shield.capacity, speed: 1 + l.boots * g.boots.speed + (classInfo().speed ?? 0) };
+  return { reduction: l.helmet * g.helmet.reduction, maxShield: l.shield * g.shield.capacity, speed: 1 + l.boots * g.boots.speed + (classInfo().speed ?? 0) + perk('sprinter') * P.sprinter.speed };
 }
 function itemCost(item, level) {
   return item.goldStep === undefined ? { gold: item.gold, scrap: item.scrap } : { gold: item.gold + level * item.goldStep, scrap: item.scrap + level * item.scrapStep };
@@ -1025,7 +1226,7 @@ function grantLevel(group, key, item) {
   const p = game.player;
   p.levels[key]++;
   if (key === 'vest') { p.maxHp += item.hp; p.hp += item.hp; }
-  if (key === 'shield') p.shield = gearStats().maxShield;
+  if (key === 'shield') { p.shield = gearStats().maxShield; p.shieldBroken = false; }
   notify(t('toast.upgraded', { name: t(`${group}.${key}.title`), level: p.levels[key] }));
 }
 function shopRow(group, key, item) {
@@ -1057,12 +1258,14 @@ function toggleShop() {
 }
 // A perk is available below max stacks, when its unlock is earned (never in daily runs) and when every perk it evolves from is maxed.
 const perkAvailable = (key, v) => perk(key) < v.max && (!v.unlock || (!game.daily && unlocked(v.unlock))) && (!v.needs || v.needs.every(n => perk(n) >= P[n].max));
-// Perk offers come from the run's seeded perk stream: distinct picks weighted by rarity, then possibly one curse in the last slot.
+// Perk offers come from the run's seeded perk stream: distinct picks weighted by rarity (plus any extra cards from the exposed route),
+// then possibly one curse in the last slot (never in daily runs).
 function offerPerks() {
-  const C = CONFIG.perks, random = game.rng.perks, open = Object.entries(P).filter(([key, v]) => perkAvailable(key, v)), offer = [];
+  const C = CONFIG.perks, random = game.rng.perks, open = Object.entries(P).filter(([key, v]) => perkAvailable(key, v)), offer = [], size = C.offer + game.perkBonus;
   const pool = open.filter(([, v]) => v.rarity !== 'cursed').map(([key, v]) => [key, C.rarity[v.rarity]]), curses = open.filter(([, v]) => v.rarity === 'cursed');
-  while (offer.length < C.offer && pool.length) { const key = pickWeighted(random, pool); offer.push(key); pool.splice(pool.findIndex(([k]) => k === key), 1); }
-  if (curses.length && game.wave >= C.curseFrom && random() < C.curseChance) offer[Math.min(offer.length, C.offer - 1)] = curses[Math.floor(random() * curses.length)][0];
+  game.perkBonus = 0;
+  while (offer.length < size && pool.length) { const key = pickWeighted(random, pool); offer.push(key); pool.splice(pool.findIndex(([k]) => k === key), 1); }
+  if (curses.length && !game.daily && game.wave >= C.curseFrom && random() < C.curseChance) offer[Math.min(offer.length, size - 1)] = curses[Math.floor(random() * curses.length)][0];
   if (!offer.length) return false;
   game.perkOffer = offer; openChoice('perk'); return true;
 }
@@ -1072,11 +1275,11 @@ function openChoice(mode) {
 }
 function perkVars(key) {
   const v = P[key], pct = n => Math.round((n ?? 0) * 100);
-  return { pct: pct(key === 'hunterFocus' ? v.damage : key === 'secondWind' ? v.hp : v.bonus ?? v.chance ?? v.scrap ?? v.gold ?? v.rate ?? v.pickup), heal: v.heal, hp: v.hp, seconds: v.seconds, regen: v.regen, takedown: pct(v.takedown), chance: pct(v.chance), scrap: pct(v.scrap), gold: pct(v.gold), damage: pct(v.damage), hpCut: pct(v.hpCut), taken: pct(v.taken), reveal: pct(v.reveal), count: v.takedowns };
+  return { pct: pct(key === 'hunterFocus' ? v.damage : key === 'secondWind' ? v.hp : v.bonus ?? v.chance ?? v.scrap ?? v.gold ?? v.rate ?? v.pickup), heal: v.heal, hp: v.hp, seconds: v.seconds, regen: v.regen, takedown: pct(v.takedown), chance: pct(v.chance), scrap: pct(v.scrap), gold: pct(v.gold), damage: pct(v.damage), hpCut: pct(v.hpCut), taken: pct(v.taken), reveal: pct(v.reveal), count: v.takedowns, speed: pct(v.speed), drain: v.drain };
 }
 function routeVars(key) {
   const r = CONFIG.routes.list[key], pct = n => Math.round((n ?? 0) * 100);
-  return { gold: pct(r.gold), elite: pct(r.elite), count: pct(r.count), scrap: pct(r.scrap), hp: pct(r.hp), vision: r.vision, throwables: r.throwables };
+  return { gold: pct(r.gold), elite: pct(r.elite), count: pct(r.count), scrap: pct(r.scrap), hp: pct(r.hp), vision: r.vision, throwables: r.throwables, sight: pct(r.sight), cards: r.perkCards, seconds: r.blitz?.seconds };
 }
 // The choice overlay hosts the extraction pick (after a boss wave), the perk pick, the route pick and the black market.
 const CHOICE_MODES = ['extract', 'perk', 'route', 'market'];
@@ -1084,10 +1287,10 @@ const CHOICE_MODES = ['extract', 'perk', 'route', 'market'];
 function choiceCards() {
   const pct = n => Math.round((n ?? 0) * 100), p = game.player;
   if (game.mode === 'extract') {
-    const bonus = CONFIG.extraction.scoreBonus;
+    const bonus = extractionBonus();
     return [
       { icon: '⚔', title: t('extract.stay.title'), note: t('route.next', { wave: game.wave + 1 }), text: t('extract.stay.desc') },
-      { icon: '⇱', rarity: 'legendary', title: t('extract.leave.title'), note: t('extract.leave.note', { score: Math.round(game.score * (1 + bonus)).toLocaleString(locale) }), text: t('extract.leave.desc', { pct: pct(bonus) }) }
+      { icon: '⇱', rarity: 'legendary', title: t('extract.leave.title'), note: t('extract.leave.note', { score: Math.round(game.score * (1 + bonus)).toLocaleString(locale) }), text: bonus ? t('extract.leave.desc', { pct: pct(bonus) }) : t('extract.leave.penalty') }
     ];
   }
   if (game.mode === 'perk') return game.perkOffer.map(key => ({ icon: P[key].icon, rarity: P[key].rarity, title: t(`perk.${key}.title`), note: `${t(`rarity.${P[key].rarity}`)} · ${t('perk.stack', { level: perk(key) + 1, max: P[key].max })}`, text: t(`perk.${key}.desc`, perkVars(key)) }));
@@ -1110,7 +1313,8 @@ function renderChoice() {
   $('perkWave').textContent = String(game.wave).padStart(2, '0');
   $('perkLabel').textContent = t(`${mode}.eyebrow`);
   $('perkHeading').textContent = t(`${mode}.heading`);
-  $('perkHint').textContent = t(`${mode}.hint`, { count: cards.length, gold: p.gold, scrap: p.scrap });
+  const chapter = mode === 'extract' && game.stats.chapters.at(-1), closed = chapter && chapter.index === Math.ceil(game.wave / CONFIG.chapters.length) && game.wave % CONFIG.chapters.length === 0;
+  $('perkHint').textContent = t(`${mode}.hint`, { count: cards.length, gold: p.gold, scrap: p.scrap }) + (closed ? ` · ${t('end.chapter', { index: chapter.index })} ${CONFIG.chapters.grades[chapter.grade]}${chapter.badges.map(key => CONFIG.badges[key].icon).join('')}` : '');
   $('perkClose').hidden = mode !== 'market';
   $('perkChoices').replaceChildren(...cards.map((card, i) => {
     const button = document.createElement('button');
@@ -1133,7 +1337,7 @@ function grantPerk(key) {
   const p = game.player;
   game.perks[key] = perk(key) + 1; game.stats.perks.push(key); markIntel('perks', key);
   if (key === 'tough') { p.maxHp += P.tough.hp; p.hp += P.tough.hp; }
-  if (key === 'glassCannon') { p.maxHp = Math.max(1, Math.round(p.maxHp * (1 - P.glassCannon.hpCut))); p.hp = Math.min(p.hp, p.maxHp); }
+  if (key === 'glassCannon' || key === 'sprinter') { p.maxHp = Math.max(1, Math.round(p.maxHp * (1 - P[key].hpCut))); p.hp = Math.min(p.hp, p.maxHp); }
   if (key === 'shadeCircuit') p.shadeCircuitProgress = 0;
   if (key === 'hunterFocus') { p.hunterFocusIdle = 0; p.hunterFocusReady = false; }
   burst(p.x, p.y, '#e9e597', 17); notify(t('toast.perk', { name: t(`perk.${key}.title`) })); updateHUD();
@@ -1169,7 +1373,7 @@ function classVars(key) {
 }
 function mutatorVars(key) {
   const m = CONFIG.mutators[key], pct = n => Math.round((n ?? 0) * 100);
-  return { hp: pct(m.enemyHp), taken: m.taken, bushes: pct(m.bushes), vision: m.vision, score: pct(m.score), elite: pct(m.elite), price: pct(m.price), count: pct(m.count) };
+  return { hp: pct(m.enemyHp), taken: m.taken, bushes: pct(m.bushes), vision: m.vision, score: pct(m.score), elite: pct(m.elite), price: pct(m.price), count: pct(m.count), seconds: m.seconds, reload: m.reload };
 }
 // Picker buttons: aria-pressed marks the selection; `title` carries the description.
 function pickerButton(label, pressed, title, onClick, disabled = false) {
@@ -1188,7 +1392,8 @@ function renderMenu() {
     const open = difficultyOpen(key);
     return pickerButton(t(`difficulty.${key}`), key === profile.difficulty, open ? t(`difficulty.${key}.desc`) : lockText(d), () => { profile.difficulty = key; saveProfile(); renderMenu(); }, !open);
   }));
-  $('recordLine').textContent = record ? t('menu.record', { wave: record.wave, kills: record.kills, score: record.score ?? 0 }) + (record.extractWave ? t('menu.recordExtract', { wave: record.extractWave }) : '') : t('menu.noRecord');
+  const grades = profile.chapters[profile.difficulty] ?? [];
+  $('recordLine').textContent = (record ? t('menu.record', { wave: record.wave, kills: record.kills, score: record.score ?? 0 }) + (record.extractWave ? t('menu.recordExtract', { wave: record.extractWave }) : '') : t('menu.noRecord')) + (grades.some(hasGrade) ? t('menu.chapters', { list: chapterGrades(grades) }) : '');
   $('classPicker').replaceChildren(...Object.entries(CONFIG.classes).map(([key, c]) => {
     const open = isOpen(c), level = masteryLevel(key), xp = profile.mastery[key] ?? 0;
     const next = CONFIG.mastery.thresholds[Math.min(level, CONFIG.mastery.maxLevel - 1)], previous = CONFIG.mastery.thresholds[Math.max(0, level - 1)];
@@ -1220,7 +1425,10 @@ function renderMenu() {
     item.textContent = `${profile.weekly.done.includes(id) ? '✓' : '○'} ${t(`contract.${id}`, { count: target })} ${Math.min(profile.weekly.progress[id] ?? 0, target)}/${target}`;
     return item;
   }));
-  renderCodex();
+  renderCodex(); renderChapters(); renderSeedChallenge();
+  $('trainingBtn').textContent = t('menu.training');
+  $('trainingHeading').textContent = t('training.heading'); $('trainingInfo').textContent = t('training.info', { xp: CONFIG.training.xp, cap: CONFIG.training.dailyXp, left: Math.max(0, CONFIG.training.dailyXp - (profile.training.day === today ? profile.training.xp : 0)) });
+  $('trainingPicker').replaceChildren(...CONFIG.boss.order.map(kind => pickerButton(`${t(`enemy.${kind}`)}`, false, t('training.pick', { name: t(`enemy.${kind}`) }), () => startGame(false, { training: kind }), !profile.intel.bosses.includes(kind))));
   $('achievementList').replaceChildren(...Object.entries(CONFIG.achievements).map(([id, a]) => {
     const chip = document.createElement('span');
     chip.className = unlocked(id) ? 'achievement' : 'achievement locked';
@@ -1239,6 +1447,24 @@ function renderCodex() {
     if (seen && P[key]?.needs) entry.title = P[key].needs.map(need => t(`perk.${need}.title`)).join(' + ');
     return entry;
   })));
+}
+// Best chapter grades as letters ('–' for chapters never closed; saved arrays hold null in the gaps).
+const hasGrade = g => typeof g === 'number' && g >= 0;
+const chapterGrades = grades => Array.from({ length: CONFIG.chapters.count }, (_, i) => hasGrade(grades[i]) ? CONFIG.chapters.grades[grades[i]] : '–').join(' ');
+function renderChapters() {
+  $('chaptersHeading').textContent = t('menu.chaptersTitle');
+  const rows = Object.keys(CONFIG.difficulty).map(key => `${t(`difficulty.${key}`)} ${chapterGrades(profile.chapters[key] ?? [])}`);
+  const badges = Object.entries(CONFIG.badges).map(([key, b]) => `${b.icon} ${t(`badge.${key}`)} ×${profile.badges[key]}`);
+  $('chaptersInfo').replaceChildren(...[...rows, ...badges].map(text => Object.assign(document.createElement('span'), { className: 'contract', textContent: text })));
+}
+// Weekly seed challenge: this week's seed, difficulty and modifiers, plus the best score of recent weeks.
+function renderSeedChallenge() {
+  const week = isoWeek(), mutators = seedChallengeMutators(week).map(key => t(`mutator.${key}`)).join('、'), best = profile.seedRuns[week];
+  $('seedChallengeBtn').textContent = t('menu.seedChallenge');
+  $('seedChallengeBtn').title = t('seed.info', { seed: seedChallengeSeed(week), difficulty: t(`difficulty.${CONFIG.seedChallenge.difficulty}`), list: mutators });
+  $('seedHeading').textContent = t('seed.heading', { week });
+  const history = Object.entries(profile.seedRuns).sort(([a], [b]) => a.localeCompare(b)).map(([key, r]) => `${key.slice(5)} ${r.score.toLocaleString(locale)}`).join(' · ');
+  $('seedInfo').textContent = `${t('seed.info', { seed: seedChallengeSeed(week), difficulty: t(`difficulty.${CONFIG.seedChallenge.difficulty}`), list: mutators })} · ${best ? t('seed.best', { score: best.score.toLocaleString(locale), wave: best.wave, runs: best.runs }) : t('seed.none')}${history ? ` · ${t('seed.history', { list: history })}` : ''}`;
 }
 function renderNextGoals() {
   const goals = [];
@@ -1287,10 +1513,11 @@ function applyLocale(lang) {
   if (CHOICE_MODES.includes(game.mode)) renderChoice();
   if (game.mode === 'ended') renderEnd();
 }
-// Sidebar objective line for the running event (hold point, marked officer, intel run).
+// Sidebar objective line for the running event (hold point, marked officer, intel run), else the boss mission, the blitz clock or the
+// reinforcement countdown (harsh).
 function objectiveText() {
   const ev = game.event;
-  if (!ev?.started || ev.done) return '';
+  if (!ev?.started || ev.done) return missionText();
   if (ev.type === 'intel') return ev.deliveryExpired ? t('hud.intelEliminate') : t('hud.intelChoice', { left: Math.ceil(ev.limit) });
   if (ev.type === 'jammer') return t('hud.jammer', { left: Math.ceil(ev.limit), hp: Math.ceil(100 * ev.crate.hp / ev.crate.maxHp) });
   if (!ev.limit) return '';
@@ -1298,6 +1525,20 @@ function objectiveText() {
   if (ev.type === 'hold') return t('hud.hold', { progress: Math.floor(ev.progress), seconds: CONFIG.events.types.hold.seconds, left });
   if (ev.type === 'assassinate') return t('hud.assassinate', { left });
   return '';
+}
+function missionText() {
+  const m = activeMission(), R = CONFIG.reinforcements, blitz = route().blitz;
+  if (m) {
+    const cfg = CONFIG.missions.types[m.type];
+    if (m.type === 'uplink') return t('hud.uplink', { progress: Math.floor(m.progress), seconds: cfg.seconds });
+    if (m.type === 'escort') return t('hud.escort', { hp: Math.ceil(100 * m.agent.hp / m.agent.maxHp) });
+    return t('hud.radar', { left: missionDishes().length, count: cfg.count });
+  }
+  if (game.nextWave) return '';
+  if (blitz && game.waveClock <= blitz.seconds) return t('hud.blitz', { left: Math.ceil(blitz.seconds - game.waveClock) });
+  const left = game.reinforceAt - game.waveClock;
+  if (game.reinforced) return t('hud.reinforcing', { count: game.reinforced, max: R.max });
+  return left <= R.warn ? t('hud.reinforce', { left: Math.ceil(left) }) : '';
 }
 function updateHUD() {
   if (!game.player) return;
@@ -1314,9 +1555,11 @@ function updateHUD() {
   $('spreadStat').textContent = gun.pellets; $('rangeStat').textContent = gun.range;
   $('armorStat').textContent = `${Math.round(gear.reduction * 100)}%`; $('speedStat').textContent = `${Math.round(gear.speed * 100)}%`;
   $('weaponName').textContent = t(`guns.${p.weapon}.title`);
-  $('weaponTier').textContent = t('hud.weaponTier', { owned: p.owned.size, total: Object.keys(CONFIG.weapons).length, level: total }) + (p.owned.has('crossbow') ? t('hud.bolts', { bolts: p.bolts, max: CONFIG.weapons.crossbow.ammo }) : '');
+  const mag = gun.mag ? (p.reload > 0 ? t('hud.reloading') : t('hud.mag', { left: p.mag[p.weapon] ?? gun.mag, size: gun.mag })) : '';
+  $('weaponTier').textContent = t('hud.weaponTier', { owned: p.owned.size, total: Object.keys(CONFIG.weapons).length, level: total }) + (p.owned.has('crossbow') ? t('hud.bolts', { bolts: p.bolts, max: CONFIG.weapons.crossbow.ammo }) : '') + mag;
   const autos = Object.entries(CONFIG.autoWeapons).filter(([key]) => p.levels[key]);
-  $('autoList').textContent = `${t('hud.auto')}${autos.length ? autos.map(([key, item]) => `${item.icon} ${p.levels[key]}`).join('　') : t('hud.none')}`;
+  const heat = perk('purist') ? t('hud.autoOff') : p.overheat > 0 ? t('hud.overheat', { left: p.overheat.toFixed(1) }) : harsh() && autos.length ? t('hud.heat', { pct: Math.round(p.heat / CONFIG.autoHeat.max * 100) }) : '';
+  $('autoList').textContent = `${t('hud.auto')}${autos.length ? autos.map(([key, item]) => `${item.icon} ${p.levels[key]}`).join('　') : t('hud.none')}${autos.length ? heat : ''}`;
   $('autoList').title = autos.map(([key]) => `${t(`auto.${key}.title`)} LV. ${p.levels[key]}`).join('\n');
   const perks = Object.entries(P).filter(([key]) => perk(key));
   $('perkList').textContent = `${t('hud.perks')}${perks.length ? perks.map(([key, item]) => `${item.icon} ${perk(key)}${key === 'shadeCircuit' ? ` ${p.shadeCircuitProgress}/${P.shadeCircuit.takedowns}` : ''}${key === 'hunterFocus' && p.hunterFocusReady ? ' ◆' : ''}`).join('　') : t('hud.none')}`;
@@ -1364,11 +1607,18 @@ function startSearch(e, x, y) { Object.assign(e, { state: 'search', goal: { x, y
 function alertNoise(x, y, radius) {
   for (const e of game.enemies) if ((e.state === 'wander' || e.state === 'search') && e.kind !== 'scout' && Math.hypot(e.x - x, e.y - y) < radius) startSearch(e, x, y);
 }
+// Magazine modifier: reload the equipped gun (R, or automatically when it runs dry); the magazine refills after `reload` s.
+function reload() {
+  const p = game.player, gun = gunStats();
+  if (!gun.mag || p.reload > 0 || (p.mag[p.weapon] ?? gun.mag) >= gun.mag) return;
+  p.reload = CONFIG.mutators.magazine.reload; p.reloadGun = p.weapon; sound.play('toss'); updateHUD();
+}
 // Shots fired while hidden are ambush shots: they get the Ambush/Predator bonus and count toward ambush kills. Every shot makes noise
 // except silent guns (the crossbow), which also keep the player hidden but spend a bolt per shot.
 function shoot() {
   const p = game.player, gun = gunStats(), angle = p.facing, ambush = isHidden(), M = CONFIG.mods;
   if (gun.ammo && p.bolts <= 0) { p.cooldown = CONFIG.player.switchDelay * 2; notify(t('toast.noBolts')); return; }
+  if (gun.mag && (p.reload > 0 || (p.mag[p.weapon] ??= gun.mag) <= 0)) { reload(); return; }
   const focusShot = perk('hunterFocus') > 0 && p.hunterFocusReady;
   const paybackShots = p.paybackShots ?? 0;
   const damage = Math.round(gun.damage * (ambush ? 1 + perk('ambush') * P.ambush.bonus + perk('predator') * P.predator.bonus : 1) * (focusShot ? 1 + P.hunterFocus.damage : 1) * (1 + paybackShots * P.payback.damage));
@@ -1377,6 +1627,7 @@ function shoot() {
   p.cooldown = 1 / gun.shotsPerSecond; game.stats.shotWave ??= game.wave;
   if (!gun.silent) p.revealedUntil = game.time + CONFIG.player.revealSeconds * (1 - p.levels.suppressor * M.suppressor.reveal) * (1 + perk('frenzy') * P.frenzy.reveal);
   if (gun.ammo) p.bolts--;
+  if (gun.mag && --p.mag[p.weapon] <= 0) reload();
   for (let i = 0; i < gun.pellets; i++) {
     const a = angle + (i - (gun.pellets - 1) / 2) * gun.spreadRadians + rand(-gun.jitter, gun.jitter), x = p.x + Math.cos(a) * 21, y = p.y + Math.sin(a) * 21;
     game.bullets.push({ x, y, vx: Math.cos(a) * gun.bulletSpeed, vy: Math.sin(a) * gun.bulletSpeed, traveled: 0, range: gun.range, damage, radius: CONFIG.gun.bulletRadius, friendly: true, pierce: gun.blast ? 0 : gun.pierce, hits: gun.pierce ? new Set() : null, bounces: gun.bounces, color: focusShot ? '#f2d782' : gun.color, trail: p.weapon === 'rail' || p.weapon === 'crossbow', source: p.weapon, ambush, bolt: !!gun.ammo && i === 0, blast: gun.blast });
@@ -1415,7 +1666,7 @@ function enemyDeath(enemy, ambush, source) {
     }
   }
   if (ambush) { game.stats.ambushKills++; progressChallenge('ambush'); if (perk('phantom')) p.revealedUntil = game.time; }
-  const heal = perk('vampire') * P.vampire.heal + perk('bloodstorm') * P.bloodstorm.heal;
+  const heal = perk('vampire') * P.vampire.heal + perk('bloodstorm') * P.bloodstorm.heal + (inTerrain(p, game.bushes) ? perk('thornbound') * P.thornbound.heal : 0);
   if (heal) p.hp = Math.min(p.maxHp, p.hp + heal);
   if (enemy.affix === 'splitter') {
     const s = CONFIG.elites.affixes.splitter;
@@ -1430,6 +1681,8 @@ function bossDeath(boss) {
   drop(boss.x, boss.y, 'gold', goldAmount(L.gold)); drop(boss.x, boss.y, 'scrap', scrapAmount(L.scrap)); drop(boss.x, boss.y, 'heal', L.heal);
   game.boss = null; game.stats.bosses++; game.stats.bossKinds.add(boss.kind); addScore(CONFIG.score.boss);
   burst(boss.x, boss.y, '#f2d782', 40); game.shake = Math.max(game.shake, 10); sound.play('chest'); notify(t('toast.bossDown', { name: t(`enemy.${boss.kind}`) }));
+  if (game.training) { game.stats.trainingWon = true; finishRun(); return; }
+  resolveMission();
   if (boss.finalOperation) { finishRun(false, true); return; }
 }
 function chestDeath(chest) {
@@ -1454,6 +1707,7 @@ function damageEnemy(e, b) {
     else { burst(e.x + Math.cos(e.facing) * 20, e.y + Math.sin(e.facing) * 20, '#bfe3f5', 18); sound.play('shieldBreak', e); }
     return;
   }
+  if (CONFIG.weapons[b.source]) { game.stats.hitRange += distance(game.player, e); game.stats.hits++; }
   hitEnemyBody(e, b.damage, b.source, b.ambush);
 }
 // Direct body damage: used by bullets past the shield and by blades, missiles and arcs, which ignore frontal shields.
@@ -1461,6 +1715,7 @@ function damageEnemy(e, b) {
 function hitEnemyBody(e, damage, source, ambush = false) {
   if (e.hp <= 0) return;
   if (e.affix === 'armored') damage *= 1 - CONFIG.elites.affixes.armored.reduction;
+  if (guarded(e)) damage *= 1 - CONFIG.captains.reduction;
   game.stats.damage[source] = (game.stats.damage[source] ?? 0) + Math.min(e.hp, damage);
   e.hp -= damage; e.hit = .15; e.reveal = CONFIG.enemies[e.kind].revealSeconds ?? 0; burst(e.x, e.y, CONFIG.enemies[e.kind].color, 4);
   if (e.hp <= 0) enemyDeath(e, ambush, source); else sound.play('hit', e);
@@ -1517,33 +1772,44 @@ function dronePosition(p) {
   const s = CONFIG.autoWeapons.drone, a = game.time * s.orbitSpeed;
   return { x: p.x + Math.cos(a) * s.orbit, y: p.y + Math.sin(a) * s.orbit };
 }
+// Auto weapons stay off under the purist curse and while overheated (harsh difficulties).
+const autosOff = p => perk('purist') > 0 || p.overheat > 0;
 function bladePositions(p) {
-  const s = CONFIG.autoWeapons.blades, n = p.levels.blades ? s.count[p.levels.blades - 1] : 0;
+  const s = CONFIG.autoWeapons.blades, n = p.levels.blades && !autosOff(p) ? s.count[p.levels.blades - 1] : 0;
   return Array.from({ length: n }, (_, i) => { const a = game.time * s.spin + i * Math.PI * 2 / n; return { x: p.x + Math.cos(a) * s.radius, y: p.y + Math.sin(a) * s.radius, a }; });
+}
+// Harsh only: each auto shot / blade hit adds heat; at max every auto weapon shuts down for autoHeat.overheat s.
+function addHeat(key) {
+  const p = game.player, H = CONFIG.autoHeat;
+  if (!harsh() || (p.heat += H.cost[key]) < H.max) return;
+  p.heat = H.max; p.overheat = H.overheat; sound.play('shieldBreak');
+  if (!game.seenOverheat) { game.seenOverheat = true; notify(t('toast.overheat', { seconds: H.overheat })); }
 }
 function updateAutoWeapons(dt) {
   const p = game.player, A = CONFIG.autoWeapons, l = p.levels, cd = p.autoCooldowns;
   for (const key in cd) cd[key] -= dt;
+  p.heat = Math.max(0, p.heat - CONFIG.autoHeat.cool * dt); p.overheat = Math.max(0, p.overheat - dt);
+  if (autosOff(p)) return;
   if (l.blades) {
     const s = A.blades, damage = s.damage[l.blades - 1];
     for (const blade of bladePositions(p)) for (const e of [...game.enemies]) {
-      if (e.bladeCooldown <= 0 && Math.hypot(e.x - blade.x, e.y - blade.y) < e.radius + s.size) { e.bladeCooldown = s.hitCooldown; sound.play('blade', e); hitEnemyBody(e, damage, 'blades'); }
+      if (e.bladeCooldown <= 0 && Math.hypot(e.x - blade.x, e.y - blade.y) < e.radius + s.size) { e.bladeCooldown = s.hitCooldown; sound.play('blade', e); hitEnemyBody(e, damage, 'blades'); addHeat('blades'); }
     }
   }
-  if (inTerrain(p, game.bushes)) return;
+  if (inTerrain(p, game.bushes) || autosOff(p)) return;
   if (l.drone && cd.drone <= 0) {
     const s = A.drone, from = dronePosition(p), target = nearestEnemy(from, s.range);
     if (target) {
       const a = Math.atan2(target.y - from.y, target.x - from.x);
       game.bullets.push({ ...from, vx: Math.cos(a) * s.bulletSpeed, vy: Math.sin(a) * s.bulletSpeed, traveled: 0, range: s.range + 40, damage: s.damage[l.drone - 1], radius: 3, friendly: true, pierce: 0, hits: null, color: '#bfe8ff', source: 'drone' });
-      cd.drone = 1 / s.rate[l.drone - 1]; sound.play('drone', from);
+      cd.drone = 1 / s.rate[l.drone - 1]; sound.play('drone', from); addHeat('drone');
     }
   }
   if (l.missile && cd.missile <= 0) {
     const s = A.missile, target = nearestEnemy(p, s.range);
     if (target) {
       game.missiles.push({ x: p.x, y: p.y, angle: Math.atan2(target.y - p.y, target.x - p.x) + rand(-.7, .7), target, damage: s.damage[l.missile - 1], life: s.life });
-      cd.missile = s.interval[l.missile - 1]; sound.play('missile');
+      cd.missile = s.interval[l.missile - 1]; sound.play('missile'); addHeat('missile');
     }
   }
   if (l.tesla && cd.tesla <= 0) {
@@ -1553,24 +1819,27 @@ function updateAutoWeapons(dt) {
       while (chain.length < s.chains[l.tesla - 1]) { const next = nearestEnemy(chain.at(-1), s.chainRange, hit); if (!next) break; chain.push(next); hit.add(next); }
       game.arcs.push({ points: [{ x: p.x, y: p.y }, ...chain.map(e => ({ x: e.x, y: e.y }))], life: .16 });
       for (const e of chain) hitEnemyBody(e, s.damage[l.tesla - 1], 'tesla');
-      cd.tesla = s.interval[l.tesla - 1]; sound.play('zap');
+      cd.tesla = s.interval[l.tesla - 1]; sound.play('zap'); addHeat('tesla');
     }
   }
 }
 // Shared blast: damages enemies and chests, sets off barrels, splinters wooden walls, knocks out searchlights, optionally hurts the
-// player and burns grass. Every blast makes noise.
-function explode(x, y, damage, { blast = CONFIG.autoWeapons.missile.blast, source = 'missile', burn = false, playerDamage = 0, ambush = false } = {}) {
+// player (hurtBy names the attacker for the after-action report) and the escorted agent, and burns grass. Every blast makes noise.
+function explode(x, y, damage, { blast = CONFIG.autoWeapons.missile.blast, source = 'missile', burn = false, playerDamage = 0, ambush = false, hurtBy = source } = {}) {
   const p = game.player;
   burst(x, y, '#f6b36b', 22); burst(x, y, '#fff0c0', 8); sound.play('explosion', { x, y }); game.shake = Math.max(game.shake, 4 + (burn ? 4 : 0));
   game.blasts.push({ x, y, radius: blast, life: .35 });
   if (damage) {
     for (const e of [...game.enemies]) if (Math.hypot(e.x - x, e.y - y) < blast + e.radius) hitEnemyBody(e, damage, source, ambush);
     for (const c of [...game.chests]) if (Math.hypot(c.x - x, c.y - y) < blast + c.radius) damageChest(c, damage);
+    for (const d of missionDishes()) if (Math.hypot(d.x - x, d.y - y) < blast + d.radius) damageDish(d, damage);
   }
   for (const b of game.barrels) if (Math.hypot(b.x - x, b.y - y) < blast + b.radius) damageBarrel(b, CONFIG.barrels.hp);
   for (const r of game.walls.filter(r => r.wood && circleRect(x, y, blast, r))) damageWood(r, CONFIG.world.woodBlast);
   for (const l of [...game.lights]) if (Math.hypot(l.x - x, l.y - y) < blast + l.radius) damageLight(l, l.hp);
-  if (playerDamage && distance(p, { x, y }) < blast + p.radius) hurtPlayer(playerDamage);
+  if (playerDamage && distance(p, { x, y }) < blast + p.radius) hurtPlayer(playerDamage, hurtBy);
+  const agent = escortAgent();
+  if (playerDamage && agent && distance(agent, { x, y }) < blast + agent.radius) hurtAgent(playerDamage);
   if (burn) burnGrass(x, y, blast);
   alertNoise(x, y, CONFIG.search.explosionNoise);
 }
@@ -1588,15 +1857,19 @@ function updateMissiles(dt) {
   for (let i = game.arcs.length - 1; i >= 0; i--) if ((game.arcs[i].life -= dt) <= 0) game.arcs.splice(i, 1);
   for (let i = game.blasts.length - 1; i >= 0; i--) if ((game.blasts[i].life -= dt) <= 0) game.blasts.splice(i, 1);
 }
-function hurtPlayer(damage) {
-  const p = game.player;
+// `source` (enemy kind, barrel…) feeds the after-action report: damage after armor per source and a short log of recent hits.
+function hurtPlayer(damage, source = 'unknown') {
+  const p = game.player, s = game.stats;
   if (p.invulnerable > 0 || game.mode !== 'playing') return;
   failChallenge('untouched');
   const bulwark = p.bulwark > 0 ? CONFIG.classes.heavy.skill.reduction : 0;
   let amount = damage * (1 - gearStats().reduction) * (1 - bulwark) * (1 + perk('bloodPrice') * P.bloodPrice.taken) * (mutator('brittle') ? CONFIG.mutators.brittle.taken : 1);
-  game.stats.taken += amount;
+  s.taken += amount; s.hurtBy[source] = (s.hurtBy[source] ?? 0) + amount; s.lastHit = source;
+  s.log.push({ time: game.time, source, amount });
+  while (s.log.length && s.log[0].time < game.time - CONFIG.report.window) s.log.shift();
   p.invulnerable = CONFIG.player.invulnerability; p.lastHurt = game.time;
   const absorbed = Math.min(p.shield, amount); p.shield -= absorbed; amount -= absorbed;
+  if (absorbed && p.shield <= 0 && mutator('oneShield')) p.shieldBroken = true;
   if (amount > 0) { p.hp = Math.max(0, p.hp - amount); game.flash = .35; game.shake = 7; burst(p.x, p.y, '#f29785', 9); sound.play('hurt'); }
   else { game.shake = 3; burst(p.x, p.y, '#a9dcee', 9); sound.play('shieldHit'); }
   updateHUD();
@@ -1607,12 +1880,22 @@ function hurtPlayer(damage) {
   if (!p.hp) finishRun();
 }
 // Run end (death or extraction): update personal records and cumulative totals, grant newly earned achievements, show the report.
-// Extraction adds the extraction bonus to the score and records the best wave extracted from.
+// Extraction adds the extraction bonus to the score and records the best wave extracted from. Training ends in finishTraining.
 function finishRun(extracted = false, cleared = false) {
   game.mode = 'ended'; game.mouse.down = false; game.stats.cleared = cleared;
   const s = game.stats, totals = profile.totals, masteryBefore = profile.mastery[game.cls] ?? 0;
   s.extracted = extracted;
-  if (extracted || cleared) game.score += Math.round(game.score * CONFIG.extraction.scoreBonus);
+  if (cleared) closeChapter();
+  if (game.training) { finishTraining(masteryBefore); return; }
+  if (extracted || cleared) game.score += Math.round(game.score * extractionBonus());
+  const A = profile.analytics; A.runs++;
+  for (const [source, amount] of Object.entries(s.hurtBy)) A.taken[source] = Math.round((A.taken[source] ?? 0) + amount);
+  if (!extracted && !cleared && s.lastHit) A.deaths[s.lastHit] = (A.deaths[s.lastHit] ?? 0) + 1;
+  if (game.seedWeek) {
+    const entry = profile.seedRuns[game.seedWeek] ?? { score: 0, wave: 0, runs: 0 };
+    profile.seedRuns[game.seedWeek] = { score: Math.max(entry.score, game.score), wave: Math.max(entry.wave, game.wave), runs: entry.runs + 1 };
+    for (const week of Object.keys(profile.seedRuns).sort().slice(0, -CONFIG.seedChallenge.history)) delete profile.seedRuns[week];
+  }
   const run = { wave: game.wave, kills: game.kills, time: Math.floor(game.time), score: game.score }, key = game.daily ? 'daily' : game.difficulty;
   const best = { wave: 0, kills: 0, time: 0, score: 0, ...profile.records[key] }, fresh = Object.keys(run).filter(field => run[field] > best[field]);
   for (const field of fresh) best[field] = run[field];
@@ -1651,6 +1934,20 @@ function finishRun(extracted = false, cleared = false) {
   renderEnd(); renderMenu();
   UI.end.hidden = false; UI.perk.hidden = true; sound.music('stop'); sound.play(extracted || cleared ? 'extract' : 'gameOver');
 }
+// Training ends without records, totals or achievements; a win pays capped mastery XP (per UTC day).
+function finishTraining(masteryBefore) {
+  const T = CONFIG.training, day = todayUTC(), won = !!game.stats.trainingWon;
+  if (profile.training.day !== day) profile.training = { day, xp: 0 };
+  const xp = won ? clamp(T.dailyXp - profile.training.xp, 0, T.xp) : 0;
+  profile.training.xp += xp; profile.mastery[game.cls] += xp; saveProfile();
+  const masteryStart = masteryLevel(game.cls, masteryBefore), masteryEnd = masteryLevel(game.cls);
+  game.newAchievements = [];
+  game.summary = { run: { wave: game.wave, kills: game.kills, time: Math.floor(game.time), score: game.score }, fresh: [], xp, levelUp: masteryEnd > masteryStart ? { from: masteryStart, to: masteryEnd } : null };
+  renderEnd(); renderMenu();
+  UI.end.hidden = false; UI.perk.hidden = true; sound.music('stop'); sound.play(won ? 'extract' : 'gameOver');
+}
+// A failed boss mission on a harsh difficulty cancels the extraction bonus of that wave.
+const extractionBonus = () => game.missionPenalty === game.wave ? 0 : CONFIG.extraction.scoreBonus;
 const DIFFICULTY_KEYS = Object.keys(CONFIG.difficulty);
 // Run goals (wave on a difficulty or harder, quiet waves before the first manual shot, every gun owned) and cumulative goals.
 function achieved(a) {
@@ -1663,6 +1960,17 @@ function achieved(a) {
   return TOTAL_KEYS.every(key => !a[key] || profile.totals[key] >= a[key]);
 }
 const sourceName = key => CONFIG.weapons[key] ? t(`guns.${key}.title`) : CONFIG.autoWeapons[key] ? t(`auto.${key}.title`) : t(`source.${key}`);
+const hurtName = key => CONFIG.enemies[key] ? t(`enemy.${key}`) : t(`source.${key}`);
+// After-action report: top damage source, detections, the last hits before death and a tip for what hurt most (or finished the run).
+function analysisLines() {
+  const s = game.stats, R = CONFIG.report, fallen = !s.extracted && !s.cleared && !s.trainingWon;
+  const total = Object.values(s.hurtBy).reduce((sum, v) => sum + v, 0), [top] = Object.entries(s.hurtBy).sort((a, b) => b[1] - a[1]);
+  const facts = [top ? t('end.analysis.top', { name: hurtName(top[0]), pct: Math.round(top[1] / total * 100) }) : t('end.analysis.clean'), t('end.analysis.detected', { count: s.detections })];
+  if (fallen && s.log.length) facts.push(t('end.analysis.last', { list: s.log.slice(-R.entries).map(hit => `${hurtName(hit.source)} −${Math.round(hit.amount)}`).join(' · ') }));
+  const tipKey = fallen && s.lastHit ? s.lastHit : top?.[0];
+  const chapters = s.chapters.map(c => `${t('end.chapter', { index: c.index })} ${CONFIG.chapters.grades[c.grade]}${c.badges.map(key => CONFIG.badges[key].icon).join('')}`).join(' · ');
+  return [facts.join(' · '), tipKey && t(STRINGS[`tip.${tipKey}`] ? `tip.${tipKey}` : 'tip.generic'), chapters && t('end.chapters', { list: chapters })].filter(Boolean);
+}
 function renderEnd() {
   $('endGoalsHeading').textContent = t('end.goals');
   const { run, fresh } = game.summary, s = game.stats, mark = field => fresh.includes(field) ? ` <em>${t('end.best')}</em>` : '';
@@ -1672,21 +1980,22 @@ function renderEnd() {
   $('endScore').innerHTML = run.score.toLocaleString(locale) + mark('score');
   $('endGold').textContent = game.earned;
   $('endAmbush').textContent = s.ambushKills; $('endTakedowns').textContent = s.takedowns; $('endTaken').textContent = Math.round(s.taken); $('endBosses').textContent = s.bosses; $('endChallenges').textContent = s.challenges;
-  $('endTitle').textContent = t(s.cleared ? 'end.title.cleared' : s.extracted ? 'end.title.extracted' : 'end.title.fallen');
+  $('endTitle').textContent = t(game.training ? (s.trainingWon ? 'end.title.trainingWon' : 'end.title.trainingLost') : s.cleared ? 'end.title.cleared' : s.extracted ? 'end.title.extracted' : 'end.title.fallen');
+  $('endAnalysis').replaceChildren(...analysisLines().map(line => Object.assign(document.createElement('span'), { textContent: line })));
   const sources = Object.entries(s.damage).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]);
   $('endDamage').textContent = sources.length ? sources.map(([source, value]) => `${sourceName(source)} ${Math.round(value)}`).join(' · ') : t('hud.none');
   $('endPerks').textContent = s.perks.length ? s.perks.map(key => P[key].icon).join(' ') : t('hud.none');
-  $('endMode').textContent = [game.daily ? `${t('hud.daily')} ${game.daily}` : t('end.seed', { seed: game.seed }), !game.daily && t(`difficulty.${game.difficulty}`), !game.daily && game.threat && t('hud.threat', { points: game.threat }), t(`class.${game.cls}`), t(`variant.${game.variant}`), ...game.mutators.map(key => t(`mutator.${key}`))].filter(Boolean).join(' · ');
+  $('endMode').textContent = [game.training ? t('end.training', { name: t(`enemy.${game.training}`) }) : game.daily ? `${t('hud.daily')} ${game.daily}` : t('end.seed', { seed: game.seed }), game.seedWeek && t('end.seedChallenge'), !game.daily && t(`difficulty.${game.difficulty}`), !game.daily && game.threat && t('hud.threat', { points: game.threat }), t(`class.${game.cls}`), t(`variant.${game.variant}`), ...game.mutators.map(key => t(`mutator.${key}`))].filter(Boolean).join(' · ');
   $('endAchievements').hidden = !game.newAchievements.length;
   $('endAchievements').textContent = t('end.unlocked', { list: game.newAchievements.map(id => `${CONFIG.achievements[id].icon} ${t(`achievement.${id}.title`)}`).join('、') });
   $('endXp').textContent = game.daily ? '' : `${t('end.xp', { xp: game.summary.xp })}${game.summary.levelUp ? ` · ${t('end.masteryLevelUp', game.summary.levelUp)}` : ''}`;
   renderNextGoals();
-  $('shareBtn').textContent = t('end.share');
+  $('shareBtn').textContent = t('end.share'); $('shareBtn').hidden = !!game.training;
 }
-// Daily runs share the date; normal runs share the seed so friends can replay the same map.
+// Daily runs share the date; normal runs share the seed and a link that fills it in, so friends can replay the same map.
 function shareText() {
   const run = game.summary.run, outcome = game.stats.extracted ? t('share.extracted') : '';
-  const vars = { wave: run.wave, kills: run.kills, score: run.score, time: formatTime(run.time), variant: t(`variant.${game.variant}`), outcome, url: SITE_URL };
+  const vars = { wave: run.wave, kills: run.kills, score: run.score, time: formatTime(run.time), variant: t(`variant.${game.variant}`), outcome, url: game.daily ? SITE_URL : `${SITE_URL}?seed=${encodeURIComponent(game.seed)}` };
   if (game.daily) return t('share.text', { ...vars, date: game.daily, mutator: t(`mutator.${game.mutators[0]}`) });
   return t('share.seedText', { ...vars, seed: game.seed, mode: [t(`difficulty.${game.difficulty}`), t(`variant.${game.variant}`), ...game.mutators.map(key => t(`mutator.${key}`))].join(' · ') });
 }
@@ -1718,15 +2027,15 @@ function detonate(e) {
   const stats = CONFIG.enemies[e.kind];
   game.enemies.splice(game.enemies.indexOf(e), 1);
   burst(e.x, e.y, '#8a5a3c', 10);
-  explode(e.x, e.y, 0, { blast: stats.blast, burn: true, playerDamage: enemyDamage(stats) });
+  explode(e.x, e.y, 0, { blast: stats.blast, burn: true, playerDamage: enemyDamage(stats), hurtBy: e.kind });
 }
 const angleTo = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
 const hunting = e => e.state === 'chase' || e.state === 'attack';
 function enemyShot(e, angle, s) {
-  game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(angle) * s.speed, vy: Math.sin(angle) * s.speed, range: CONFIG.boss.bulletRange, traveled: 0, damage: enemyDamage(s), radius: s.radius, friendly: false });
+  game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(angle) * s.speed, vy: Math.sin(angle) * s.speed, range: CONFIG.boss.bulletRange, traveled: 0, damage: enemyDamage(s), radius: s.radius, friendly: false, source: e.kind });
 }
 function gunnerShot(e, stats, angle) {
-  game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(angle) * stats.projectileSpeed, vy: Math.sin(angle) * stats.projectileSpeed, range: stats.sight, traveled: 0, damage: enemyDamage(stats), radius: stats.projectileRadius, friendly: false });
+  game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(angle) * stats.projectileSpeed, vy: Math.sin(angle) * stats.projectileSpeed, range: stats.sight, traveled: 0, damage: enemyDamage(stats), radius: stats.projectileRadius, friendly: false, source: e.kind });
   sound.play('enemyShot', e);
 }
 const BOSS_BEHAVIOR = { commander: updateCommander, sniper: updateSniper, hive: updateHive };
@@ -1734,14 +2043,31 @@ function updateBoss(e, dt) {
   if (e.phase === 1 && e.hp < e.maxHp * CONFIG.boss.phase2At) {
     e.phase = 2; if (e.kind === 'commander') e.speed *= CONFIG.boss.commander.phase2.speed;
     burst(e.x, e.y, '#ff8a6a', 30); sound.play('shieldBreak', e); notify(t('toast.bossPhase', { name: t(`enemy.${e.kind}`) }));
+    if (harsh()) counterPlayer(e);
   }
   BOSS_BEHAVIOR[e.kind](e, dt);
+  if (e.counter === 'flush' && (e.flush -= dt) <= 0) {
+    const F = CONFIG.bossCounters.flush, p = game.player;
+    game.flares.push({ x: p.x, y: p.y, radius: F.flare, life: F.seconds }); burnGrass(p.x, p.y, F.burn);
+    e.flush = F.every; burst(p.x, p.y, '#fff0a0', 16); sound.play('zap', e);
+  }
 }
+// Harsh only, at phase 2: flush a player who spent the run hidden, or rush one who fights from long range.
+function counterPlayer(e) {
+  const B = CONFIG.bossCounters, s = game.stats;
+  e.counter = s.hiddenTime >= game.time * B.hiddenRatio ? 'flush' : s.hits && s.hitRange / s.hits >= B.longRange ? 'rush' : null;
+  if (!e.counter) return;
+  if (e.counter === 'rush') e.speed *= B.rush.speed; else e.flush = B.flush.every;
+  notify(t(`counter.${e.counter}`, { name: t(`enemy.${e.kind}`) }));
+}
+// Attack-interval multiplier from the rush counter.
+const counterPace = e => e.counter === 'rush' ? CONFIG.bossCounters.rush.pace : 1;
+const sniperAim = e => (e.phase === 2 ? CONFIG.boss.sniper.phase2.aim : CONFIG.boss.sniper.aim) * counterPace(e);
 // Commander attacks on top of its melee chase: aimed volleys, lobbed bombs, minion summons; phase 2 adds speed, pace and bullet rings.
 function updateCommander(e, dt) {
   const C = CONFIG.boss.commander, p = game.player;
   if (!hunting(e)) return;
-  const pace = e.phase === 2 ? C.phase2.pace : 1, aim = angleTo(e, p);
+  const pace = (e.phase === 2 ? C.phase2.pace : 1) * counterPace(e), aim = angleTo(e, p);
   e.volley -= dt; e.bombs -= dt; e.summon -= dt; e.ring -= dt;
   if (e.volley <= 0 && clearSight(e, p)) {
     for (let i = 0; i < C.volley.count; i++) enemyShot(e, aim + (i - (C.volley.count - 1) / 2) * C.volley.spread, C.volley);
@@ -1749,7 +2075,7 @@ function updateCommander(e, dt) {
   }
   if (e.bombs <= 0 && distance(e, p) < C.bombs.range) {
     const b = C.bombs;
-    for (let i = 0; i < (e.phase === 2 ? C.phase2.bombs : b.count); i++) game.bombs.push({ x: p.x + rand(-b.scatter, b.scatter) * Math.min(i, 1), y: p.y + rand(-b.scatter, b.scatter) * Math.min(i, 1), time: b.fall, fall: b.fall, radius: b.blast, damage: enemyDamage(b) });
+    for (let i = 0; i < (e.phase === 2 ? C.phase2.bombs : b.count); i++) game.bombs.push({ x: p.x + rand(-b.scatter, b.scatter) * Math.min(i, 1), y: p.y + rand(-b.scatter, b.scatter) * Math.min(i, 1), time: b.fall, fall: b.fall, radius: b.blast, damage: enemyDamage(b), source: e.kind });
     e.bombs = b.interval * pace; sound.play('fuse', e);
   }
   if (e.summon <= 0) {
@@ -1775,7 +2101,7 @@ function updateSniper(e, dt) {
     return;
   }
   if (!hunting(e)) { e.aiming = 0; return; }
-  const aim = e.phase === 2 ? S.phase2.aim : S.aim;
+  const aim = sniperAim(e);
   if (!e.aiming) sound.play('laser', e);
   e.aiming += dt;
   if (e.aiming < aim - S.lock) e.aimAt = { x: p.x, y: p.y };
@@ -1794,7 +2120,7 @@ function relocate(e) {
 function updateHive(e, dt) {
   const H = CONFIG.boss.hive, A = H.acid, p = game.player;
   if (!hunting(e)) return;
-  const pace = e.phase === 2 ? H.phase2.pace : 1;
+  const pace = (e.phase === 2 ? H.phase2.pace : 1) * counterPace(e);
   e.brood -= dt; e.acid -= dt;
   if (e.brood <= 0) {
     for (let i = 0; i < H.brood.count && game.enemies.length < CONFIG.waves.maxAlive; i++) spawnNear(H.brood.kind, e, e.radius + H.brood.distance, { noLoot: true, hpScale: H.brood.hp, radius: H.brood.radius });
@@ -1812,7 +2138,7 @@ function updateBombs(dt) {
     if ((b.time -= dt) > 0) continue;
     game.bombs.splice(i, 1);
     if (b.acid) { game.pools.push({ x: b.x, y: b.y, radius: b.radius, life: CONFIG.boss.hive.acid.seconds }); burst(b.x, b.y, '#a6e36b', 14); }
-    else explode(b.x, b.y, 0, { blast: b.radius, burn: true, playerDamage: b.damage });
+    else explode(b.x, b.y, 0, { blast: b.radius, burn: true, playerDamage: b.damage, hurtBy: b.source });
   }
 }
 // Recon drone: drifts toward the player over walls; scanning the player exposes them and raises an alarm.
@@ -1856,7 +2182,7 @@ function flame(e, stats, d, speed, dt) {
   if (e.cooldown > 0) return;
   e.cooldown = stats.cooldown; sound.play('flame', e);
   for (let i = 0; i < 4; i++) { const a = e.facing + rand(-stats.cone, stats.cone), v = rand(200, 320), life = rand(.25, .4); game.particles.push({ x: e.x + Math.cos(e.facing) * e.radius, y: e.y + Math.sin(e.facing) * e.radius, vx: Math.cos(a) * v, vy: Math.sin(a) * v, color: ['#f6b36b', '#f0a24f', '#ffe08a'][i % 3], life, maxLife: life }); }
-  if (Math.abs(angleDiff(angleTo(e, p), e.facing)) < stats.cone && d < stats.reach + p.radius && clearSight(e, p)) hurtPlayer(enemyDamage(stats));
+  if (Math.abs(angleDiff(angleTo(e, p), e.facing)) < stats.cone && d < stats.reach + p.radius && clearSight(e, p)) hurtPlayer(enemyDamage(stats), e.kind);
 }
 // States: wander → alert (on sight) → chase/attack; losing sight or hearing noise → search (walk to the spot, sweep grass until
 // alert-scaled search time expires).
@@ -1875,7 +2201,7 @@ function updateMedic(e, stats, dt) {
   steer(e, e.direction, stats.speed * e.speed * stats.wanderSpeed, dt);
 }
 function updateEnemy(e, dt) {
-  const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), speed = stats.speed * e.speed;
+  const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), speed = stats.speed * e.speed * (guarded(e) ? CONFIG.captains.speed : 1);
   if (e.affix === 'regen') e.hp = Math.min(e.maxHp, e.hp + CONFIG.elites.affixes.regen.rate * e.maxHp * dt);
   e.cooldown -= dt; e.special -= dt; e.hit = Math.max(0, e.hit - dt); e.blocked = Math.max(0, e.blocked - dt); e.bladeCooldown -= dt; e.reveal -= dt;
   if (e.stunnedUntil > game.time) return;
@@ -1920,7 +2246,7 @@ function updateEnemy(e, dt) {
     if (stats.fuse) { e.fuse = stats.fuse; sound.play('fuse', e); }
     else if (stats.cone) flame(e, stats, d, speed, dt);
     else if (melee) {
-      if (e.cooldown <= 0 && d < stats.reach + p.radius) { hurtPlayer(enemyDamage(stats)); e.cooldown = stats.cooldown; e.reveal = stats.revealSeconds ?? 0; }
+      if (e.cooldown <= 0 && d < stats.reach + p.radius) { hurtPlayer(enemyDamage(stats), e.kind); e.cooldown = stats.cooldown; e.reveal = stats.revealSeconds ?? 0; }
     } else {
       if (d < stats.reach * stats.retreatRatio) steer(e, angleTo(p, e), speed * stats.retreatSpeed, dt);
       if (e.cooldown <= 0) { gunnerShot(e, stats, angleTo(e, p)); e.cooldown = stats.cooldown; }
@@ -1932,7 +2258,7 @@ function updateEnemy(e, dt) {
   }
   if (stats.boss) updateBoss(e, dt);
   if (melee && hunting(e) && d < e.radius + p.radius + 2 && e.cooldown <= 0) {
-    hurtPlayer(enemyDamage(stats)); e.cooldown = stats.cooldown; e.reveal = stats.revealSeconds ?? 0;
+    hurtPlayer(enemyDamage(stats), e.kind); e.cooldown = stats.cooldown; e.reveal = stats.revealSeconds ?? 0;
   }
 }
 function segmentCircle(x1, y1, x2, y2, target, radius) {
@@ -1954,12 +2280,15 @@ function updateBullets(dt) {
     }
     let target = null;
     if (!wall) {
-      if (b.friendly) target = [...game.enemies, ...game.chests, ...game.barrels, ...game.lights].find(o => !b.hits?.has(o) && !(o.fuse > 0 && o.barrel) && segmentCircle(b.x, b.y, nx, ny, o, o.radius + b.radius));
+      if (b.friendly) target = [...game.enemies, ...game.chests, ...game.barrels, ...game.lights, ...missionDishes()].find(o => !b.hits?.has(o) && !(o.fuse > 0 && o.barrel) && segmentCircle(b.x, b.y, nx, ny, o, o.radius + b.radius));
       else if (segmentCircle(b.x, b.y, nx, ny, game.player, game.player.radius + b.radius)) target = game.player;
+      else { const agent = escortAgent(); if (agent && segmentCircle(b.x, b.y, nx, ny, agent, agent.radius + b.radius)) target = agent; }
     }
     let spent = !!target;
     if (target && !b.blast) {
-      if (target === game.player) hurtPlayer(b.damage);
+      if (target === game.player) hurtPlayer(b.damage, b.source);
+      else if (target.agent) hurtAgent(b.damage);
+      else if (target.dish) damageDish(target, b.damage);
       else if (target.kind) { damageEnemy(target, b); if (b.pierce > 0) { b.pierce--; b.hits.add(target); spent = false; } }
       else if (target.barrel) damageBarrel(target, b.damage);
       else if (target.light) damageLight(target, b.damage);
@@ -2083,7 +2412,7 @@ function updateGadgets(dt) {
   for (let i = game.pools.length - 1; i >= 0; i--) {
     const pool = game.pools[i];
     if ((pool.life -= dt) <= 0) { game.pools.splice(i, 1); continue; }
-    if (distance(pool, p) < pool.radius + p.radius * .5) hurtPlayer(enemyDamage(CONFIG.boss.hive.acid));
+    if (distance(pool, p) < pool.radius + p.radius * .5) hurtPlayer(enemyDamage(CONFIG.boss.hive.acid), 'hive');
   }
 }
 function update(dt) {
@@ -2103,12 +2432,16 @@ function update(dt) {
     if (dx || dy) move(p, dx * speed * dt, dy * speed * dt);
   }
   if (inTerrain(p, game.bushes)) p.bushTime = game.time;
-  for (const r of game.bushes) if (r.burned) r.burned = Math.max(0, r.burned - dt);
+  // Burned grass regrows unless the scorched-earth modifier is on.
+  if (!mutator('scorchedEarth')) for (const r of game.bushes) if (r.burned) r.burned = Math.max(0, r.burned - dt);
   for (const r of game.walls) if (r.hit) r.hit = Math.max(0, r.hit - dt);
   updateLights(dt);
   if (perk('mender')) p.hp = Math.min(p.maxHp, p.hp + perk('mender') * P.mender.regen * dt);
-  const maxShield = gearStats().maxShield;
-  if (p.shield < maxShield && isHidden() && game.time - p.lastHurt >= CONFIG.player.shieldRegenDelay) p.shield = Math.min(maxShield, p.shield + CONFIG.player.shieldRegenRate * dt);
+  if (perk('thornbound') && !inTerrain(p, game.bushes) && p.hp > 1) p.hp = Math.max(1, p.hp - P.thornbound.drain * dt);
+  if (p.reload > 0 && (p.reload -= dt) <= 0) { p.mag[p.reloadGun] = gunStats(p.reloadGun).mag; updateHUD(); }
+  const hidden = isHidden(), maxShield = gearStats().maxShield;
+  if (hidden) game.stats.hiddenTime += dt;
+  if (p.shield < maxShield && hidden && !p.shieldBroken && game.time - p.lastHurt >= CONFIG.player.shieldRegenDelay) p.shield = Math.min(maxShield, p.shield + CONFIG.player.shieldRegenRate * dt);
   const camera = getCamera();
   if (game.mouse.active) p.facing = Math.atan2(game.mouse.y + camera.y - p.y, game.mouse.x + camera.x - p.x);
   if (game.mouse.down && p.cooldown <= 0) shoot();
@@ -2120,6 +2453,7 @@ function update(dt) {
   updateBombs(dt);
   updateBarrels(dt);
   updateEvent(dt);
+  updateMission(dt);
   completeIntelWipe();
   if (game.mode !== 'playing') return;
   const pickup = CONFIG.player.pickupRadius * (1 + perk('magnet') * P.magnet.pickup);
@@ -2138,6 +2472,7 @@ function update(dt) {
     const part = game.particles[i]; part.x += part.vx * dt; part.y += part.vy * dt; part.life -= dt;
     if (part.life <= 0) game.particles.splice(i, 1);
   }
+  if (!game.nextWave) { game.waveClock += dt; updateReinforcements(dt); }
   if (game.waveRemaining > 0) {
     game.spawnTimer -= dt;
     if (game.spawnTimer <= 0) {
@@ -2152,8 +2487,13 @@ function update(dt) {
       game.nextWave = CONFIG.waves.intermission; notify(t('toast.cleared')); addScore(CONFIG.score.waveBonus * game.wave);
       if (challengeOpen(game.challenge?.type) && !challengeGoal()) completeChallenge();
       p.bolts = CONFIG.weapons.crossbow.ammo;
-      if (route().throwables) grantThrowables(route().throwables);
+      const cleared = route();
+      if (cleared.throwables) grantThrowables(cleared.throwables);
+      if (cleared.perkCards) game.perkBonus = cleared.perkCards;
+      if (cleared.blitz) blitzReward(cleared.blitz);
       game.route = null;
+      if (game.wave % CONFIG.chapters.length === 0) closeChapter();
+      game.nextTheme = rollTheme(game.wave + 1);
       if (offerExtraction() || offerPerks() || offerRoute()) return;
     }
     game.nextWave -= dt;
@@ -2163,6 +2503,24 @@ function update(dt) {
   if (game.chests.length < CONFIG.chests.minimum && game.chestTimer <= 0) { spawnChest(); game.chestTimer = CONFIG.chests.replenishSeconds; }
   if (performance.now() > game.toastUntil) UI.toast.classList.remove('show');
   updateHUD();
+}
+// Harsh only, non-boss waves: once the wave clock passes reinforceAt, reinforcements arrive every `every` s (up to max per wave).
+function updateReinforcements(dt) {
+  const R = CONFIG.reinforcements, p = game.player;
+  if (game.waveClock < game.reinforceAt || game.reinforced >= R.max || (game.reinforceTimer -= dt) > 0) return;
+  game.reinforceTimer = R.every;
+  for (let i = 0; i < R.count && game.reinforced < R.max && game.enemies.length < CONFIG.waves.maxAlive; i++) {
+    const kind = R.kinds[game.reinforced % R.kinds.length], pos = freeSpot(CONFIG.enemies[kind].radius, R.distance);
+    if (!pos) continue;
+    Object.assign(makeEnemy(kind, pos, { noLoot: true }), { state: 'chase', lastSeen: { x: p.x, y: p.y } }); game.reinforced++;
+  }
+  raiseAlert(R.alert); sound.play('beep'); notify(t('toast.reinforcements'));
+}
+// Blitz route: clearing the wave within the time limit grants a perk of the listed rarities (seeded perk stream).
+function blitzReward(blitz) {
+  if (game.waveClock > blitz.seconds) { notify(t('toast.blitzFailed')); return; }
+  const open = Object.entries(P).filter(([key, v]) => blitz.rarities.includes(v.rarity) && perkAvailable(key, v));
+  if (open.length) grantPerk(open[Math.floor(game.rng.perks() * open.length)][0]);
 }
 // A cleared boss wave offers extraction before the perk pick.
 function offerExtraction() {
@@ -2189,7 +2547,7 @@ function grantThrowables(count) {
 function resize() {
   const rect = canvas.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.max(1, Math.round(rect.width * dpr)); canvas.height = Math.max(1, Math.round(rect.height * dpr));
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); measureHint();
 }
 function size() { return { w: canvas.clientWidth, h: canvas.clientHeight }; }
 function getCamera() {
@@ -2377,13 +2735,57 @@ function drawSmoke() {
     }
   }
 }
-// Screen-edge arrows toward off-screen objectives (hold zone, marked officer, intel case / exit), the black-market merchant and the
-// wave's last enemy (once no reinforcements remain).
+// Boss mission markers: uplink zone with progress, escorted agent (HP bar) with its exit, radar dishes with scan rings.
+function drawMission() {
+  const m = activeMission();
+  if (!m) return;
+  const cfg = CONFIG.missions.types[m.type];
+  const ring = (pt, radius, progress, label) => {
+    ctx.fillStyle = 'rgba(159,227,255,.1)'; ctx.beginPath(); ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2); ctx.fill();
+    ctx.setLineDash([10, 8]); ctx.strokeStyle = '#9fe3ffaa'; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+    if (progress) { ctx.strokeStyle = '#9fe3ff'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(pt.x, pt.y, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress); ctx.stroke(); }
+    ctx.fillStyle = '#9fe3ff'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(label, pt.x, pt.y + 5);
+  };
+  if (m.type === 'uplink') ring(m.zone, cfg.radius, m.progress / cfg.seconds, '⌁');
+  else if (m.type === 'escort') {
+    const a = m.agent;
+    ring(m.exit, cfg.reach, 0, '⇱');
+    ctx.strokeStyle = '#9fe3ff44'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(a.x, a.y, cfg.follow, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = a.hit > 0 ? '#ffffff' : '#6fa6bf'; ctx.beginPath(); ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#e9f7ff'; ctx.lineWidth = 2; ctx.stroke();
+    drawHealth(a.x, a.y - a.radius - 12, a.hp / a.maxHp, 30);
+  } else for (const d of missionDishes()) {
+    ctx.strokeStyle = '#9fe3ff33'; ctx.lineWidth = 1; ctx.setLineDash([5, 7]); ctx.beginPath(); ctx.arc(d.x, d.y, cfg.scan, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = d.hit > 0 ? '#ffffff' : '#9aa6b8'; ctx.fillRect(d.x - 3, d.y - 2, 6, 14);
+    ctx.strokeStyle = '#dfe9f2'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(d.x, d.y - 4, d.radius - 2, Math.PI * 1.1 + game.time, Math.PI * 1.9 + game.time); ctx.stroke();
+    drawHealth(d.x, d.y - d.radius - 14, d.hp / d.maxHp, 30);
+  }
+}
+// Intermission banner: the next wave's size, theme or boss and its likely enemy kinds (theme kinds, or the top roster weights).
+function drawPreview(w) {
+  const wave = game.wave + 1, theme = game.nextTheme, boss = isBossWave(wave);
+  const kinds = theme ? CONFIG.themes.list[theme].kinds : rosterWeights(wave).sort((a, b) => b[1] - a[1]).slice(0, CONFIG.preview.kinds).map(([kind]) => kind);
+  const fresh = CONFIG.waves.roster.find(r => r.from === wave && r.from > 1);
+  const head = [t('preview.wave', { wave: String(wave).padStart(2, '0'), count: waveCount(wave, game.nextRoute, theme) }), boss && t('preview.boss', { name: t(`enemy.${bossKind(wave)}`) }), theme && t('preview.theme', { name: t(`theme.${theme}`) }), fresh && t('preview.fresh', { name: t(`enemy.${fresh.kind}`) })].filter(Boolean).join(' · ');
+  const body = t('preview.kinds', { list: kinds.map(kind => t(`enemy.${kind}`)).join('、') });
+  ctx.font = "bold 13px 'DM Mono', 'Noto Sans TC', sans-serif"; ctx.textAlign = 'center';
+  const bw = Math.max(ctx.measureText(head).width, ctx.measureText(body).width) + 28, y = 112; // below the toast
+  ctx.fillStyle = '#10251cd8'; ctx.fillRect((w - bw) / 2, y, bw, 46); ctx.strokeStyle = '#9fe3ff88'; ctx.lineWidth = 1.5; ctx.strokeRect((w - bw) / 2, y, bw, 46);
+  ctx.fillStyle = '#9fe3ff'; ctx.fillText(head, w / 2, y + 19);
+  ctx.fillStyle = '#d7e2c6'; ctx.font = "12px 'DM Mono', 'Noto Sans TC', sans-serif"; ctx.fillText(body, w / 2, y + 37);
+}
+// Screen-edge arrows toward off-screen objectives (hold zone, marked officer, intel case / exit, boss mission), the black-market merchant
+// and the wave's last enemy (once no reinforcements remain). The blind-spot modifier hides them all.
 function drawPointers(camera, w, h) {
-  const ev = game.event, targets = [];
+  const ev = game.event, targets = [], m = activeMission();
+  if (mutator('blindSpot')) return;
   if (ev?.started && !ev.done) {
     const target = ev.type === 'hold' ? ev.zone : ev.type === 'assassinate' ? ev.mark : ev.type === 'jammer' ? ev.crate : ev.type === 'intel' ? (ev.deliveryExpired ? null : ev.carrying ? ev.exit : ev.item) : null;
     if (target) targets.push([target, ev.type === 'assassinate' ? '#ff8a6a' : '#f3d182']);
+  }
+  if (m) {
+    const dish = missionDishes().sort((a, b) => distance(a, game.player) - distance(b, game.player))[0];
+    targets.push([m.zone ?? (m.agent && distance(m.agent, game.player) < CONFIG.missions.types.escort.follow ? m.exit : m.agent) ?? dish, '#9fe3ff']);
   }
   if (game.merchant) targets.push([game.merchant, '#6fb3a0']);
   if (game.mode === 'playing' && game.waveRemaining <= 0 && game.enemies.length === 1) targets.push([game.enemies[0], '#ff5f4f']);
@@ -2410,7 +2812,7 @@ function drawEnemy(e) {
     ctx.fillStyle = 'rgba(255,112,80,.16)'; ctx.beginPath(); ctx.arc(e.x, e.y, stats.blast * (1 - e.fuse / stats.fuse), 0, Math.PI * 2); ctx.fill();
   }
   if (e.aiming > 0 && e.aimAt) {
-    const locked = e.aiming >= (e.phase === 2 ? CONFIG.boss.sniper.phase2.aim : CONFIG.boss.sniper.aim) - CONFIG.boss.sniper.lock;
+    const locked = e.aiming >= sniperAim(e) - CONFIG.boss.sniper.lock;
     ctx.strokeStyle = locked ? '#ff5a4acc' : '#ff8a6a66'; ctx.lineWidth = locked ? 2 : 1; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.aimAt.x, e.aimAt.y); ctx.stroke();
   }
   ctx.save(); ctx.globalAlpha = cloaked ? (stats.cloakAlpha ?? stats.bushCloak) * (1 + Math.sin(game.time * 5 + e.seed) * .5) : hidden && distance(e, game.player) > CONFIG.enemies.bushRevealDistance ? .18 : 1;
@@ -2461,7 +2863,10 @@ function drawEnemy(e) {
     ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 7 + (1 - e.healTimer / stats.healEvery) * 8, 0, Math.PI * 2); ctx.stroke();
   }
   if (e.mark) { ctx.fillStyle = '#ff8a6a'; ctx.beginPath(); ctx.moveTo(e.x - 8, e.y - e.radius - 26); ctx.lineTo(e.x, e.y - e.radius - 18); ctx.lineTo(e.x + 8, e.y - e.radius - 26); ctx.lineTo(e.x, e.y - e.radius - 34); ctx.fill(); }
-  if (e.state !== 'wander') { ctx.fillStyle = e.state === 'search' ? '#b9d4e6' : '#f3d182'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(e.state === 'search' ? '?' : '!', e.x, e.y - e.radius - 11); }
+  // Captain crown; a buffed guard shows a tether to its captain.
+  if (e.captain) { ctx.fillStyle = '#f2c94c'; ctx.beginPath(); ctx.moveTo(e.x - 9, e.y - e.radius - 18); ctx.lineTo(e.x - 9, e.y - e.radius - 27); ctx.lineTo(e.x - 4, e.y - e.radius - 22); ctx.lineTo(e.x, e.y - e.radius - 29); ctx.lineTo(e.x + 4, e.y - e.radius - 22); ctx.lineTo(e.x + 9, e.y - e.radius - 27); ctx.lineTo(e.x + 9, e.y - e.radius - 18); ctx.fill(); }
+  if (guarded(e)) { ctx.strokeStyle = '#f2c94c55'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.guardOf.x, e.guardOf.y); ctx.stroke(); ctx.setLineDash([]); }
+  if (e.state !== 'wander' && !mutator('blindSpot')) { ctx.fillStyle = e.state === 'search' ? '#b9d4e6' : '#f3d182'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(e.state === 'search' ? '?' : '!', e.x, e.y - e.radius - 11); }
 }
 // Recon drone: rotors plus its scan ring (red while it has just spotted the player).
 function drawScout(e, stats) {
@@ -2560,6 +2965,7 @@ function draw() {
   for (const item of game.loot) drawLoot(item);
   if (game.merchant) drawMerchant(game.merchant);
   drawObjectives();
+  drawMission();
   drawGadgets();
   for (const e of game.enemies) drawEnemy(e);
   if (game.player) drawPlayer(game.player);
@@ -2570,6 +2976,7 @@ function draw() {
   drawWeather(camera, w, h);
   drawBeams(camera);
   drawPointers(camera, w, h);
+  if (game.mode === 'playing' && game.nextWave > 0) drawPreview(w);
   if (game.boss) {
     const e = game.boss, bw = Math.min(420, w - 80), x = (w - bw) / 2;
     ctx.fillStyle = '#10251cd0'; ctx.fillRect(x - 4, 14, bw + 8, 16);
@@ -2591,8 +2998,10 @@ function draw() {
     const text = t('hud.kit', { skill: t(`class.${game.cls}.skill`), state: p.skillCooldown > 0 ? `${p.skillCooldown.toFixed(1)}s` : t('hud.ready'), item: items });
     ctx.textAlign = 'left'; ctx.font = "bold 12px 'DM Mono', 'Noto Sans TC', sans-serif";
     const tw = ctx.measureText(text).width;
-    ctx.fillStyle = '#11211bd6'; ctx.fillRect(14, h - 78, tw + 20, 24);
-    ctx.fillStyle = p.skillCooldown > 0 ? '#d7e2c6' : '#f3d780'; ctx.fillText(text, 24, h - 61);
+    // Sit just above the key-hint / status bar, whose height changes when its text wraps (see resize()).
+    const top = hintTop - 30;
+    ctx.fillStyle = '#11211bd6'; ctx.fillRect(14, top, tw + 20, 24);
+    ctx.fillStyle = p.skillCooldown > 0 ? '#d7e2c6' : '#f3d780'; ctx.fillText(text, 24, top + 17);
   }
   if (game.flash > 0) { ctx.fillStyle = `rgba(226,71,62,${game.flash * .48})`; ctx.fillRect(0, 0, w, h); }
   if (game.mode === 'playing' && game.mouse.active) {
@@ -2618,9 +3027,12 @@ let last = performance.now();
 function frame(now) { const dt = Math.min((now - last) / 1000, .05); last = now; update(dt); draw(); requestAnimationFrame(frame); }
 $('startBtn').addEventListener('click', () => startGame(false));
 $('dailyBtn').addEventListener('click', () => startGame(true));
-$('restartBtn').addEventListener('click', () => startGame(!!game.daily));
+$('restartBtn').addEventListener('click', () => startGame(!!game.daily, { training: game.training, seedWeek: game.seedWeek }));
 $('menuBtn').addEventListener('click', () => { game.mode = 'menu'; UI.end.hidden = true; UI.start.hidden = false; renderMenu(); });
 $('progressBtn').addEventListener('click', () => { $('progressOverlay').hidden = false; });
+$('trainingBtn').addEventListener('click', () => { $('trainingOverlay').hidden = false; });
+$('trainingClose').addEventListener('click', () => { $('trainingOverlay').hidden = true; });
+$('seedChallengeBtn').addEventListener('click', () => startGame(false, { seedWeek: isoWeek() }));
 $('progressClose').addEventListener('click', () => { $('progressOverlay').hidden = true; });
 $('shareBtn').addEventListener('click', copyShare);
 $('shopBtn').addEventListener('click', () => { if (game.mode === 'playing' || game.mode === 'shop') toggleShop(); });
@@ -2655,6 +3067,7 @@ window.addEventListener('keydown', event => {
   else if (key === 'g') throwItem();
   else if (key === 't') cycleThrowable();
   else if (key === 'e') openMarket();
+  else if (key === 'r') reload();
   else game.keys.add(key);
 });
 window.addEventListener('keyup', event => game.keys.delete(event.key.toLowerCase()));
@@ -2675,6 +3088,8 @@ for (const link of document.querySelectorAll('[data-lang]')) link.addEventListen
   if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; // keep open-in-new-tab
   event.preventDefault(); link.blur(); if (link.dataset.lang !== locale) applyLocale(link.dataset.lang);
 });
+// Shared links carry ?seed=<code>, which prefills the seed field.
+$('seedInput').value = normalizeSeed(new URLSearchParams(location.search).get('seed') ?? '');
 if (locale === DEFAULT_LOCALE) { renderSettings(); renderMenu(); } else applyLocale(locale);
-new ResizeObserver(resize).observe(arena); resize(); requestAnimationFrame(frame);
+new ResizeObserver(resize).observe(arena); new ResizeObserver(measureHint).observe(arenaBottom); resize(); requestAnimationFrame(frame);
 })();
