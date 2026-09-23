@@ -3,7 +3,8 @@
 // All gameplay and balance values live here. Rendering-only colors and layout live below.
 const CONFIG = Object.freeze({
   world: { width: 1800, height: 1200, grid: 30, walls: 11, wallWidth: [72, 128], wallHeight: [48, 88], ponds: { clusters: 4, pieces: [2, 4], size: [80, 130] }, bushes: { clusters: 8, pieces: [3, 6], size: [72, 118] }, clusterReach: 0.62, terrainGap: 20, spawnClearance: 200, borderMargin: 16, placementMargin: 42, spawnMargin: 65, terrainSpawnPadding: 12, chestSpacing: 65, placementAttempts: 250, spawnAttempts: 400 },
-  player: { hp: 100, radius: 15, speed: 245, invulnerability: 0.65, pickupRadius: 40, waterMultiplier: 0.5, revealSeconds: 2.4, shieldRegenDelay: 3, shieldRegenRate: 9, switchDelay: 0.25 },
+  // Shield recharges only while hidden in grass (not firing) and unharmed for shieldRegenDelay seconds.
+  player: { hp: 100, radius: 15, speed: 245, invulnerability: 0.65, pickupRadius: 40, waterMultiplier: 0.5, revealSeconds: 2.4, shieldRegenDelay: 3, shieldRegenRate: 4.5, switchDelay: 0.25 },
   // Shared weapon upgrades scale every gun: damage/rate/range are fractions of the gun's base value per level.
   gun: { bulletRadius: 4, damageStep: 1 / 3, rateStep: 0.197, rangeStep: 0.1875 },
   // Manual guns. Text lives in i18n.js under guns.<key>.*; color/sound/look are rendering hints.
@@ -21,10 +22,14 @@ const CONFIG = Object.freeze({
     tesla: { icon: 'ϟ', max: 3, gold: 40, scrap: 3, goldStep: 28, scrapStep: 2, damage: [16, 21, 27], interval: [1.5, 1.25, 1], range: 190, chains: [2, 3, 4], chainRange: 130 }
   },
   enemies: {
-    melee: { hp: 42, speed: 94, radius: 16, sight: 305, reach: 30, damage: 9, cooldown: 1.05, wanderSpeed: 0.45, bounty: 1, color: '#e99c77' },
-    ranged: { hp: 32, speed: 76, radius: 15, sight: 365, reach: 270, damage: 8, cooldown: 1.9, projectileSpeed: 310, projectileRadius: 5, retreatRatio: 0.52, retreatSpeed: 0.65, wanderSpeed: 0.35, bounty: 1.1, color: '#c4a7db' },
-    runner: { hp: 24, speed: 178, radius: 12, sight: 340, reach: 26, damage: 6, cooldown: 0.7, wanderSpeed: 0.55, weave: 0.55, weaveSpeed: 7, bounty: 1, color: '#f0d36b' },
-    shield: { hp: 64, speed: 66, radius: 18, sight: 300, reach: 32, damage: 13, cooldown: 1.25, wanderSpeed: 0.4, turnRate: 1.7, shieldHp: 90, shieldArc: 1.15, bounty: 1.8, color: '#8fb3c9' },
+    melee: { hp: 48, speed: 125, radius: 16, sight: 305, reach: 30, damage: 9, cooldown: 1.05, wanderSpeed: 0.45, bounty: 1, color: '#e99c77' },
+    ranged: { hp: 37, speed: 101, radius: 15, sight: 365, reach: 270, damage: 8, cooldown: 1.9, projectileSpeed: 310, projectileRadius: 5, retreatRatio: 0.52, retreatSpeed: 0.65, wanderSpeed: 0.35, bounty: 1.1, color: '#c4a7db' },
+    runner: { hp: 28, speed: 237, radius: 12, sight: 340, reach: 26, damage: 6, cooldown: 0.7, wanderSpeed: 0.55, weave: 0.55, weaveSpeed: 7, bounty: 1, color: '#f0d36b' },
+    shield: { hp: 74, speed: 88, radius: 18, sight: 300, reach: 32, damage: 13, cooldown: 1.25, wanderSpeed: 0.4, turnRate: 1.7, shieldHp: 90, shieldArc: 1.15, bounty: 1.8, color: '#8fb3c9' },
+    // Cloaked beyond revealDistance (and for revealSeconds after hitting or being hit): nearly invisible, ignored by auto-targeting. Senses players hiding in grass within sense px.
+    stalker: { hp: 41, speed: 160, radius: 14, sight: 320, reach: 28, damage: 15, cooldown: 1.1, wanderSpeed: 0.5, cloakAlpha: 0.1, revealDistance: 150, revealSeconds: 0.9, sense: 120, bounty: 1.6, color: '#86b8a8' },
+    // Lights a fuse within reach, keeps closing at fuseSpeed, then detonates for damage in blast px (hits hidden players too) and dies without loot.
+    bomber: { hp: 63, speed: 115, radius: 17, sight: 330, reach: 50, damage: 34, fuse: 0.75, fuseSpeed: 0.45, blast: 88, wanderSpeed: 0.4, bounty: 1.5, color: '#d9745b' },
     wanderInterval: [1.8, 3.6], alertSeconds: 0.28, loseTargetSeconds: 2.5, bushRevealDistance: 110, healthPerWave: 0.14, damagePerWave: 0.095
   },
   waves: {
@@ -36,7 +41,9 @@ const CONFIG = Object.freeze({
       { kind: 'melee', from: 1, weight: 1, perWave: 0, max: 1 },
       { kind: 'ranged', from: 2, weight: 0.35, perWave: 0.04, max: 0.9 },
       { kind: 'runner', from: 3, weight: 0.3, perWave: 0.04, max: 0.8 },
-      { kind: 'shield', from: 4, weight: 0.22, perWave: 0.035, max: 0.7 }
+      { kind: 'shield', from: 4, weight: 0.22, perWave: 0.035, max: 0.7 },
+      { kind: 'stalker', from: 6, weight: 0.22, perWave: 0.03, max: 0.6 },
+      { kind: 'bomber', from: 8, weight: 0.2, perWave: 0.03, max: 0.55 }
     ]
   },
   chests: { minimum: 2, maximum: 4, initial: 3, radius: 23, hpBase: 23, hpPerWave: 3, replenishSeconds: 5, spawnDistance: 130 },
@@ -128,6 +135,7 @@ const sound = (() => {
     hit: (t, v) => tone(sfxBus, { from: 330, to: 140, at: t, dur: .05, vol: .1 * v }),
     block: (t, v) => { tone(sfxBus, { from: 1800, to: 1450, at: t, dur: .05, vol: .08 * v }); hiss(sfxBus, { at: t, dur: .04, vol: .07 * v, freq: 5000 }); },
     shieldBreak: (t, v) => { hiss(sfxBus, { at: t, dur: .3, vol: .2 * v, freq: 2600 }); tone(sfxBus, { from: 1500, to: 200, at: t, dur: .28, vol: .12 * v }); },
+    fuse: (t, v) => { for (let i = 0; i < 3; i++) tone(sfxBus, { wave: pulse12, from: 1320, at: t + i * .2, dur: .06, vol: .14 * v }); },
     kill: (t, v) => { tone(sfxBus, { from: 520, to: 70, at: t, dur: .22, vol: .15 * v }); hiss(sfxBus, { at: t, dur: .18, vol: .13 * v, filter: 'lowpass', freq: 1800 }); },
     hurt: t => { tone(sfxBus, { type: 'sawtooth', from: 240, to: 70, at: t, dur: .2, vol: .2 }); hiss(sfxBus, { at: t, dur: .12, vol: .15, filter: 'lowpass', freq: 900 }); },
     shieldHit: t => tone(sfxBus, { type: 'triangle', from: 880, to: 1500, at: t, dur: .1, vol: .22 }),
@@ -291,7 +299,7 @@ function spawnEnemy() {
   if (!pos) return false;
   const kind = pickEnemyKind(), stats = CONFIG.enemies[kind];
   const hp = Math.round(stats.hp * waveScale()), shieldHp = Math.round((stats.shieldHp || 0) * waveScale());
-  game.enemies.push({ ...pos, kind, radius: stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, lost: 0, cooldown: rand(0, .6), hit: 0, blocked: 0, bladeCooldown: 0 });
+  game.enemies.push({ ...pos, kind, radius: stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, lost: 0, cooldown: rand(0, .6), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0 });
   return true;
 }
 function waveSize(wave) {
@@ -504,7 +512,7 @@ function damageEnemy(e, b) {
 // Direct body damage: used by bullets past the shield and by blades, missiles and arcs, which ignore frontal shields.
 function hitEnemyBody(e, damage) {
   if (e.hp <= 0) return;
-  e.hp -= damage; e.hit = .15; burst(e.x, e.y, CONFIG.enemies[e.kind].color, 4);
+  e.hp -= damage; e.hit = .15; e.reveal = CONFIG.enemies[e.kind].revealSeconds ?? 0; burst(e.x, e.y, CONFIG.enemies[e.kind].color, 4);
   if (e.hp <= 0) enemyDeath(e); else sound.play('hit', e);
 }
 function damageChest(c, damage) {
@@ -516,7 +524,7 @@ function nearestEnemy(from, range, exclude) {
   let best = null, bestDistance = range;
   for (const e of game.enemies) {
     const d = distance(from, e);
-    if (d < bestDistance && !exclude?.has(e) && clearSight(from, e)) { best = e; bestDistance = d; }
+    if (d < bestDistance && !exclude?.has(e) && !isCloaked(e) && clearSight(from, e)) { best = e; bestDistance = d; }
   }
   return best;
 }
@@ -606,9 +614,29 @@ function steer(enemy, angle, speed, dt) {
     if (passable(x + dx * 3, y + dy * 3, enemy.radius)) { move(enemy, dx, dy); return; }
   }
 }
+// Cloaked enemies are drawn faintly and skipped by auto-targeting until close, just hit, or just attacked.
+function isCloaked(e) {
+  const stats = CONFIG.enemies[e.kind];
+  return !!stats.cloakAlpha && e.reveal <= 0 && distance(e, game.player) > stats.revealDistance;
+}
+// Bomber self-destruct: blast damage ignores grass concealment; the bomber dies without loot or a kill.
+function detonate(e) {
+  const stats = CONFIG.enemies[e.kind], p = game.player;
+  game.enemies.splice(game.enemies.indexOf(e), 1);
+  burst(e.x, e.y, '#f6b36b', 30); burst(e.x, e.y, '#fff0c0', 12); burst(e.x, e.y, '#8a5a3c', 10);
+  sound.play('explosion', e); game.shake = Math.max(game.shake, 9);
+  if (distance(e, p) < stats.blast + p.radius) hurtPlayer(enemyDamage(stats));
+}
 function updateEnemy(e, dt) {
-  const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), visible = !isHidden() && d < stats.sight && clearSight(e, p), melee = !stats.projectileSpeed;
-  e.cooldown -= dt; e.hit = Math.max(0, e.hit - dt); e.blocked = Math.max(0, e.blocked - dt); e.bladeCooldown -= dt;
+  const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), detect = !isHidden() || d < (stats.sense ?? 0);
+  const visible = detect && d < stats.sight && clearSight(e, p), melee = !stats.projectileSpeed && !stats.fuse;
+  e.cooldown -= dt; e.hit = Math.max(0, e.hit - dt); e.blocked = Math.max(0, e.blocked - dt); e.bladeCooldown -= dt; e.reveal -= dt;
+  if (e.fuse > 0) {
+    e.fuse -= dt; e.facing = Math.atan2(p.y - e.y, p.x - e.x);
+    steer(e, e.facing, stats.speed * stats.fuseSpeed, dt);
+    if (e.fuse <= 0) detonate(e);
+    return;
+  }
   const turn = angleDiff(e.state === 'wander' ? e.direction : Math.atan2(p.y - e.y, p.x - e.x), e.facing), maxTurn = (stats.turnRate ?? Infinity) * dt;
   e.facing += clamp(turn, -maxTurn, maxTurn);
   if (visible) {
@@ -618,7 +646,7 @@ function updateEnemy(e, dt) {
     else e.state = d <= stats.reach ? 'attack' : 'chase';
   } else if (e.state !== 'wander') {
     e.lost -= dt;
-    if (e.lost <= 0 || isHidden()) { e.state = 'wander'; e.wanderTime = 0; }
+    if (e.lost <= 0 || !detect) { e.state = 'wander'; e.wanderTime = 0; }
     else e.state = 'chase';
   }
   if (e.state === 'wander') {
@@ -626,12 +654,13 @@ function updateEnemy(e, dt) {
     if (e.wanderTime <= 0) { e.direction = rand(-Math.PI, Math.PI); e.wanderTime = rand(...CONFIG.enemies.wanderInterval); }
     steer(e, e.direction, stats.speed * stats.wanderSpeed, dt);
   } else if (e.state === 'chase') {
-    if (isHidden()) return;
+    if (!detect) return;
     const weave = stats.weave ? Math.sin(game.time * stats.weaveSpeed + e.seed) * stats.weave : 0;
     steer(e, Math.atan2(p.y - e.y, p.x - e.x) + weave, stats.speed, dt);
   } else if (e.state === 'attack') {
-    if (melee) {
-      if (e.cooldown <= 0 && d < stats.reach + p.radius) { hurtPlayer(enemyDamage(stats)); e.cooldown = stats.cooldown; }
+    if (stats.fuse) { e.fuse = stats.fuse; sound.play('fuse', e); }
+    else if (melee) {
+      if (e.cooldown <= 0 && d < stats.reach + p.radius) { hurtPlayer(enemyDamage(stats)); e.cooldown = stats.cooldown; e.reveal = stats.revealSeconds ?? 0; }
     } else {
       if (d < stats.reach * stats.retreatRatio) steer(e, Math.atan2(e.y - p.y, e.x - p.x), stats.speed * stats.retreatSpeed, dt);
       if (e.cooldown <= 0) {
@@ -641,8 +670,8 @@ function updateEnemy(e, dt) {
       }
     }
   }
-  if (melee && e.state !== 'wander' && d < e.radius + p.radius + 2 && e.cooldown <= 0 && !isHidden()) {
-    hurtPlayer(enemyDamage(stats)); e.cooldown = stats.cooldown;
+  if (melee && e.state !== 'wander' && d < e.radius + p.radius + 2 && e.cooldown <= 0 && detect) {
+    hurtPlayer(enemyDamage(stats)); e.cooldown = stats.cooldown; e.reveal = stats.revealSeconds ?? 0;
   }
 }
 function segmentCircle(x1, y1, x2, y2, target, radius) {
@@ -679,7 +708,7 @@ function update(dt) {
   const len = Math.hypot(dx, dy);
   if (len) { dx /= len; dy /= len; const speed = CONFIG.player.speed * gearStats().speed * (inTerrain(p, game.ponds) ? CONFIG.player.waterMultiplier : 1); move(p, dx * speed * dt, dy * speed * dt); }
   const maxShield = gearStats().maxShield;
-  if (p.shield < maxShield && game.time - p.lastHurt >= CONFIG.player.shieldRegenDelay) p.shield = Math.min(maxShield, p.shield + CONFIG.player.shieldRegenRate * dt);
+  if (p.shield < maxShield && isHidden() && game.time - p.lastHurt >= CONFIG.player.shieldRegenDelay) p.shield = Math.min(maxShield, p.shield + CONFIG.player.shieldRegenRate * dt);
   const camera = getCamera();
   if (game.mouse.active) p.facing = Math.atan2(game.mouse.y + camera.y - p.y, game.mouse.x + camera.x - p.x);
   if (game.mouse.down && p.cooldown <= 0) shoot();
@@ -773,13 +802,19 @@ function drawChest(c) {
   if (c.hp < c.maxHp) drawHealth(c.x, c.y - 30, c.hp / c.maxHp, 41);
 }
 function drawEnemy(e) {
-  const stats = CONFIG.enemies[e.kind], hidden = inTerrain(e, game.bushes);
-  ctx.save(); ctx.globalAlpha = hidden && distance(e, game.player) > CONFIG.enemies.bushRevealDistance ? .18 : 1;
+  const stats = CONFIG.enemies[e.kind], hidden = inTerrain(e, game.bushes), cloaked = isCloaked(e);
+  if (e.fuse > 0) {
+    const pulse = Math.floor(game.time * 12) % 2;
+    ctx.strokeStyle = `rgba(255,112,80,${pulse ? .75 : .35})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, stats.blast, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,112,80,.16)'; ctx.beginPath(); ctx.arc(e.x, e.y, stats.blast * (1 - e.fuse / stats.fuse), 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.save(); ctx.globalAlpha = cloaked ? stats.cloakAlpha * (1 + Math.sin(game.time * 5 + e.seed) * .5) : hidden && distance(e, game.player) > CONFIG.enemies.bushRevealDistance ? .18 : 1;
   ctx.translate(e.x, e.y); ctx.fillStyle = '#10251ca0'; ctx.beginPath(); ctx.ellipse(3, 10, 16, 8, 0, 0, Math.PI * 2); ctx.fill();
   ctx.rotate(e.facing);
   if (e.kind === 'runner') { ctx.strokeStyle = '#f7e7a680'; ctx.lineWidth = 2; ctx.beginPath(); for (const y of [-6, 0, 6]) { ctx.moveTo(-e.radius - 4, y); ctx.lineTo(-e.radius - 14 - Math.abs(y), y); } ctx.stroke(); }
-  ctx.fillStyle = '#26372e'; ctx.fillRect(1, -5, 23, 10);
-  ctx.fillStyle = e.hit > 0 ? '#fff0d1' : stats.color; ctx.beginPath(); ctx.arc(0, 0, e.radius, 0, Math.PI * 2); ctx.fill();
+  if (e.kind === 'bomber') { ctx.fillStyle = '#3a2a22'; ctx.beginPath(); ctx.arc(-e.radius + 2, 0, 9, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = e.fuse > 0 && Math.floor(game.time * 12) % 2 ? '#fff4c0' : '#f59a55'; ctx.beginPath(); ctx.arc(-e.radius - 6, -6, 3, 0, Math.PI * 2); ctx.fill(); }
+  else { ctx.fillStyle = '#26372e'; ctx.fillRect(1, -5, 23, 10); }
+  ctx.fillStyle = e.hit > 0 || (e.fuse > 0 && Math.floor(game.time * 12) % 2) ? '#fff0d1' : stats.color; ctx.beginPath(); ctx.arc(0, 0, e.radius, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#3b3e37'; ctx.lineWidth = 3; ctx.stroke();
   ctx.fillStyle = '#26372e'; ctx.fillRect(6, -6, 6, 4); ctx.fillRect(6, 3, 6, 4);
   if (e.kind === 'ranged') { ctx.strokeStyle = '#ede2b6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-3, 0, 7, -1.1, 1.1); ctx.stroke(); }
@@ -792,8 +827,11 @@ function drawEnemy(e) {
       ctx.strokeStyle = '#2d4452'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, e.radius + 9, -stats.shieldArc, stats.shieldArc); ctx.stroke();
     }
   }
+  else if (e.kind === 'stalker') { ctx.fillStyle = '#2f4a42'; ctx.beginPath(); ctx.arc(-2, 0, e.radius - 3, Math.PI * .5, Math.PI * 1.5); ctx.fill(); ctx.fillStyle = '#c9f3e2'; ctx.fillRect(9, -5, 3, 3); ctx.fillRect(9, 2, 3, 3); }
+  else if (e.kind === 'bomber') { ctx.strokeStyle = '#7a3a26'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-6, -e.radius + 3); ctx.lineTo(-6, e.radius - 3); ctx.stroke(); }
   else { ctx.fillStyle = '#f2d4a3'; ctx.beginPath(); ctx.moveTo(-9, -12); ctx.lineTo(-16, -20); ctx.lineTo(-2, -14); ctx.fill(); }
   ctx.restore();
+  if (cloaked) return;
   if (e.hp < e.maxHp) drawHealth(e.x, e.y - e.radius - 14, e.hp / e.maxHp, 34);
   if (e.state !== 'wander') { ctx.fillStyle = '#f3d182'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('!', e.x, e.y - 27); }
 }
