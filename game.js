@@ -34,6 +34,8 @@ const CONFIG = Object.freeze({
     ranged: { hp: 37, speed: 101, radius: 15, sight: 365, reach: 270, damage: 8, cooldown: 1.9, projectileSpeed: 310, projectileRadius: 5, retreatRatio: 0.52, retreatSpeed: 0.65, wanderSpeed: 0.35, bounty: 1.1, color: '#c4a7db' },
     runner: { hp: 28, speed: 237, radius: 12, sight: 340, reach: 26, damage: 6, cooldown: 0.7, wanderSpeed: 0.55, weave: 0.55, weaveSpeed: 7, bounty: 1, color: '#f0d36b' },
     shield: { hp: 74, speed: 88, radius: 18, sight: 300, reach: 32, damage: 13, cooldown: 1.25, wanderSpeed: 0.4, turnRate: 1.7, shieldHp: 90, shieldArc: 1.15, bounty: 1.8, color: '#8fb3c9' },
+    // Support units heal nearby wounded allies on a fixed pulse and never attack.
+    medic: { hp: 45, speed: 95, radius: 15, sight: 320, reach: 0, damage: 0, cooldown: 0, wanderSpeed: 0.4, healRadius: 160, healEvery: 4, healFraction: 0.18, bounty: 1.3, color: '#83d6a0' },
     // Cloaked beyond revealDistance (and for revealSeconds after hitting or being hit): nearly invisible, ignored by auto-targeting. Senses players hiding in grass within sense px.
     stalker: { hp: 41, speed: 160, radius: 14, sight: 320, reach: 28, damage: 15, cooldown: 1.1, wanderSpeed: 0.5, cloakAlpha: 0.1, revealDistance: 150, revealSeconds: 0.9, sense: 120, bounty: 1.6, color: '#86b8a8' },
     // Lights a fuse within reach, keeps closing at fuseSpeed, then detonates for damage in blast px (hits hidden players too) and dies without loot.
@@ -51,6 +53,28 @@ const CONFIG = Object.freeze({
     sniper: { boss: true, hp: 850, speed: 125, radius: 24, sight: 720, sense: 140, reach: 0, damage: 0, cooldown: 1, wanderSpeed: 0.5, bushCloak: 0.12, revealSeconds: 1.5, bounty: 0, color: '#9aa6b8' },
     hive: { boss: true, hp: 1500, speed: 52, radius: 34, sight: 480, sense: 200, reach: 58, damage: 20, cooldown: 1.4, wanderSpeed: 0.4, bounty: 0, color: '#b58ad6' },
     wanderInterval: [1.8, 3.6], alertSeconds: 0.28, bushRevealDistance: 110, healthPerWave: 0.14, damagePerWave: 0.095
+  },
+  // Enemies that lose sight of the player, or hear a noise, walk to that spot and sweep nearby grass until `seconds` run out.
+  // A hidden player within probe px of a searcher is found; searching gunners fire recon shots at their sweep point every reconFire s.
+  // Explosions make explosionNoise.
+  search: { speed: 0.75, seconds: 9, radius: 130, arrive: 24, probe: 62, reconFire: 1.8, explosionNoise: 620 },
+  waves: {
+    baseCount: 2, growth: 2, lateFrom: 5, lateGrowth: 2, maxCount: 64, maxAlive: 34,
+    spawnInterval: 0.72, spawnIntervalStep: 0.035, minSpawnInterval: 0.3, batchEvery: 4, maxBatch: 3,
+    intermission: 3.5, initialSpawnDelay: 0.5, enemySpawnDistance: 330,
+    // Relative spawn weight per kind: weight + (wave - from) × perWave, capped at max.
+    roster: [
+      { kind: 'melee', from: 1, weight: 1, perWave: 0, max: 1 },
+      { kind: 'ranged', from: 2, weight: 0.35, perWave: 0.04, max: 0.9 },
+      { kind: 'runner', from: 3, weight: 0.3, perWave: 0.04, max: 0.8 },
+      { kind: 'shield', from: 4, weight: 0.22, perWave: 0.035, max: 0.7 },
+      { kind: 'medic', from: 6, weight: 0.2, perWave: 0.03, max: 0.5 },
+      { kind: 'stalker', from: 6, weight: 0.22, perWave: 0.03, max: 0.6 },
+      { kind: 'flamer', from: 7, weight: 0.2, perWave: 0.03, max: 0.5 },
+      { kind: 'bomber', from: 8, weight: 0.2, perWave: 0.03, max: 0.55 },
+      { kind: 'flare', from: 9, weight: 0.2, perWave: 0.03, max: 0.5 },
+      { kind: 'scout', from: 11, weight: 0.15, perWave: 0.02, max: 0.35 }
+    ]
   },
   // Enemies that lose sight of the player, or hear a noise, walk to that spot and sweep nearby grass until `seconds` run out.
   // A hidden player within probe px of a searcher is found; searching gunners fire recon shots at their sweep point every reconFire s.
@@ -138,6 +162,8 @@ const CONFIG = Object.freeze({
       predator: { icon: '⚔', rarity: 'evolved', max: 1, needs: ['ambush', 'shadow'], bonus: 1, takedown: 0.5 },
       bloodstorm: { icon: '✹', rarity: 'evolved', max: 1, needs: ['vampire', 'volatile'], heal: 3, chance: 0.3 },
       hoarder: { icon: '❖', rarity: 'evolved', max: 1, needs: ['greed', 'scavenger'], gold: 0.25, scrap: 0.5 },
+      shadeCircuit: { icon: '⌁', rarity: 'evolved', max: 1, needs: ['shadow', 'scavenger'], takedowns: 3, decoys: 1 },
+      hunterFocus: { icon: '⌖', rarity: 'evolved', max: 1, needs: ['trigger', 'ambush'], seconds: 2, damage: 0.5 },
       glassCannon: { icon: '✧', rarity: 'cursed', max: 1, damage: 0.4, hpCut: 0.25 },
       bloodPrice: { icon: '☍', rarity: 'cursed', max: 1, gold: 0.6, taken: 0.2 },
       frenzy: { icon: 'ϟ', rarity: 'cursed', max: 1, rate: 0.3, reveal: 1 }
@@ -187,7 +213,7 @@ const CONFIG = Object.freeze({
       volley: { interval: 1.7, count: 3, spread: 0.2, speed: 330, radius: 7, damage: 10 },
       bombs: { interval: 5, count: 1, scatter: 70, fall: 1.1, blast: 85, damage: 24, range: 560 },
       summon: { interval: 9, count: 3, kinds: ['melee', 'runner'], distance: 70 },
-      phase2: { speed: 1.35, pace: 0.65, bombs: 3, ring: 12, ringInterval: 3.2 }
+      phase2: { speed: 1.35, pace: 0.65, bombs: 3, ring: 12, ringInterval: 3.2, medics: 1 }
     },
     // Aims for `aim` s (laser sight, locked for the last `lock` s), fires, then relocates to grass at least `cover` px from the player.
     // Phase 2 aims faster and fires a burst.
@@ -586,7 +612,7 @@ function scrapAmount(n) {
 function makeEnemy(kind, pos, { affix = null, noLoot = false, hpScale = 1, radius } = {}) {
   const stats = CONFIG.enemies[kind], E = CONFIG.elites, scale = waveScale() * difficulty().hp * hpScale * (1 + (route().hp ?? 0)) * (mutator('brittle') ? CONFIG.mutators.brittle.enemyHp : 1);
   const hp = Math.max(1, Math.round(stats.hp * scale * (affix ? E.hp : 1))), shieldHp = Math.round((stats.shieldHp || 0) * scale), pressure = clamp(game.waveAlert / CONFIG.alert.max, 0, 1);
-  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * (affix === 'swift' ? E.affixes.swift.speed : 1), sightScale: 1 + pressure * CONFIG.alert.sightBonus, patrolScale: 1 + pressure * CONFIG.alert.patrolBonus, reconScale: 1 + pressure * CONFIG.alert.reconBonus, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, cooldown: rand(0, .6), special: rand(0, 1), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0, lastSeen: null, goal: null, sweep: null, searchTime: 0, arrived: false };
+  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * (affix === 'swift' ? E.affixes.swift.speed : 1), sightScale: 1 + pressure * CONFIG.alert.sightBonus, patrolScale: 1 + pressure * CONFIG.alert.patrolBonus, reconScale: 1 + pressure * CONFIG.alert.reconBonus, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, cooldown: rand(0, .6), special: rand(0, 1), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0, lastSeen: null, goal: null, sweep: null, searchTime: 0, arrived: false, healTimer: stats.healEvery ?? 0 };
   game.enemies.push(e); return e;
 }
 function rollAffix() {
@@ -828,7 +854,7 @@ function startGame(daily) {
   game.keys.clear(); game.mouse.down = false; game.chestTimer = 0; game.flash = 0;
   const levels = Object.fromEntries([...Object.keys(CONFIG.upgrades), ...Object.keys(CONFIG.gear), ...Object.keys(CONFIG.autoWeapons), ...Object.keys(CONFIG.mods)].map(key => [key, 0]));
   const autoCooldowns = Object.fromEntries(Object.keys(CONFIG.autoWeapons).map(key => [key, 0])), hp = CONFIG.player.hp + (classInfo().hp ?? 0);
-  const p = game.player = { ...worldCenter, radius: CONFIG.player.radius, hp, maxHp: hp, shield: 0, lastHurt: 0, gold: 0, scrap: 0, levels, weapon: 'rifle', owned: new Set(['rifle']), autoCooldowns, cooldown: 0, invulnerable: 0, revealedUntil: 0, bushTime: -Infinity, facing: 0, items: { ...T.start }, throwKind: Object.keys(T.items)[0], bolts: CONFIG.weapons.crossbow.ammo, skillCooldown: 0, takedownCooldown: 0, dash: null, bulwark: 0, focus: 0 };
+  const p = game.player = { ...worldCenter, radius: CONFIG.player.radius, hp, maxHp: hp, shield: 0, lastHurt: 0, gold: 0, scrap: 0, levels, weapon: 'rifle', owned: new Set(['rifle']), autoCooldowns, cooldown: 0, invulnerable: 0, revealedUntil: 0, bushTime: -Infinity, facing: 0, items: { ...T.start }, throwKind: Object.keys(T.items)[0], bolts: CONFIG.weapons.crossbow.ammo, skillCooldown: 0, takedownCooldown: 0, dash: null, bulwark: 0, focus: 0, hunterFocusIdle: 0, hunterFocusReady: false, shadeCircuitProgress: 0 };
   if (!daily) for (const [id, a] of Object.entries(CONFIG.achievements)) {
     if (!unlocked(id)) continue;
     if (a.startGun && !mutator('rifleOnly')) { p.owned.add(a.startGun); p.weapon = a.startGun; }
@@ -956,7 +982,7 @@ function openChoice(mode) {
 }
 function perkVars(key) {
   const v = P[key], pct = n => Math.round((n ?? 0) * 100);
-  return { pct: pct(v.bonus ?? v.chance ?? v.scrap ?? v.gold ?? v.rate ?? v.pickup), heal: v.heal, hp: v.hp, seconds: v.seconds, regen: v.regen, takedown: pct(v.takedown), chance: pct(v.chance), scrap: pct(v.scrap), gold: pct(v.gold), damage: pct(v.damage), hpCut: pct(v.hpCut), taken: pct(v.taken), reveal: pct(v.reveal) };
+  return { pct: pct(key === 'hunterFocus' ? v.damage : v.bonus ?? v.chance ?? v.scrap ?? v.gold ?? v.rate ?? v.pickup), heal: v.heal, hp: v.hp, seconds: v.seconds, regen: v.regen, takedown: pct(v.takedown), chance: pct(v.chance), scrap: pct(v.scrap), gold: pct(v.gold), damage: pct(v.damage), hpCut: pct(v.hpCut), taken: pct(v.taken), reveal: pct(v.reveal), count: v.takedowns };
 }
 function routeVars(key) {
   const r = CONFIG.routes.list[key], pct = n => Math.round((n ?? 0) * 100);
@@ -1018,6 +1044,8 @@ function grantPerk(key) {
   game.perks[key] = perk(key) + 1; game.stats.perks.push(key);
   if (key === 'tough') { p.maxHp += P.tough.hp; p.hp += P.tough.hp; }
   if (key === 'glassCannon') { p.maxHp = Math.max(1, Math.round(p.maxHp * (1 - P.glassCannon.hpCut))); p.hp = Math.min(p.hp, p.maxHp); }
+  if (key === 'shadeCircuit') p.shadeCircuitProgress = 0;
+  if (key === 'hunterFocus') { p.hunterFocusIdle = 0; p.hunterFocusReady = false; }
   burst(p.x, p.y, '#e9e597', 17); notify(t('toast.perk', { name: t(`perk.${key}.title`) })); updateHUD();
 }
 function choosePerk(index) {
@@ -1148,7 +1176,7 @@ function updateHUD() {
   $('autoList').textContent = `${t('hud.auto')}${autos.length ? autos.map(([key, item]) => `${item.icon} ${p.levels[key]}`).join('　') : t('hud.none')}`;
   $('autoList').title = autos.map(([key]) => `${t(`auto.${key}.title`)} LV. ${p.levels[key]}`).join('\n');
   const perks = Object.entries(P).filter(([key]) => perk(key));
-  $('perkList').textContent = `${t('hud.perks')}${perks.length ? perks.map(([key, item]) => `${item.icon} ${perk(key)}`).join('　') : t('hud.none')}`;
+  $('perkList').textContent = `${t('hud.perks')}${perks.length ? perks.map(([key, item]) => `${item.icon} ${perk(key)}${key === 'shadeCircuit' ? ` ${p.shadeCircuitProgress}/${P.shadeCircuit.takedowns}` : ''}${key === 'hunterFocus' && p.hunterFocusReady ? ' ◆' : ''}`).join('　') : t('hud.none')}`;
   $('perkList').title = perks.map(([key]) => `${t(`perk.${key}.title`)} ×${perk(key)}`).join('\n');
   const hidden = isHidden(), inBush = inTerrain(p, game.bushes), holding = inBush && autos.length ? t('hud.autoHold') : '';
   $('stealthText').textContent = (hidden ? t('hud.hidden') : game.event?.carrying ? t('hud.carrying') : litTower(p) ? t('hud.lit') : inBush ? t('hud.revealed') : inTerrain(p, game.ponds) ? t('hud.wading') : t('hud.exposed')) + holding;
@@ -1198,13 +1226,15 @@ function alertNoise(x, y, radius) {
 function shoot() {
   const p = game.player, gun = gunStats(), angle = p.facing, ambush = isHidden(), M = CONFIG.mods;
   if (gun.ammo && p.bolts <= 0) { p.cooldown = CONFIG.player.switchDelay * 2; notify(t('toast.noBolts')); return; }
-  const damage = Math.round(gun.damage * (ambush ? 1 + perk('ambush') * P.ambush.bonus + perk('predator') * P.predator.bonus : 1));
+  const focusShot = perk('hunterFocus') > 0 && p.hunterFocusReady;
+  const damage = Math.round(gun.damage * (ambush ? 1 + perk('ambush') * P.ambush.bonus + perk('predator') * P.predator.bonus : 1) * (focusShot ? 1 + P.hunterFocus.damage : 1));
+  p.hunterFocusIdle = 0; if (focusShot) p.hunterFocusReady = false;
   p.cooldown = 1 / gun.shotsPerSecond; game.stats.shotWave ??= game.wave;
   if (!gun.silent) p.revealedUntil = game.time + CONFIG.player.revealSeconds * (1 - p.levels.suppressor * M.suppressor.reveal) * (1 + perk('frenzy') * P.frenzy.reveal);
   if (gun.ammo) p.bolts--;
   for (let i = 0; i < gun.pellets; i++) {
     const a = angle + (i - (gun.pellets - 1) / 2) * gun.spreadRadians + rand(-gun.jitter, gun.jitter), x = p.x + Math.cos(a) * 21, y = p.y + Math.sin(a) * 21;
-    game.bullets.push({ x, y, vx: Math.cos(a) * gun.bulletSpeed, vy: Math.sin(a) * gun.bulletSpeed, traveled: 0, range: gun.range, damage, radius: CONFIG.gun.bulletRadius, friendly: true, pierce: gun.blast ? 0 : gun.pierce, hits: gun.pierce ? new Set() : null, bounces: gun.bounces, color: gun.color, trail: p.weapon === 'rail' || p.weapon === 'crossbow', source: p.weapon, ambush, bolt: !!gun.ammo && i === 0, blast: gun.blast });
+    game.bullets.push({ x, y, vx: Math.cos(a) * gun.bulletSpeed, vy: Math.sin(a) * gun.bulletSpeed, traveled: 0, range: gun.range, damage, radius: CONFIG.gun.bulletRadius, friendly: true, pierce: gun.blast ? 0 : gun.pierce, hits: gun.pierce ? new Set() : null, bounces: gun.bounces, color: focusShot ? '#f2d782' : gun.color, trail: p.weapon === 'rail' || p.weapon === 'crossbow', source: p.weapon, ambush, bolt: !!gun.ammo && i === 0, blast: gun.blast });
   }
   if (gun.noise) {
     game.waveSilent = false;
@@ -1212,6 +1242,7 @@ function shoot() {
     alertNoise(p.x, p.y, gun.noise);
   }
   burst(p.x + Math.cos(angle) * 23, p.y + Math.sin(angle) * 23, '#f3e8aa', 5);
+  if (focusShot) burst(p.x + Math.cos(angle) * 23, p.y + Math.sin(angle) * 23, '#f2d782', 10);
   sound.play(gun.sound); game.shake = gun.shake; updateHUD();
 }
 function burst(x, y, color, count) {
@@ -1541,6 +1572,7 @@ function updateCommander(e, dt) {
   }
   if (e.summon <= 0) {
     for (let i = 0; i < C.summon.count && game.enemies.length < CONFIG.waves.maxAlive; i++) spawnNear(C.summon.kinds[i % C.summon.kinds.length], e, e.radius + C.summon.distance, { noLoot: true });
+    if (e.phase === 2) for (let i = 0; i < C.phase2.medics && game.enemies.length < CONFIG.waves.maxAlive; i++) spawnNear('medic', e, e.radius + C.summon.distance, { noLoot: true });
     e.summon = C.summon.interval * pace; burst(e.x, e.y, CONFIG.enemies.commander.color, 16);
   }
   if (e.phase === 2 && e.ring <= 0) {
@@ -1646,11 +1678,26 @@ function flame(e, stats, d, speed, dt) {
 }
 // States: wander → alert (on sight) → chase/attack; losing sight or hearing noise → search (walk to the spot, sweep grass until
 // alert-scaled search time expires).
+function updateMedic(e, stats, dt) {
+  e.healTimer -= dt;
+  if (e.healTimer <= 0) {
+    e.healTimer += stats.healEvery;
+    for (const ally of game.enemies) {
+      if (ally === e || ally.hp <= 0 || ally.hp >= ally.maxHp || distance(e, ally) > stats.healRadius) continue;
+      ally.hp += Math.min(ally.maxHp - ally.hp, ally.maxHp * stats.healFraction);
+      burst(ally.x, ally.y, '#83e0a3', 7);
+    }
+  }
+  e.wanderTime -= dt;
+  if (e.wanderTime <= 0) { e.direction = rand(-Math.PI, Math.PI); e.wanderTime = rand(...CONFIG.enemies.wanderInterval); }
+  steer(e, e.direction, stats.speed * e.speed * stats.wanderSpeed, dt);
+}
 function updateEnemy(e, dt) {
   const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), speed = stats.speed * e.speed;
   if (e.affix === 'regen') e.hp = Math.min(e.maxHp, e.hp + CONFIG.elites.affixes.regen.rate * e.maxHp * dt);
   e.cooldown -= dt; e.special -= dt; e.hit = Math.max(0, e.hit - dt); e.blocked = Math.max(0, e.blocked - dt); e.bladeCooldown -= dt; e.reveal -= dt;
   if (e.kind === 'scout') { updateScout(e, dt, d); return; }
+  if (e.kind === 'medic') { updateMedic(e, stats, dt); return; }
   if (e.fuse > 0) {
     e.fuse -= dt; e.facing = angleTo(e, p);
     steer(e, e.facing, speed * stats.fuseSpeed, dt);
@@ -1760,6 +1807,17 @@ function takedown() {
   const p = game.player, e = takedownTarget();
   if (!e || p.takedownCooldown > 0) return;
   p.takedownCooldown = CONFIG.takedown.cooldown; game.stats.takedowns++; progressChallenge('takedowns');
+  if (perk('shadeCircuit')) {
+    const S = P.shadeCircuit;
+    if (++p.shadeCircuitProgress >= S.takedowns) {
+      p.shadeCircuitProgress = 0;
+      if (p.items.decoy < CONFIG.throwables.carry) {
+        p.items.decoy = Math.min(CONFIG.throwables.carry, p.items.decoy + S.decoys);
+        burst(p.x, p.y, '#9fe3ff', 14); sound.play('scrap');
+      }
+      updateHUD();
+    }
+  }
   p.facing = angleTo(p, e); burst(e.x, e.y, '#fff0d1', 10); sound.play('takedown', e);
   hitEnemyBody(e, Infinity, 'takedown', true);
 }
@@ -1834,6 +1892,10 @@ function update(dt) {
   game.alert = Math.max(0, game.alert - CONFIG.alert.decayPerSecond * dt);
   game.time += dt;
   const p = game.player; p.cooldown -= dt; p.invulnerable = Math.max(0, p.invulnerable - dt); game.flash = Math.max(0, game.flash - dt); game.shake *= .82;
+  if (perk('hunterFocus') && !p.hunterFocusReady) {
+    p.hunterFocusIdle += dt;
+    if (p.hunterFocusIdle >= P.hunterFocus.seconds) p.hunterFocusReady = true;
+  }
   p.skillCooldown -= dt; p.takedownCooldown -= dt; p.bulwark -= dt; p.focus -= dt;
   if ((game.comboTimer -= dt) <= 0) game.combo = 0;
   if (p.dash) { move(p, p.dash.vx * dt, p.dash.vy * dt); if ((p.dash.time -= dt) <= 0) p.dash = null; }
@@ -2132,6 +2194,11 @@ function drawPointers(camera, w, h) {
 function drawEnemy(e) {
   const stats = CONFIG.enemies[e.kind], hidden = inTerrain(e, game.bushes), cloaked = isCloaked(e);
   if (e.kind === 'scout') { drawScout(e, stats); return; }
+  if (e.kind === 'medic') {
+    const pulse = .05 + .035 * Math.sin(game.time * 4);
+    ctx.fillStyle = `rgba(131,214,160,${pulse})`; ctx.beginPath(); ctx.arc(e.x, e.y, stats.healRadius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#83d6a066'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.x, e.y, stats.healRadius, 0, Math.PI * 2); ctx.stroke();
+  }
   if (e.fuse > 0) {
     const pulse = Math.floor(game.time * 12) % 2;
     ctx.strokeStyle = `rgba(255,112,80,${pulse ? .75 : .35})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, stats.blast, 0, Math.PI * 2); ctx.stroke();
@@ -2149,7 +2216,7 @@ function drawEnemy(e) {
   if (e.kind === 'bomber') { ctx.fillStyle = '#3a2a22'; ctx.beginPath(); ctx.arc(-e.radius + 2, 0, 9, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = e.fuse > 0 && Math.floor(game.time * 12) % 2 ? '#fff4c0' : '#f59a55'; ctx.beginPath(); ctx.arc(-e.radius - 6, -6, 3, 0, Math.PI * 2); ctx.fill(); }
   else if (e.kind === 'flamer') { ctx.fillStyle = '#7a3a26'; ctx.fillRect(-e.radius - 6, -8, 10, 16); ctx.fillStyle = '#3a2a22'; ctx.fillRect(1, -3, 28, 6); ctx.fillStyle = '#f0a24f'; ctx.fillRect(27, -2, 4, 4); }
   else if (e.kind === 'sniper') { ctx.fillStyle = '#26372e'; ctx.fillRect(1, -3, 44, 6); ctx.fillStyle = '#9fe3ff'; ctx.fillRect(14, -6, 8, 3); }
-  else { ctx.fillStyle = '#26372e'; ctx.fillRect(1, -5 * e.radius / 16, 23 * e.radius / 16, 10 * e.radius / 16); }
+  else if (e.kind !== 'medic') { ctx.fillStyle = '#26372e'; ctx.fillRect(1, -5 * e.radius / 16, 23 * e.radius / 16, 10 * e.radius / 16); }
   ctx.fillStyle = e.hit > 0 || (e.fuse > 0 && Math.floor(game.time * 12) % 2) ? '#fff0d1' : stats.color; ctx.beginPath(); ctx.arc(0, 0, e.radius, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#3b3e37'; ctx.lineWidth = 3; ctx.stroke();
   ctx.fillStyle = '#26372e'; ctx.fillRect(6, -6, 6, 4); ctx.fillRect(6, 3, 6, 4);
@@ -2176,10 +2243,18 @@ function drawEnemy(e) {
     for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + game.time * .6; ctx.fillStyle = e.phase === 2 ? '#e0634e' : '#7d5a9a'; ctx.beginPath(); ctx.arc(Math.cos(a) * 16, Math.sin(a) * 16, 6, 0, Math.PI * 2); ctx.fill(); }
     ctx.fillStyle = '#a6e36b'; ctx.beginPath(); ctx.arc(8, 0, 6, 0, Math.PI * 2); ctx.fill();
   }
+  else if (e.kind === 'medic') {
+    ctx.fillStyle = '#f2fff5'; ctx.fillRect(-2.5, -8, 5, 16); ctx.fillRect(-8, -2.5, 16, 5);
+    ctx.strokeStyle = '#39845a'; ctx.lineWidth = 1; ctx.strokeRect(-2.5, -8, 5, 16); ctx.strokeRect(-8, -2.5, 16, 5);
+  }
   else { ctx.fillStyle = '#f2d4a3'; ctx.beginPath(); ctx.moveTo(-9, -12); ctx.lineTo(-16, -20); ctx.lineTo(-2, -14); ctx.fill(); }
   ctx.restore();
   if (cloaked) return;
   if (e.hp < e.maxHp && !stats.boss) drawHealth(e.x, e.y - e.radius - 14, e.hp / e.maxHp, 34);
+  if (e.kind === 'medic' && e.healTimer < stats.healEvery) {
+    ctx.strokeStyle = `rgba(131,224,163,${1 - e.healTimer / stats.healEvery})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 7 + (1 - e.healTimer / stats.healEvery) * 8, 0, Math.PI * 2); ctx.stroke();
+  }
   if (e.mark) { ctx.fillStyle = '#ff8a6a'; ctx.beginPath(); ctx.moveTo(e.x - 8, e.y - e.radius - 26); ctx.lineTo(e.x, e.y - e.radius - 18); ctx.lineTo(e.x + 8, e.y - e.radius - 26); ctx.lineTo(e.x, e.y - e.radius - 34); ctx.fill(); }
   if (e.state !== 'wander') { ctx.fillStyle = e.state === 'search' ? '#b9d4e6' : '#f3d182'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(e.state === 'search' ? '?' : '!', e.x, e.y - e.radius - 11); }
 }
@@ -2216,6 +2291,7 @@ function drawPlayer(p) {
   if (p.shield > 0 && maxShield) { ctx.strokeStyle = `rgba(150,215,240,${.2 + .6 * p.shield / maxShield})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 5, 0, Math.PI * 2); ctx.stroke(); }
   if (p.bulwark > 0) { ctx.strokeStyle = '#f3d182cc'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 9, 0, Math.PI * 2); ctx.stroke(); }
   if (p.focus > 0) { ctx.strokeStyle = '#9fe3ffcc'; ctx.lineWidth = 2; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 9, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+  if (p.hunterFocusReady) { ctx.strokeStyle = '#f2d782'; ctx.lineWidth = 3; ctx.shadowColor = '#f2d782'; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 13, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0; }
   const target = game.mode === 'playing' && p.takedownCooldown <= 0 ? takedownTarget() : null;
   if (target) {
     ctx.fillStyle = '#10251cd0'; ctx.fillRect(target.x - 9, target.y + target.radius + 6, 18, 17);
