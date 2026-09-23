@@ -44,8 +44,9 @@
 5. **不得在正式程式碼加入測試掛勾**（例如把內部狀態掛到 `window`）。
 6. **文件**：玩法、數值、兵種、武器、裝備、流程有變動時，同步更新 `DESIGN.md`；使用方式或部署有變動時更新 `README.md`；功能、數值或驗收結果有變動時更新 `ACCEPTANCE.md`（見下節）。
 7. **Git**：每完成一個里程碑自動提交（訊息用英文、祈使句）。**只有使用者要求時才 `git push`**。
-8. **隨機性**：影響「每日挑戰是否對所有人相同」的抽選（地圖、變體、突變、兵種、精英詞綴、事件、天賦與路線選項）必須使用 run 的 seeded 串流（`seededRandom` / `game.rng`），不可用 `Math.random`；戰鬥與特效隨機才用 `rand`。改變這些抽選的呼叫順序會改變每日挑戰內容。
-9. **本機儲存**：`localStorage` 鍵為 `bushwhack-profile`（紀錄、累計、成就、難度、兵種、突變）、`bushwhack-music`／`bushwhack-sfx` 與其 `-volume`。修改 `profile` 結構時要相容舊資料（缺欄位補預設值）。
+8. **隨機性**：影響「同一種子是否得到相同內容」的抽選（地圖、木牆、探照燈、變體、突變、兵種、精英詞綴、事件、波次挑戰、黑市出現與商品、天賦與路線選項）必須使用 run 的 seeded 串流（`seededRandom` / `game.rng` 的 `roster`、`perks`、`challenge`、`market`），不可用 `Math.random`；戰鬥與特效隨機才用 `rand`。每日挑戰與自訂種子都依賴這點；改變這些抽選的呼叫順序會改變每日挑戰與既有種子的內容。
+9. **本機儲存**：`localStorage` 鍵為 `bushwhack-profile`（紀錄含最佳撤離波次、累計值、擊倒過的首領種類、成就、難度、兵種、外觀、突變）、`bushwhack-music`／`bushwhack-sfx` 與其 `-volume`。修改 `profile` 結構時要相容舊資料（缺欄位補預設值、未解鎖的兵種與外觀退回預設）。
+10. **右鍵**：整個頁面停用瀏覽器右鍵選單（`document` 的 `contextmenu`），不要在個別元素上重新開啟。
 
 ## 驗證
 
