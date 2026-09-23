@@ -4,7 +4,7 @@
 
 ## 開始遊玩
 
-在本目錄執行 `python3 -m http.server 8000`，瀏覽 `http://localhost:8000/`（中文）、`/en/`、`/ja/`。也可直接開啟 `index.html` 遊玩，但 `file://` 下右上角語言連結會指向資料夾，需改開 `en/index.html`、`ja/index.html`。可離線遊玩；字型服務無法連線時會使用系統字型。
+在本目錄執行 `python3 -m http.server 8000`，瀏覽 `http://localhost:8000/`（中文）、`/?lang=en`、`/?lang=ja`；也可直接開啟 `index.html`。右上角切換語系不會重新載入頁面，進行中的遊戲會保留。可離線遊玩；字型服務無法連線時會使用系統字型。
 
 | 操作 | 按鍵 |
 | --- | --- |
@@ -18,15 +18,15 @@
 
 詳細平衡數值與狀態流程見 [DESIGN.md](DESIGN.md)；唯一的實際設定區塊位於 `game.js` 開頭的 `CONFIG`，介面文字位於 `i18n.js`。
 
-## 多語系頁面與快取版本
+## 多語系、Sitemap 與快取版本
 
-`index.html`、`en/index.html`、`ja/index.html` 由 `tools/index.template.html` 與 `i18n.js` 產生，請勿手動編輯。頁面以內容雜湊引用 `style.css?v=…`、`i18n.js?v=…` 與 `game.js?v=…`，瀏覽器與 CDN 在檔案變更後會取得新版。修改範本、`i18n.js`、`game.js` 或 `style.css` 後、提交前執行：
+`index.html` 與 `sitemap.xml` 由 `tools/index.template.html` 與 `i18n.js` 產生，請勿手動編輯。頁面預填繁體中文，其他語系由 `game.js` 依 `?lang=` 在執行期替換；`sitemap.xml` 列出 `/`、`/?lang=en`、`/?lang=ja` 並附 `hreflang` 對應，`robots.txt` 指向該 sitemap。頁面以內容雜湊引用 `style.css?v=…`、`i18n.js?v=…` 與 `game.js?v=…`，瀏覽器與 CDN 在檔案變更後會取得新版。修改範本、`i18n.js`、`game.js` 或 `style.css` 後、提交前執行：
 
 ```sh
 node tools/build-pages.mjs
 ```
 
-新增語系：在 `i18n.js` 加入含 `label`、`path`、`ogLocale`、`page`、`game` 的項目後重新建置；缺少任何鍵值時腳本會中止並列出。
+新增語系：在 `i18n.js` 加入含 `label`、`ogLocale`、`page`、`game` 的項目後重新建置（sitemap 與切換連結會自動加入）；缺少任何鍵值時腳本會中止並列出。新增其他 HTML 頁面時，也要將其加入建置腳本的 sitemap 輸出。
 
 ## GitHub Pages + Cloudflare
 
@@ -34,7 +34,7 @@ node tools/build-pages.mjs
 2. 在 Cloudflare 的 `yustellar.dev` DNS 新增 `bushwhack` CNAME，目標為 `yueyuhoshizora.github.io`；先使用 **DNS only**（灰雲）完成 GitHub Pages 的網域驗證及憑證簽發，再改為 **Proxied**（橘雲）提供 CDN 快取。Cloudflare SSL/TLS 模式選 **Full (strict)**，避免 Flexible 引起重導迴圈。
 3. 開啟 `https://bushwhack.yustellar.dev/`，確認遊戲與分享圖片可載入。推送程式碼不會自動完成 GitHub Pages 啟用或 Cloudflare DNS 設定。
 
-遊戲檔案使用相對路徑；Cloudflare 僅代理／快取靜態檔案，不需要 Workers、API 或伺服器。各語系 HTML 本身若仍被快取成舊版，清除 Cloudflare 對 `/`、`/en/`、`/ja/` 的快取。
+遊戲檔案使用相對路徑；Cloudflare 僅代理／快取靜態檔案，不需要 Workers、API 或伺服器。`index.html` 本身若仍被快取成舊版，清除 Cloudflare 對 `/` 的快取。Cloudflare 快取規則需將查詢字串納入快取鍵（預設即是），或忽略 `lang` 參數皆可，因為三個語系回傳相同 HTML。
 
 ## 分享預覽
 

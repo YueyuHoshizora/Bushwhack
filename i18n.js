@@ -1,9 +1,10 @@
 // Localized text for Bushwhack. Loaded by the browser before game.js and by tools/build-pages.mjs.
-// Each locale: `path` is its URL directory, `page` fills tools/index.template.html, `game` feeds t() in game.js.
+// Each locale (selected with ?lang=<code>): `label` names it in the switcher, `page` holds the static page text
+// (prefilled in the default locale by the build, swapped at runtime), `game` feeds t() in game.js.
 // `{name}` placeholders are filled at runtime.
 globalThis.BUSHWHACK_I18N = {
   'zh-Hant': {
-    label: '中文', path: '', ogLocale: 'zh_TW',
+    label: '中文', ogLocale: 'zh_TW',
     page: {
       title: '草叢突擊 Bushwhack', brand: '草叢突擊',
       description: '草叢突擊 Bushwhack：俯視生存射擊遊戲。擊倒敵人、搜刮寶箱、躲入草叢，強化武器迎戰下一波。開啟網頁即可遊玩。',
@@ -51,7 +52,7 @@ globalThis.BUSHWHACK_I18N = {
     }
   },
   en: {
-    label: 'EN', path: 'en/', ogLocale: 'en_US',
+    label: 'EN', ogLocale: 'en_US',
     page: {
       title: 'Bushwhack', brand: 'Bushwhack',
       description: 'Bushwhack is a top-down survival shooter. Take down enemies, loot supply crates, hide in the grass and upgrade your arsenal for the next wave. Plays right in your browser.',
@@ -99,7 +100,7 @@ globalThis.BUSHWHACK_I18N = {
     }
   },
   ja: {
-    label: '日本語', path: 'ja/', ogLocale: 'ja_JP',
+    label: '日本語', ogLocale: 'ja_JP',
     page: {
       title: 'ブッシュワック Bushwhack', brand: 'ブッシュワック',
       description: 'ブッシュワックは見下ろし型のサバイバルシューター。敵を倒し、補給箱を漁り、草むらに潜み、武器を強化して次のウェーブへ。ブラウザですぐに遊べます。',

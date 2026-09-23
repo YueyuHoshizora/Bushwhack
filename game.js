@@ -56,8 +56,14 @@ const CONFIG = Object.freeze({
   },
   audio: { master: 0.5, music: 0.3, sfx: 0.7, duck: 0.35, tempo: 140, falloff: 900 }
 });
-// UI text comes from i18n.js; the page's <html lang> (set per locale path by tools/build-pages.mjs) selects the dictionary.
-const STRINGS = (globalThis.BUSHWHACK_I18N[document.documentElement.lang] || globalThis.BUSHWHACK_I18N['zh-Hant']).game;
+// UI text comes from i18n.js; ?lang=<code> selects the dictionary and switching rewrites the page in place (no reload).
+const LOCALES = globalThis.BUSHWHACK_I18N, DEFAULT_LOCALE = 'zh-Hant';
+// Accepts exact codes case-insensitively and language prefixes (zh-TW → zh-Hant, en-US → en).
+function resolveLocale(value) {
+  const wanted = String(value || '').toLowerCase(), codes = Object.keys(LOCALES);
+  return codes.find(code => code.toLowerCase() === wanted) || codes.find(code => wanted.split('-')[0] === code.toLowerCase().split('-')[0]) || DEFAULT_LOCALE;
+}
+let locale = resolveLocale(new URLSearchParams(location.search).get('lang')), STRINGS = LOCALES[locale].game;
 const t = (key, vars = {}) => (STRINGS[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => vars[name] ?? `{${name}}`);
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d'), arena = $('arena');
@@ -401,6 +407,22 @@ function renderSettings() {
     slider.value = sound.volume[kind]; slider.disabled = !sound.enabled[kind];
     $(`${kind}VolumeText`).textContent = `${sound.volume[kind]}%`;
   }
+}
+// Rewrites every marked static string ([data-i18n] text, [data-i18n-attr] "attr:key" pairs) and re-renders dynamic UI.
+const SITE_URL = document.querySelector('link[rel=canonical]').href; // build writes the default-locale URL
+function applyLocale(lang) {
+  locale = lang; STRINGS = LOCALES[lang].game;
+  const page = LOCALES[lang].page, query = lang === DEFAULT_LOCALE ? '' : `?lang=${lang}`, url = new URL(location.href);
+  document.documentElement.lang = lang;
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = page[el.dataset.i18n];
+  for (const el of document.querySelectorAll('[data-i18n-attr]')) for (const pair of el.dataset.i18nAttr.split(',')) { const [attr, key] = pair.split(':'); el.setAttribute(attr, page[key]); }
+  for (const link of document.querySelectorAll('[data-lang]')) {
+    if (link.dataset.lang === lang) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+  }
+  if (query) url.searchParams.set('lang', lang); else url.searchParams.delete('lang');
+  history.replaceState(history.state, '', url);
+  document.querySelector('link[rel=canonical]').href = document.querySelector('meta[property="og:url"]').content = new URL(query, SITE_URL).href;
+  renderSettings(); updateHUD(); if (game.mode === 'shop') renderShop();
 }
 function updateHUD() {
   if (!game.player) return;
@@ -891,5 +913,10 @@ canvas.addEventListener('wheel', event => {
   if (game.mode !== 'playing' || Math.abs(event.deltaY) < 4 || performance.now() - lastWheel < 250) return;
   lastWheel = performance.now(); cycleWeapon();
 }, { passive: false });
-renderSettings(); new ResizeObserver(resize).observe(arena); resize(); requestAnimationFrame(frame);
+for (const link of document.querySelectorAll('[data-lang]')) link.addEventListener('click', event => {
+  if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; // keep open-in-new-tab
+  event.preventDefault(); link.blur(); if (link.dataset.lang !== locale) applyLocale(link.dataset.lang);
+});
+if (locale === DEFAULT_LOCALE) renderSettings(); else applyLocale(locale);
+new ResizeObserver(resize).observe(arena); resize(); requestAnimationFrame(frame);
 })();
