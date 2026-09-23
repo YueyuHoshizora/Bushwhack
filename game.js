@@ -164,6 +164,8 @@ const CONFIG = Object.freeze({
       hoarder: { icon: '❖', rarity: 'evolved', max: 1, needs: ['greed', 'scavenger'], gold: 0.25, scrap: 0.5 },
       shadeCircuit: { icon: '⌁', rarity: 'evolved', max: 1, needs: ['shadow', 'scavenger'], takedowns: 3, decoys: 1 },
       hunterFocus: { icon: '⌖', rarity: 'evolved', max: 1, needs: ['trigger', 'ambush'], seconds: 2, damage: 0.5 },
+      payback: { icon: '⚔', rarity: 'rare', max: 2, unlock: 'silentKiller', damage: 0.25 },
+      secondWind: { icon: '↻', rarity: 'legendary', max: 1, unlock: 'finaleClear', hp: 0.35, seconds: 1.5 },
       glassCannon: { icon: '✧', rarity: 'cursed', max: 1, damage: 0.4, hpCut: 0.25 },
       bloodPrice: { icon: '☍', rarity: 'cursed', max: 1, gold: 0.6, taken: 0.2 },
       frenzy: { icon: 'ϟ', rarity: 'cursed', max: 1, rate: 0.3, reveal: 1 }
@@ -181,13 +183,26 @@ const CONFIG = Object.freeze({
       ironclad: { icon: '▣', hp: 0.3, throwables: 2 }
     }
   },
-  // Optional run modifiers picked on the start screen (the daily challenge rolls one). Each adds `score` to the score multiplier.
+  // Threat modifiers retain their original mutator effects and contribute points.
   mutators: {
-    brittle: { icon: '✧', enemyHp: 0.35, taken: 3, score: 0.4 },
-    rifleOnly: { icon: '⟋', score: 0.3 },
-    sparse: { icon: '⁘', bushes: 0.3, score: 0.4 },
-    eclipse: { icon: '◑', vision: 230, score: 0.3 }
+    brittle: { icon: '✧', enemyHp: 0.35, taken: 3, score: 0.4, points: 10 },
+    rifleOnly: { icon: '⟋', score: 0.3, points: 5 },
+    sparse: { icon: '⁘', bushes: 0.3, score: 0.4, points: 8 },
+    eclipse: { icon: '◑', vision: 230, score: 0.3, points: 6 },
+    elites: { icon: '♛', elite: 0.1, score: 0, points: 8 },
+    noDecay: { icon: '⌛', score: 0, points: 7 },
+    earlyBoss: { icon: '☠', score: 0, points: 8 },
+    expensiveMarket: { icon: '¤', price: 0.25, score: 0, points: 6 },
+    nightRaid: { icon: '☾', vision: 300, score: 0.2, points: 5, unlock: { threat: 20 } },
+    ironSwarm: { icon: '▣', count: 0.15, score: 0.2, points: 10, unlock: { threat: 35 } }
   },
+  threat: { initialCap: 20, bossEvery: 4, milestones: [10, 25, 40], cosmetics: { 10: 'shadow', 25: 'gold', 40: 'crimson' } },
+  // Class mastery (not in daily runs): XP per wave reached, extraction/clear and challenge; skillLevel adds each class's skill variant; skins name their own levels.
+  mastery: { maxLevel: 10, thresholds: [0, 100, 250, 450, 700, 1000, 1400, 1850, 2350, 2950], waveXp: 12, extractionXp: 80, challengeXp: 25, skillLevel: 2, dodgeStealth: 1.25, engineerSmokeRadius: 105, engineerSmokeSeconds: 3, heavyPulseRadius: 150, heavyStunSeconds: .65, marksmanFocusPierce: 1, medicArea: 125, medicFieldSeconds: 4, medicFieldPulse: 1, medicFieldHeal: 5 },
+  weekly: { contracts: 3, rewardXp: 75, pool: ['crossbow', 'night', 'silent', 'takedowns', 'bosses'], targets: { crossbow: 10, night: 1, silent: 3, takedowns: 15, bosses: 3 } },
+  streak: { graceDays: 1 },
+  // Wave `wave` is the final operation: an empowered commander (HP × hpScale); defeating it clears the run and raises the threat cap by threatStep.
+  finale: { wave: 25, hpScale: 2.5, threatStep: 15 },
   // Points per kill = kill × bounty (× elite bounty; boss-spawned minions × minion) × multiplier, where multiplier =
   // min(comboMax, 1 + combo × comboStep) × difficulty score × (1 + mutator scores). Kills within comboWindow s extend the combo
   // (ambush kills and takedowns count ambushCombo). Bosses pay `boss`; clearing wave N pays waveBonus × N.
@@ -241,10 +256,16 @@ const CONFIG = Object.freeze({
     hellWalker: { icon: '♨', wave: 10, difficulty: 'hell' },
     stillness: { icon: '☯', quietWaves: 5 },
     patron: { icon: '¤', purchases: 10, startGold: 40 },
-    arsenal: { icon: '⚔', allGuns: true, startOwn: 'crossbow' }
+    arsenal: { icon: '⚔', allGuns: true, startOwn: 'crossbow' },
+    finaleClear: { icon: '⚑', wave: 25, cleared: true, clears: 1 }
   },
   // Player colors (look in SKIN_LOOK); every skin but the default needs its achievement.
-  skins: { default: {}, shadow: { unlock: 'silentKiller' }, gold: { unlock: 'challenger' }, crimson: { unlock: 'hellWalker' }, moss: { unlock: 'stillness' } },
+  skins: {
+    default: {}, shadow: { unlock: 'silentKiller' }, gold: { unlock: 'challenger' }, crimson: { unlock: 'hellWalker' }, moss: { unlock: 'stillness' },
+    rangerMastery: { mastery: { cls: 'ranger', level: 4 } }, engineerMastery: { mastery: { cls: 'engineer', level: 4 } },
+    heavyMastery: { mastery: { cls: 'heavy', level: 4 } }, marksmanMastery: { mastery: { cls: 'marksman', level: 4 } },
+    medicMastery: { mastery: { cls: 'medic', level: 4 } }, masteryElite: { mastery: { level: 8 } }
+  },
   // Map variants, picked per run by weight. bushes/ponds scale cluster counts, sight scales enemy sight, vision limits the player's view.
   variants: {
     standard: { weight: 2, bushes: 1, ponds: 1, barrels: 5, sight: 1 },
@@ -264,13 +285,14 @@ const CONFIG = Object.freeze({
       // A marked armored officer that flees on sight and escapes after `seconds`; killing it pays out.
       assassinate: { from: 4, kinds: ['shield', 'ranged'], seconds: 40, distance: 380, gold: [60, 80], scrap: 6, heal: 20 },
       // Carrying intel prevents hiding; delivery pays more than wiping the wave.
-      intel: { from: 2, limit: 50, distance: 320, radius: 60, gold: [60, 85], scrap: 6, heal: 20, elimination: { gold: [30, 45], scrap: 3, heal: 8 } }
+      intel: { from: 2, limit: 50, distance: 320, radius: 60, gold: [60, 85], scrap: 6, heal: 20, elimination: { gold: [30, 45], scrap: 3, heal: 8 } },
+      jammer: { from: 12, daily: false, unlock: 'escapist', hp: 70, seconds: 28, radius: 64, distance: 300, reinforcements: 2, alert: 18, gold: [55, 75], scrap: 5, heal: 18 }
     }
   },
   // Loud shots and detection build a bounded alert; quiet clears lower it, while high alert boosts next-wave patrols and recon.
   alert: { max: 100, decayPerSecond: 0.12, waveDecay: 8, silentBonus: 18, manualShot: 4, detection: 6, scan: 9, searchlight: 7, sightBonus: 0.25, patrolBonus: 0.3, reconBonus: 0.35 },
   // Daily challenge: map, variant, one mutator, spawn roster, affixes, events and perk/route offers are seeded by the UTC date.
-  daily: { difficulty: 'normal' },
+  daily: { difficulty: 'normal', mutators: ['brittle', 'rifleOnly', 'sparse', 'eclipse'] },
   // Searchlight towers (night map): a beam of `range` px and ±halfAngle sweeps ±sweep rad around the tower's base angle at `speed`.
   // A player in a beam (not behind a wall) cannot hide and raises an alarm of `alarm` px (at most every alarmCooldown s per tower).
   // Towers are shot out by bullets or explosions (hp).
@@ -316,32 +338,72 @@ function pickWeighted(random, entries) {
   for (const [key, weight] of entries) if ((roll -= weight) < 0) return key;
   return entries[0][0];
 }
+// ISO date/week helpers are UTC so records agree across time zones.
 const todayUTC = () => new Date().toISOString().slice(0, 10);
+function isoWeek(date = new Date()) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return `${d.getUTCFullYear()}-W${String(Math.ceil((((d - yearStart) / 86400000) + 1) / 7)).padStart(2, '0')}`;
+}
 const variantFor = seed => pickWeighted(seededRandom(`${seed}:variant`), Object.entries(CONFIG.variants).map(([key, v]) => [key, v.weight]));
-const dailyMutator = seed => pickWeighted(seededRandom(`${seed}:mutator`), Object.keys(CONFIG.mutators).map(key => [key, 1]));
+const dailyMutator = seed => pickWeighted(seededRandom(`${seed}:mutator`), CONFIG.daily.mutators.map(key => [key, 1]));
 const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 // Run seeds: normal runs roll a short code (shown on the report, typed into the start screen to replay the same map and rolls).
 const randomSeed = () => Math.random().toString(36).slice(2, 8).toUpperCase().padEnd(6, '0');
 const normalizeSeed = text => String(text).toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
-// Personal records, cumulative totals, distinct bosses killed, unlocked achievements and the chosen difficulty, class, skin and
-// mutators, kept in localStorage. Missing fields from older saves fall back to defaults.
+// Personal records and long-term progression. New objects are normalized without dropping unknown legacy fields.
 const PROFILE_KEY = 'bushwhack-profile';
-const TOTAL_KEYS = ['ambushKills', 'bossKills', 'extractions', 'takedowns', 'challenges', 'purchases'];
+const TOTAL_KEYS = ['ambushKills', 'bossKills', 'extractions', 'takedowns', 'challenges', 'purchases', 'clears'];
 const profile = (() => {
   let data; try { data = JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch {}
   if (!data || typeof data !== 'object') data = {};
   const mutators = Array.isArray(data.mutators) ? data.mutators.filter(key => CONFIG.mutators[key]) : [];
   const bossKinds = Array.isArray(data.bossKinds) ? data.bossKinds.filter(key => CONFIG.enemies[key]?.boss) : [];
-  return { records: data.records ?? {}, daily: data.daily ?? null, totals: { ...Object.fromEntries(TOTAL_KEYS.map(key => [key, 0])), ...data.totals }, bossKinds, achievements: Array.isArray(data.achievements) ? data.achievements : [], difficulty: data.difficulty ?? 'normal', cls: CONFIG.classes[data.cls] ? data.cls : 'ranger', skin: CONFIG.skins[data.skin] ? data.skin : 'default', mutators };
+  const week = isoWeek(), weekly = data.weekly?.week === week ? data.weekly : { week, progress: {}, done: [] };
+  return { ...data, records: data.records ?? {}, daily: data.daily ?? null, totals: { ...Object.fromEntries(TOTAL_KEYS.map(key => [key, 0])), ...data.totals }, bossKinds, achievements: Array.isArray(data.achievements) ? data.achievements : [], difficulty: data.difficulty ?? 'normal', cls: CONFIG.classes[data.cls] ? data.cls : 'ranger', skin: CONFIG.skins[data.skin] ? data.skin : 'default', mutators, mastery: { ...Object.fromEntries(Object.keys(CONFIG.classes).map(k => [k, 0])), ...data.mastery }, threatRecords: data.threatRecords ?? {}, weekly, streak: { day: '', count: 0, ...data.streak }, intel: { enemies: [], bosses: [...bossKinds], perks: [], variants: [], ...data.intel } };
 })();
-function saveProfile() { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {} }
+function saveProfile() {
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {}
+}
+const markIntel = (group, key) => { if (!profile.intel[group].includes(key)) { profile.intel[group].push(key); saveProfile(); } };
 const unlocked = id => profile.achievements.includes(id);
-// Difficulties, classes and skins with an `unlock` need that achievement.
-const isOpen = entry => !entry.unlock || unlocked(entry.unlock);
+function weeklyContracts() {
+  if (profile.weekly.week !== isoWeek()) profile.weekly = { week: isoWeek(), progress: {}, done: [] };
+  if (profile.weekly.contracts?.length === CONFIG.weekly.contracts) return profile.weekly.contracts;
+  const random = seededRandom(`contract:${profile.weekly.week}`), pool = [...CONFIG.weekly.pool], out = [];
+  while (out.length < CONFIG.weekly.contracts && pool.length) out.push(pool.splice(Math.floor(random() * pool.length), 1)[0]);
+  profile.weekly.contracts = out; saveProfile(); return out;
+}
+function progressContract(kind, amount = 1) {
+  const weekly = profile.weekly, contracts = weeklyContracts();
+  for (const id of contracts) if (id === kind && !weekly.done.includes(id)) {
+    weekly.progress[id] = (weekly.progress[id] ?? 0) + amount;
+    const target = CONFIG.weekly.targets[id];
+    if (weekly.progress[id] >= target) {
+      weekly.done.push(id); profile.mastery[game.cls] += CONFIG.weekly.rewardXp;
+      notify(t('contract.done', { name: t(`contract.${id}`, { count: target }) }));
+    }
+    saveProfile();
+  }
+}
+const threatCap = () => CONFIG.threat.initialCap + profile.totals.clears * CONFIG.finale.threatStep;
+const selectedThreat = keys => keys.reduce((n, k) => n + (CONFIG.mutators[k]?.points ?? 0), 0);
+const maxThreatRecord = () => Math.max(0, ...Object.values(profile.threatRecords).map(Number));
+const masteryLevel = (cls, xp = profile.mastery[cls] ?? 0) => CONFIG.mastery.thresholds.reduce((level, threshold, i) => xp >= threshold ? i + 1 : level, 0);
+const threatUnlocked = entry => !entry.unlock || maxThreatRecord() >= entry.unlock.threat;
+const isOpen = entry => !entry.unlock || (typeof entry.unlock === 'string' ? unlocked(entry.unlock) : threatUnlocked(entry));
+const skinOpen = key => {
+  const skin = CONFIG.skins[key], mastery = skin.mastery;
+  const mastered = !mastery || (mastery.cls ? masteryLevel(mastery.cls) >= mastery.level : Object.keys(CONFIG.classes).some(cls => masteryLevel(cls) >= mastery.level));
+  return mastered && (isOpen(skin) || Object.entries(CONFIG.threat.cosmetics).some(([points, skinKey]) => skinKey === key && maxThreatRecord() >= Number(points)));
+};
 const difficultyOpen = key => isOpen(CONFIG.difficulty[key]);
 if (!CONFIG.difficulty[profile.difficulty] || !difficultyOpen(profile.difficulty)) profile.difficulty = 'normal';
 if (!isOpen(CONFIG.classes[profile.cls])) profile.cls = 'ranger';
-if (!isOpen(CONFIG.skins[profile.skin])) profile.skin = 'default';
+if (!skinOpen(profile.skin)) profile.skin = 'default';
+profile.mutators = profile.mutators.filter(key => isOpen(CONFIG.mutators[key]));
+while (selectedThreat(profile.mutators) > threatCap()) profile.mutators.pop();
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const pointIn = (x, y, r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
@@ -598,10 +660,11 @@ const difficulty = () => CONFIG.difficulty[game.difficulty];
 const perk = key => game.perks[key] ?? 0;
 const P = CONFIG.perks.list;
 const mutator = key => game.mutators.includes(key);
+const threatTotal = () => game.daily ? 0 : selectedThreat(game.mutators);
 const route = () => CONFIG.routes.list[game.route] ?? {};
 const classInfo = () => CONFIG.classes[game.cls];
-// Tightest view limit among the map variant, the wave's route and the eclipse mutator (Infinity = unlimited).
-const visionLimit = () => Math.min(CONFIG.variants[game.variant].vision ?? Infinity, route().vision ?? Infinity, mutator('eclipse') ? CONFIG.mutators.eclipse.vision : Infinity);
+// Tightest view limit among the map variant, the wave's route and vision mutators (eclipse, night raid); Infinity = unlimited.
+const visionLimit = () => Math.min(CONFIG.variants[game.variant].vision ?? Infinity, route().vision ?? Infinity, ...game.mutators.map(key => CONFIG.mutators[key].vision ?? Infinity));
 const waveScale = () => 1 + (game.wave - 1) * CONFIG.enemies.healthPerWave;
 const enemyDamage = stats => Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave) * difficulty().damage);
 const goldAmount = n => Math.max(1, Math.round(n * difficulty().gold * (1 + perk('greed') * P.greed.gold + perk('hoarder') * P.hoarder.gold + perk('bloodPrice') * P.bloodPrice.gold + (route().gold ?? 0))));
@@ -617,8 +680,7 @@ function makeEnemy(kind, pos, { affix = null, noLoot = false, hpScale = 1, radiu
 }
 function rollAffix() {
   const E = CONFIG.elites;
-  if (game.wave < E.from) return null;
-  const chance = Math.min(E.max, E.base + (game.wave - E.from) * E.perWave) + difficulty().elite + (route().elite ?? 0);
+  const chance = Math.min(E.max, E.base + (game.wave - E.from) * E.perWave) + difficulty().elite + (route().elite ?? 0) + (mutator('elites') ? CONFIG.mutators.elites.elite : 0);
   return game.rng.roster() < chance ? pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1])) : null;
 }
 function spawnEnemy() {
@@ -628,6 +690,7 @@ function spawnEnemy() {
   if (!pos) return false;
   const e = makeEnemy(pickEnemyKind(), pos, { affix: rollAffix() });
   if (e.affix && !game.seenAffixes.has(e.affix)) { game.seenAffixes.add(e.affix); notify(t('toast.elite', { name: t(`affix.${e.affix}`), desc: t(`affix.${e.affix}.desc`) })); }
+  markIntel(CONFIG.enemies[e.kind].boss ? 'bosses' : 'enemies', e.kind);
   return true;
 }
 // Enemies created mid-fight (boss minions, splitter halves) start already hunting the player.
@@ -638,10 +701,13 @@ function spawnNear(kind, from, reach, options) {
 }
 // Boss waves rotate through boss.order; a fresh boss starts searching the player's position.
 function spawnBoss() {
-  const B = CONFIG.boss, kind = B.order[(game.wave / B.every - 1) % B.order.length], radius = CONFIG.enemies[kind].radius;
+  const B = CONFIG.boss, interval = mutator('earlyBoss') ? CONFIG.threat.bossEvery : B.every;
+  const kind = game.wave === CONFIG.finale.wave ? 'commander' : B.order[(Math.floor(game.wave / interval) - 1) % B.order.length], radius = CONFIG.enemies[kind].radius;
+  markIntel('bosses', kind);
   const pos = freeSpot(radius, B.spawnDistance) ?? freeSpot(radius, 0);
   if (!pos) return;
-  const e = game.boss = Object.assign(makeEnemy(kind, pos), { phase: 1 });
+  const finalOperation = game.wave === CONFIG.finale.wave;
+  const e = game.boss = Object.assign(makeEnemy(kind, pos, { hpScale: finalOperation ? CONFIG.finale.hpScale : 1 }), { phase: 1, finalOperation });
   if (kind === 'commander') { const C = B.commander; Object.assign(e, { volley: C.volley.interval, bombs: C.bombs.interval, summon: C.summon.interval, ring: C.phase2.ringInterval }); }
   else if (kind === 'sniper') Object.assign(e, { aiming: 0, aimAt: null, burstLeft: 0, burstTimer: 0, cover: null });
   else Object.assign(e, { brood: B.hive.brood.interval, acid: B.hive.acid.interval });
@@ -652,11 +718,11 @@ function waveSize(wave) {
   const w = CONFIG.waves;
   return Math.min(w.maxCount, w.baseCount + wave * w.growth + Math.max(0, wave - w.lateFrom) * w.lateGrowth);
 }
-const isBossWave = () => game.wave % CONFIG.boss.every === 0;
+const isBossWave = () => game.wave === CONFIG.finale.wave || game.wave % (mutator('earlyBoss') ? CONFIG.threat.bossEvery : CONFIG.boss.every) === 0;
 function startWave() {
   const boss = isBossWave();
   if (game.wave === 2 && !mutator('rifleOnly')) game.player.owned.add('crossbow');
-  game.waveRemaining = game.waveTotal = Math.round(waveSize(game.wave) * difficulty().count * (1 + (route().count ?? 0)) * (boss ? CONFIG.boss.regularShare : 1));
+  game.waveRemaining = game.waveTotal = Math.round(waveSize(game.wave) * difficulty().count * (1 + (route().count ?? 0) + (mutator('ironSwarm') && !game.daily ? CONFIG.mutators.ironSwarm.count : 0)) * (boss ? CONFIG.boss.regularShare : 1));
   game.spawnTimer = CONFIG.waves.initialSpawnDelay; game.nextWave = 0; game.merchant = null;
   game.waveAlert = game.alert; game.waveSilent = true;
   if (game.event && !(game.event.started && !game.event.done)) game.event = null;
@@ -673,7 +739,7 @@ function rollEvent() {
   if (game.wave === 2) type = 'intel';
   else {
     if (game.wave < E.from || random() >= E.chance) return;
-    type = pickWeighted(random, Object.entries(E.types).filter(([, v]) => game.wave >= (v.from ?? 0)).map(([key]) => [key, 1]));
+    type = pickWeighted(random, Object.entries(E.types).filter(([, v]) => game.wave >= (v.from ?? 0) && (!game.daily || (v.daily !== false && !v.unlock)) && isOpen(v)).map(([key]) => [key, 1]));
   }
   game.event = { type, started: type === 'stalkers', done: type === 'stalkers' };
   if (type === 'stalkers') notify(t('event.stalkers', { wave: game.wave }));
@@ -738,11 +804,12 @@ function offerCost(offer) {
   const G = CONFIG.market.goods[offer.kind];
   if (offer.sold) return null;
   if (offer.kind === 'perk' && !perkAvailable(offer.key, P[offer.key])) return null;
-  if (offer.kind !== 'discount') return { gold: G.gold, scrap: G.scrap };
+  const threatPrice = game.daily || !mutator('expensiveMarket') ? 1 : 1 + CONFIG.mutators.expensiveMarket.price;
+  if (offer.kind !== 'discount') return { gold: Math.round(G.gold * threatPrice), scrap: G.scrap };
   const item = SHOP_TABS[offer.group][offer.key], level = game.player.levels[offer.key];
   if (level >= item.max) return null;
   const cost = itemCost(item, level);
-  return { gold: Math.round(cost.gold * G.cut), scrap: Math.round(cost.scrap * G.cut) };
+  return { gold: Math.round(cost.gold * G.cut * threatPrice), scrap: Math.round(cost.scrap * G.cut) };
 }
 function openMarket() {
   const m = game.merchant;
@@ -781,6 +848,12 @@ function beginEvent(ev) {
     const kind = cfg.kinds[Math.floor(Math.random() * cfg.kinds.length)];
     Object.assign(ev, { mark: Object.assign(makeEnemy(kind, pos, { affix: 'armored' }), { mark: true }), limit: cfg.seconds });
     notify(t('event.assassinate', { name: t(`enemy.${kind}`), seconds: cfg.seconds }));
+  } else if (ev.type === 'jammer') {
+    const pos = freeSpot(CONFIG.chests.radius + 1, cfg.distance, true);
+    if (!pos) { ev.done = true; return; }
+    const hp = Math.round(cfg.hp * waveScale()), crate = { ...pos, radius: CONFIG.chests.radius, hp, maxHp: hp, hit: 0, jammer: true };
+    game.chests.push(crate); Object.assign(ev, { crate, limit: cfg.seconds });
+    notify(t('event.jammer'));
   } else {
     const pos = freeSpot(20, cfg.distance, true);
     if (!pos) { ev.done = true; return; }
@@ -794,6 +867,19 @@ function updateEvent(dt) {
   if (!ev) return;
   if (!ev.started && game.waveTotal && (game.waveTotal - game.waveRemaining) / game.waveTotal >= CONFIG.events.trigger) beginEvent(ev);
   if (!ev.started || ev.done) return;
+  if (ev.type === 'jammer') {
+    const cfg = CONFIG.events.types.jammer;
+    ev.limit -= dt;
+    if (ev.limit <= 0) {
+      ev.done = true; ev.outcome = 'escaped'; game.chests.splice(game.chests.indexOf(ev.crate), 1);
+      for (let i = 0; i < cfg.reinforcements; i++) {
+        const pos = freeSpot(CONFIG.enemies.runner.radius, cfg.distance, true);
+        if (pos) Object.assign(makeEnemy('runner', pos, { noLoot: true }), { state: 'chase', lastSeen: { x: p.x, y: p.y } });
+      }
+      notify(t('event.jammerFailed'));
+    }
+    return;
+  }
   if (ev.type === 'intel') {
     if (ev.deliveryExpired) return;
     ev.limit -= dt;
@@ -841,16 +927,17 @@ function completeIntelWipe() {
 // (date seed, seeded mutator). The seed drives every seeded stream, so a typed seed replays the same map and rolls.
 function startGame(daily) {
   sound.init();
+  if (!daily && selectedThreat(profile.mutators) > threatCap()) { notify(t('threat.cap', { cap: threatCap() })); return; }
   const seed = daily ? todayUTC() : normalizeSeed($('seedInput').value) || randomSeed(), T = CONFIG.throwables;
   $('seedInput').blur();
   game.seed = seed; game.daily = daily ? seed : null; game.difficulty = daily ? CONFIG.daily.difficulty : profile.difficulty; game.variant = variantFor(seed);
-  game.cls = profile.cls; game.mutators = daily ? [dailyMutator(seed)] : [...profile.mutators];
-  game.rng = { roster: seededRandom(`${seed}:roster`), perks: seededRandom(`${seed}:perks`), challenge: seededRandom(`${seed}:challenge`), market: seededRandom(`${seed}:market`) };
+  game.cls = profile.cls; game.mutators = daily ? [dailyMutator(seed)] : [...profile.mutators]; game.threat = daily ? 0 : selectedThreat(game.mutators);
+  game.rng = { roster: seededRandom(`${seed}:roster`), perks: seededRandom(`${seed}:perks`), challenge: seededRandom(`${seed}:challenge`), market: seededRandom(`${seed}:market`), contract: seededRandom(`${seed}:contract`) };
   game.mode = 'playing'; game.time = 0; game.wave = 1; game.kills = 0; game.earned = 0; game.score = 0; game.combo = 0; game.comboTimer = 0; game.alert = 0; game.waveAlert = 0; game.waveSilent = true;
   game.enemies = []; game.bullets = []; game.missiles = []; game.arcs = []; game.bombs = []; game.blasts = []; game.chests = []; game.loot = []; game.particles = [];
   game.throws = []; game.gadgets = []; game.flares = []; game.pools = [];
   game.boss = null; game.event = null; game.challenge = null; game.merchant = null; game.perks = {}; game.perkOffer = null; game.route = null; game.nextRoute = null; game.routeOffer = null; game.seenAffixes = new Set(); game.newAchievements = [];
-  game.stats = { damage: {}, ambushKills: 0, takedowns: 0, taken: 0, bosses: 0, bossKinds: new Set(), challenges: 0, purchases: 0, shotWave: null, extracted: false, perks: [] };
+  game.stats = { damage: {}, crossbowKills: 0, silentWaves: 0, ambushKills: 0, takedowns: 0, taken: 0, bosses: 0, bossKinds: new Set(), challenges: 0, purchases: 0, shotWave: null, extracted: false, perks: [] };
   game.keys.clear(); game.mouse.down = false; game.chestTimer = 0; game.flash = 0;
   const levels = Object.fromEntries([...Object.keys(CONFIG.upgrades), ...Object.keys(CONFIG.gear), ...Object.keys(CONFIG.autoWeapons), ...Object.keys(CONFIG.mods)].map(key => [key, 0]));
   const autoCooldowns = Object.fromEntries(Object.keys(CONFIG.autoWeapons).map(key => [key, 0])), hp = CONFIG.player.hp + (classInfo().hp ?? 0);
@@ -874,7 +961,7 @@ function gunStats(key = game.player.weapon) {
   return {
     ...w, damage: Math.round(w.damage * (1 + l.damage * g.damageStep) * (1 + perk('glassCannon') * P.glassCannon.damage) * (1 + focus)),
     shotsPerSecond: w.shotsPerSecond * (1 + l.rate * g.rateStep) * (1 + perk('trigger') * P.trigger.rate + perk('frenzy') * P.frenzy.rate),
-    pellets: w.pellets + l.spread, range: Math.round(w.range * (1 + l.range * g.rangeStep + (classInfo().range ?? 0))), pierce: w.pierce + l.piercing * M.piercing.pierce,
+    pellets: w.pellets + l.spread, range: Math.round(w.range * (1 + l.range * g.rangeStep + (classInfo().range ?? 0))), pierce: w.pierce + l.piercing * M.piercing.pierce + (focus && !game.daily && game.cls === 'marksman' && masteryLevel('marksman') >= CONFIG.mastery.skillLevel ? CONFIG.mastery.marksmanFocusPierce : 0),
     bounces: l.ricochet * M.ricochet.bounces, noise: w.noise * (1 - l.suppressor * M.suppressor.noise), jitter: focus ? 0 : w.jitter
   };
 }
@@ -982,7 +1069,7 @@ function openChoice(mode) {
 }
 function perkVars(key) {
   const v = P[key], pct = n => Math.round((n ?? 0) * 100);
-  return { pct: pct(key === 'hunterFocus' ? v.damage : v.bonus ?? v.chance ?? v.scrap ?? v.gold ?? v.rate ?? v.pickup), heal: v.heal, hp: v.hp, seconds: v.seconds, regen: v.regen, takedown: pct(v.takedown), chance: pct(v.chance), scrap: pct(v.scrap), gold: pct(v.gold), damage: pct(v.damage), hpCut: pct(v.hpCut), taken: pct(v.taken), reveal: pct(v.reveal), count: v.takedowns };
+  return { pct: pct(key === 'hunterFocus' ? v.damage : key === 'secondWind' ? v.hp : v.bonus ?? v.chance ?? v.scrap ?? v.gold ?? v.rate ?? v.pickup), heal: v.heal, hp: v.hp, seconds: v.seconds, regen: v.regen, takedown: pct(v.takedown), chance: pct(v.chance), scrap: pct(v.scrap), gold: pct(v.gold), damage: pct(v.damage), hpCut: pct(v.hpCut), taken: pct(v.taken), reveal: pct(v.reveal), count: v.takedowns };
 }
 function routeVars(key) {
   const r = CONFIG.routes.list[key], pct = n => Math.round((n ?? 0) * 100);
@@ -1041,7 +1128,7 @@ function chooseExtract(index) {
 // One perk stack (perk pick or black-market purchase), applying its immediate HP effects.
 function grantPerk(key) {
   const p = game.player;
-  game.perks[key] = perk(key) + 1; game.stats.perks.push(key);
+  game.perks[key] = perk(key) + 1; game.stats.perks.push(key); markIntel('perks', key);
   if (key === 'tough') { p.maxHp += P.tough.hp; p.hp += P.tough.hp; }
   if (key === 'glassCannon') { p.maxHp = Math.max(1, Math.round(p.maxHp * (1 - P.glassCannon.hpCut))); p.hp = Math.min(p.hp, p.maxHp); }
   if (key === 'shadeCircuit') p.shadeCircuitProgress = 0;
@@ -1077,6 +1164,10 @@ function classVars(key) {
   const c = CONFIG.classes[key], s = c.skill, pct = n => Math.round((n ?? 0) * 100);
   return { speed: pct(c.speed), scrap: pct(c.scrap), hp: c.hp, range: pct(c.range), healBonus: pct(c.heal), cooldown: s.cooldown, distance: s.distance, max: s.max, seconds: s.seconds, reduction: pct(s.reduction), damage: s.damage, focus: pct(s.damage), heal: s.heal };
 }
+function mutatorVars(key) {
+  const m = CONFIG.mutators[key], pct = n => Math.round((n ?? 0) * 100);
+  return { hp: pct(m.enemyHp), taken: m.taken, bushes: pct(m.bushes), vision: m.vision, score: pct(m.score), elite: pct(m.elite), price: pct(m.price), count: pct(m.count) };
+}
 // Picker buttons: aria-pressed marks the selection; `title` carries the description.
 function pickerButton(label, pressed, title, onClick, disabled = false) {
   const button = document.createElement('button');
@@ -1086,6 +1177,8 @@ function pickerButton(label, pressed, title, onClick, disabled = false) {
 }
 // Start screen: difficulty, class, skin and mutator pickers (locked entries name their achievement), best record, today's daily and achievements.
 function renderMenu() {
+  $('progressBtn').textContent = t('menu.progress', { done: profile.achievements.length, total: Object.keys(CONFIG.achievements).length });
+  $('progressHeading').textContent = t('menu.progressTitle'); $('achievementsHeading').textContent = t('menu.achievements'); $('codexHeading').textContent = t('menu.codex');
   const today = todayUTC(), record = profile.records[profile.difficulty], daily = profile.daily?.date === today ? profile.daily : null;
   const lockText = entry => t('menu.locked', { name: t(`achievement.${entry.unlock}.title`) });
   $('difficultyPicker').replaceChildren(...Object.entries(CONFIG.difficulty).map(([key, d]) => {
@@ -1094,19 +1187,37 @@ function renderMenu() {
   }));
   $('recordLine').textContent = record ? t('menu.record', { wave: record.wave, kills: record.kills, score: record.score ?? 0 }) + (record.extractWave ? t('menu.recordExtract', { wave: record.extractWave }) : '') : t('menu.noRecord');
   $('classPicker').replaceChildren(...Object.entries(CONFIG.classes).map(([key, c]) => {
-    const open = isOpen(c);
-    return pickerButton(`${c.icon} ${t(`class.${key}`)}`, key === profile.cls, open ? t(`class.${key}.desc`, classVars(key)) : lockText(c), () => { profile.cls = key; saveProfile(); renderMenu(); }, !open);
+    const open = isOpen(c), level = masteryLevel(key), xp = profile.mastery[key] ?? 0;
+    const next = CONFIG.mastery.thresholds[Math.min(level, CONFIG.mastery.maxLevel - 1)], previous = CONFIG.mastery.thresholds[Math.max(0, level - 1)];
+    const progress = level >= CONFIG.mastery.maxLevel ? 1 : clamp((xp - previous) / (next - previous), 0, 1);
+    const button = pickerButton(`${c.icon} ${t(`class.${key}`)} · LV.${level}`, key === profile.cls, `${t(`class.${key}.desc`, classVars(key))}\n${t('mastery.level', { level, xp, next })}\n${t(`mastery.reward.${key}`, { level: CONFIG.mastery.skillLevel })}`, () => { profile.cls = key; saveProfile(); renderMenu(); }, !open);
+    const track = document.createElement('span'), fill = document.createElement('i');
+    track.className = 'mastery-track'; track.title = t('mastery.level', { level, xp, next });
+    fill.style.width = `${progress * 100}%`; track.append(fill); button.append(track);
+    return button;
   }));
   $('classInfo').textContent = t(`class.${profile.cls}.desc`, classVars(profile.cls));
-  const skins = Object.keys(CONFIG.skins).filter(key => isOpen(CONFIG.skins[key]));
+  const skins = Object.keys(CONFIG.skins).filter(skinOpen);
   $('skinBtn').hidden = skins.length < 2; $('skinBtn').textContent = t('menu.skin', { name: t(`skin.${profile.skin}`) });
   $('mutatorPicker').replaceChildren(...Object.entries(CONFIG.mutators).map(([key, m]) => {
-    const on = profile.mutators.includes(key);
-    return pickerButton(`${m.icon} ${t(`mutator.${key}`)}`, on, t(`mutator.${key}.desc`, mutatorVars(key)), () => { profile.mutators = on ? profile.mutators.filter(k => k !== key) : [...profile.mutators, key]; saveProfile(); renderMenu(); });
+    const on = profile.mutators.includes(key), open = isOpen(m), next = on ? profile.mutators.filter(k => k !== key) : [...profile.mutators, key];
+    const allowed = open && (on || selectedThreat(next) <= threatCap());
+    const desc = !open ? t('threat.locked', { points: m.unlock.threat }) : allowed ? t(`mutator.${key}.desc`, { ...mutatorVars(key), points: m.points, every: CONFIG.threat.bossEvery, pct: mutatorVars(key).price }) : t('threat.cap', { cap: threatCap() });
+    return pickerButton(`${m.icon} ${t(`mutator.${key}`)} +${m.points}`, on, desc, () => { if (!allowed) return; profile.mutators = next; saveProfile(); renderMenu(); }, !allowed);
   }));
   const bonus = profile.mutators.reduce((sum, key) => sum + CONFIG.mutators[key].score, 0);
-  $('mutatorInfo').textContent = t('menu.mutatorBonus', { pct: Math.round(bonus * 100) });
-  $('dailyInfo').textContent = t('menu.daily', { date: today, variant: t(`variant.${variantFor(today)}`), mutator: t(`mutator.${dailyMutator(today)}`) }) + (daily ? t('menu.dailyBest', { wave: daily.wave, score: daily.score ?? 0 }) : '');
+  const saved = profile.threatRecords[`${profile.difficulty}:${profile.cls}`] ?? 0;
+  $('mutatorInfo').textContent = `${t('menu.mutatorBonus', { pct: Math.round(bonus * 100) })} · ${t('menu.threat', { points: selectedThreat(profile.mutators), cap: threatCap(), record: saved })}`;
+  $('dailyInfo').textContent = t('menu.daily', { date: today, variant: t(`variant.${variantFor(today)}`), mutator: t(`mutator.${dailyMutator(today)}`) }) + (daily ? t('menu.dailyBest', { wave: daily.wave, score: daily.score ?? 0 }) : '') + ` · ${t('menu.streak', { count: profile.streak.count })}`;
+  const contracts = weeklyContracts();
+  $('weeklyHeading').textContent = t('menu.weekly', { week: profile.weekly.week });
+  $('weeklyInfo').replaceChildren(...contracts.map(id => {
+    const item = document.createElement('span'), target = CONFIG.weekly.targets[id];
+    item.className = profile.weekly.done.includes(id) ? 'contract done' : 'contract';
+    item.textContent = `${profile.weekly.done.includes(id) ? '✓' : '○'} ${t(`contract.${id}`, { count: target })} ${Math.min(profile.weekly.progress[id] ?? 0, target)}/${target}`;
+    return item;
+  }));
+  renderCodex();
   $('achievementList').replaceChildren(...Object.entries(CONFIG.achievements).map(([id, a]) => {
     const chip = document.createElement('span');
     chip.className = unlocked(id) ? 'achievement' : 'achievement locked';
@@ -1115,9 +1226,37 @@ function renderMenu() {
     return chip;
   }));
 }
-function mutatorVars(key) {
-  const m = CONFIG.mutators[key], pct = n => Math.round((n ?? 0) * 100);
-  return { hp: pct(m.enemyHp), taken: m.taken, bushes: pct(m.bushes), vision: m.vision, score: pct(m.score) };
+function renderCodex() {
+  const groups = { enemies: Object.keys(CONFIG.enemies).filter(key => !CONFIG.enemies[key].boss), bosses: Object.keys(CONFIG.enemies).filter(key => CONFIG.enemies[key].boss), perks: Object.keys(CONFIG.perks.list), variants: Object.keys(CONFIG.variants) };
+  $('codexInfo').replaceChildren(...Object.entries(groups).flatMap(([group, keys]) => keys.map(key => {
+    const entry = document.createElement('span'), seen = profile.intel[group].includes(key);
+    entry.className = seen ? 'codex-entry seen' : 'codex-entry';
+    const type = group === 'enemies' || group === 'bosses' ? 'enemy' : group === 'perks' ? 'perk' : 'variant';
+    entry.textContent = seen ? t(`${type}.${key}${group === 'perks' ? '.title' : ''}`) : t('codex.unknown');
+    if (seen && P[key]?.needs) entry.title = P[key].needs.map(need => t(`perk.${need}.title`)).join(' + ');
+    return entry;
+  })));
+}
+function renderNextGoals() {
+  const goals = [];
+  for (const [id, a] of Object.entries(CONFIG.achievements)) if (!unlocked(id)) {
+    const metric = TOTAL_KEYS.find(key => a[key]), target = metric ? a[metric] : a.bossKinds ?? a.wave ?? a.quietWaves ?? 1;
+    const bestWave = Math.max(0, ...Object.entries(profile.records).filter(([key]) => key !== 'daily').map(([, r]) => r.wave ?? 0));
+    const current = metric ? profile.totals[metric] : a.bossKinds ? profile.bossKinds.length : a.wave && !a.difficulty && !a.cleared ? bestWave : 0;
+    goals.push({ label: t(`achievement.${id}.title`), current: Math.min(current, target), target });
+  }
+  const level = masteryLevel(game.cls), xp = profile.mastery[game.cls], base = CONFIG.mastery.thresholds[level - 1] ?? 0, targetXp = CONFIG.mastery.thresholds[level];
+  if (level < CONFIG.mastery.maxLevel) goals.push({ label: t('goal.mastery', { name: t(`class.${game.cls}`), level: level + 1 }), current: xp - base, target: targetXp - base });
+  for (const id of weeklyContracts()) if (!profile.weekly.done.includes(id)) goals.push({ label: t(`contract.${id}`, { count: CONFIG.weekly.targets[id] }), current: profile.weekly.progress[id] ?? 0, target: CONFIG.weekly.targets[id] });
+  const record = maxThreatRecord(), next = CONFIG.threat.milestones.find(value => value > record) ?? threatCap();
+  if (next > record) goals.push({ label: t('goal.threat', { points: next }), current: record, target: next });
+  const extracted = profile.records[game.difficulty]?.extractWave ?? 0, extractTarget = extracted + CONFIG.boss.every;
+  goals.push({ label: t('goal.extract', { wave: extractTarget }), current: Math.min(game.wave, extractTarget), target: extractTarget });
+  $('endGoals').replaceChildren(...goals.filter(goal => goal.current < goal.target).sort((a, b) => b.current / b.target - a.current / a.target).slice(0, 3).map(goal => {
+    const row = document.createElement('div'), label = document.createElement('span'), count = document.createElement('span'), bar = document.createElement('i');
+    row.className = 'goal'; label.textContent = goal.label; count.textContent = `${goal.current}/${goal.target}`;
+    bar.style.width = `${Math.min(100, goal.current / goal.target * 100)}%`; row.append(label, count, bar); return row;
+  }));
 }
 function renderSettings() {
   for (const kind of ['music', 'sfx']) {
@@ -1150,6 +1289,7 @@ function objectiveText() {
   const ev = game.event;
   if (!ev?.started || ev.done) return '';
   if (ev.type === 'intel') return ev.deliveryExpired ? t('hud.intelEliminate') : t('hud.intelChoice', { left: Math.ceil(ev.limit) });
+  if (ev.type === 'jammer') return t('hud.jammer', { left: Math.ceil(ev.limit), hp: Math.ceil(100 * ev.crate.hp / ev.crate.maxHp) });
   if (!ev.limit) return '';
   const left = Math.ceil(ev.limit);
   if (ev.type === 'hold') return t('hud.hold', { progress: Math.floor(ev.progress), seconds: CONFIG.events.types.hold.seconds, left });
@@ -1164,7 +1304,7 @@ function updateHUD() {
   $('shieldText').textContent = gear.maxShield ? `${Math.floor(p.shield)} / ${gear.maxShield}` : t('hud.noShield');
   $('shieldFill').style.width = `${gear.maxShield ? 100 * p.shield / gear.maxShield : 0}%`;
   $('waveText').textContent = String(game.wave).padStart(2, '0');
-  const tags = [t(game.nextWave ? 'hud.intermission' : 'hud.combat'), game.route && t(`route.${game.route}.title`), game.variant !== 'standard' && t(`variant.${game.variant}`), game.daily ? t('hud.daily') : game.difficulty !== 'normal' && t(`difficulty.${game.difficulty}`)].filter(Boolean);
+  const tags = [t(game.nextWave ? 'hud.intermission' : 'hud.combat'), !game.daily && threatTotal() > 0 && t('hud.threat', { points: threatTotal() }), game.route && t(`route.${game.route}.title`), game.variant !== 'standard' && t(`variant.${game.variant}`), game.daily ? t('hud.daily') : game.difficulty !== 'normal' && t(`difficulty.${game.difficulty}`)].filter(Boolean);
   $('wavePill').textContent = `WAVE ${String(game.wave).padStart(2, '0')} / ${tags.join(' · ')}`;
   $('killsText').textContent = game.kills; $('goldText').textContent = p.gold; $('scrapText').textContent = p.scrap;
   $('damageStat').textContent = gun.damage; $('rateStat').textContent = `${gun.shotsPerSecond.toFixed(1)}/s`;
@@ -1197,9 +1337,9 @@ function litTower(pt) {
 // Hidden = in grass or smoke (or within the Shadow Step grace after leaving grass), not revealed by recent fire or a scout,
 // not lit by a flare or searchlight and not carrying the intel case.
 function isHidden() {
-  const p = game.player;
-  if (!p || game.time < p.revealedUntil || game.event?.carrying || game.flares.some(f => distance(f, p) < f.radius) || litTower(p)) return false;
-  return inTerrain(p, game.bushes) || inSmoke(p) || game.time - p.bushTime < perk('shadow') * P.shadow.seconds;
+  const p = game.player, stealth = !!p && game.time < (p.masteryStealthUntil ?? 0);
+  if (!p || game.event?.carrying || game.flares.some(f => distance(f, p) < f.radius) || litTower(p) || (!stealth && game.time < p.revealedUntil)) return false;
+  return stealth || inTerrain(p, game.bushes) || inSmoke(p) || game.time - p.bushTime < perk('shadow') * P.shadow.seconds;
 }
 function move(entity, dx, dy) {
   if (passable(entity.x + dx, entity.y, entity.radius)) entity.x += dx;
@@ -1227,7 +1367,9 @@ function shoot() {
   const p = game.player, gun = gunStats(), angle = p.facing, ambush = isHidden(), M = CONFIG.mods;
   if (gun.ammo && p.bolts <= 0) { p.cooldown = CONFIG.player.switchDelay * 2; notify(t('toast.noBolts')); return; }
   const focusShot = perk('hunterFocus') > 0 && p.hunterFocusReady;
-  const damage = Math.round(gun.damage * (ambush ? 1 + perk('ambush') * P.ambush.bonus + perk('predator') * P.predator.bonus : 1) * (focusShot ? 1 + P.hunterFocus.damage : 1));
+  const paybackShots = p.paybackShots ?? 0;
+  const damage = Math.round(gun.damage * (ambush ? 1 + perk('ambush') * P.ambush.bonus + perk('predator') * P.predator.bonus : 1) * (focusShot ? 1 + P.hunterFocus.damage : 1) * (1 + paybackShots * P.payback.damage));
+  p.paybackShots = 0;
   p.hunterFocusIdle = 0; if (focusShot) p.hunterFocusReady = false;
   p.cooldown = 1 / gun.shotsPerSecond; game.stats.shotWave ??= game.wave;
   if (!gun.silent) p.revealedUntil = game.time + CONFIG.player.revealSeconds * (1 - p.levels.suppressor * M.suppressor.reveal) * (1 + perk('frenzy') * P.frenzy.reveal);
@@ -1255,8 +1397,9 @@ function scoreMultiplier() {
   return Math.min(S.comboMax, 1 + game.combo * S.comboStep) * difficulty().score * (1 + game.mutators.reduce((sum, key) => sum + CONFIG.mutators[key].score, 0));
 }
 const addScore = points => { game.score += Math.round(points * scoreMultiplier()); };
-function enemyDeath(enemy, ambush) {
+function enemyDeath(enemy, ambush, source) {
   game.enemies.splice(game.enemies.indexOf(enemy), 1); game.kills++;
+  if (source === 'crossbow') game.stats.crossbowKills++;
   const l = CONFIG.loot, stats = CONFIG.enemies[enemy.kind], p = game.player, S = CONFIG.score;
   game.combo = (game.comboTimer > 0 ? game.combo : 0) + (ambush ? S.ambushCombo : 1); game.comboTimer = S.comboWindow;
   const bounty = stats.bounty * (enemy.affix ? CONFIG.elites.bounty : 1);
@@ -1284,16 +1427,20 @@ function bossDeath(boss) {
   drop(boss.x, boss.y, 'gold', goldAmount(L.gold)); drop(boss.x, boss.y, 'scrap', scrapAmount(L.scrap)); drop(boss.x, boss.y, 'heal', L.heal);
   game.boss = null; game.stats.bosses++; game.stats.bossKinds.add(boss.kind); addScore(CONFIG.score.boss);
   burst(boss.x, boss.y, '#f2d782', 40); game.shake = Math.max(game.shake, 10); sound.play('chest'); notify(t('toast.bossDown', { name: t(`enemy.${boss.kind}`) }));
+  if (boss.finalOperation) { finishRun(false, true); return; }
 }
 function chestDeath(chest) {
   game.chests.splice(game.chests.indexOf(chest), 1); const l = CONFIG.loot;
-  if (chest.airdrop) payout(chest.x, chest.y, CONFIG.events.types.airdrop);
+  if (chest.jammer) {
+    const ev = game.event, cfg = CONFIG.events.types.jammer;
+    if (ev?.crate === chest && !ev.done) { ev.done = true; ev.outcome = 'disabled'; game.alert = Math.max(0, game.alert - cfg.alert); payout(chest.x, chest.y, cfg); }
+  } else if (chest.airdrop) payout(chest.x, chest.y, CONFIG.events.types.airdrop);
   else {
     drop(chest.x, chest.y, 'gold', goldAmount(rand(l.coinChest[0], l.coinChest[1] + 1)));
     drop(chest.x, chest.y, 'scrap', scrapAmount(Math.floor(rand(l.scrapChest[0], l.scrapChest[1] + 1))));
     if (Math.random() < l.healChestChance) drop(chest.x, chest.y, 'heal', l.healAmount);
   }
-  burst(chest.x, chest.y, '#f2d782', 20); sound.play('chest'); notify(t(chest.airdrop ? 'event.airdropOpen' : 'toast.chest'));
+  burst(chest.x, chest.y, '#f2d782', 20); sound.play('chest'); notify(t(chest.jammer ? 'event.jammerDone' : chest.airdrop ? 'event.airdropOpen' : 'toast.chest'));
 }
 // Frontal shields absorb friendly bullets that arrive within ±shieldArc of the bearer's facing until depleted.
 function damageEnemy(e, b) {
@@ -1313,7 +1460,7 @@ function hitEnemyBody(e, damage, source, ambush = false) {
   if (e.affix === 'armored') damage *= 1 - CONFIG.elites.affixes.armored.reduction;
   game.stats.damage[source] = (game.stats.damage[source] ?? 0) + Math.min(e.hp, damage);
   e.hp -= damage; e.hit = .15; e.reveal = CONFIG.enemies[e.kind].revealSeconds ?? 0; burst(e.x, e.y, CONFIG.enemies[e.kind].color, 4);
-  if (e.hp <= 0) enemyDeath(e, ambush); else sound.play('hit', e);
+  if (e.hp <= 0) enemyDeath(e, ambush, source); else sound.play('hit', e);
 }
 function damageChest(c, damage) {
   if (c.hp <= 0) return;
@@ -1450,32 +1597,61 @@ function hurtPlayer(damage) {
   if (amount > 0) { p.hp = Math.max(0, p.hp - amount); game.flash = .35; game.shake = 7; burst(p.x, p.y, '#f29785', 9); sound.play('hurt'); }
   else { game.shake = 3; burst(p.x, p.y, '#a9dcee', 9); sound.play('shieldHit'); }
   updateHUD();
+  if (!p.hp && perk('secondWind') && !p.secondWindUsed) {
+    p.secondWindUsed = true; p.hp = Math.max(1, Math.round(p.maxHp * P.secondWind.hp));
+    p.invulnerable = Math.max(p.invulnerable, P.secondWind.seconds); notify(t('toast.secondWind')); updateHUD();
+  }
   if (!p.hp) finishRun();
 }
 // Run end (death or extraction): update personal records and cumulative totals, grant newly earned achievements, show the report.
 // Extraction adds the extraction bonus to the score and records the best wave extracted from.
-function finishRun(extracted = false) {
-  game.mode = 'ended'; game.mouse.down = false;
-  const s = game.stats, totals = profile.totals;
+function finishRun(extracted = false, cleared = false) {
+  game.mode = 'ended'; game.mouse.down = false; game.stats.cleared = cleared;
+  const s = game.stats, totals = profile.totals, masteryBefore = profile.mastery[game.cls] ?? 0;
   s.extracted = extracted;
-  if (extracted) game.score += Math.round(game.score * CONFIG.extraction.scoreBonus);
+  if (extracted || cleared) game.score += Math.round(game.score * CONFIG.extraction.scoreBonus);
   const run = { wave: game.wave, kills: game.kills, time: Math.floor(game.time), score: game.score }, key = game.daily ? 'daily' : game.difficulty;
   const best = { wave: 0, kills: 0, time: 0, score: 0, ...profile.records[key] }, fresh = Object.keys(run).filter(field => run[field] > best[field]);
   for (const field of fresh) best[field] = run[field];
   if (extracted && run.wave > (best.extractWave ?? 0)) best.extractWave = run.wave;
   profile.records[key] = best;
   if (game.daily && (profile.daily?.date !== game.daily || run.score > (profile.daily.score ?? 0))) profile.daily = { date: game.daily, ...run };
-  totals.ambushKills += s.ambushKills; totals.bossKills += s.bosses; totals.takedowns += s.takedowns; totals.challenges += s.challenges; totals.purchases += s.purchases; totals.extractions += extracted ? 1 : 0;
+  if (game.daily) {
+    const day = todayUTC(), previous = profile.streak.day;
+    if (previous !== day) {
+      const gap = previous ? Math.round((Date.parse(`${day}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`)) / 86400000) : Infinity;
+      profile.streak.count = gap === 1 ? profile.streak.count + 1 : gap <= CONFIG.streak.graceDays + 1 ? profile.streak.count : 1;
+      profile.streak.day = day;
+    }
+  }
+  totals.ambushKills += s.ambushKills; totals.bossKills += s.bosses; totals.takedowns += s.takedowns; totals.challenges += s.challenges; totals.purchases += s.purchases; totals.extractions += extracted ? 1 : 0; totals.clears += cleared ? 1 : 0;
+  markIntel('variants', game.variant);
   for (const kind of s.bossKinds) if (!profile.bossKinds.includes(kind)) profile.bossKinds.push(kind);
   game.newAchievements = Object.entries(CONFIG.achievements).filter(([id, a]) => !unlocked(id) && achieved(a)).map(([id]) => id);
+  const xp = game.daily ? 0 : Math.round((game.wave - 1) * CONFIG.mastery.waveXp + (extracted || cleared ? CONFIG.mastery.extractionXp : 0) + s.challenges * CONFIG.mastery.challengeXp);
+  if (xp) profile.mastery[game.cls] += xp;
+  if ((extracted || cleared) && !game.daily && game.threat) {
+    const recordKey = `${game.difficulty}:${game.cls}`;
+    profile.threatRecords[recordKey] = Math.max(profile.threatRecords[recordKey] ?? 0, game.threat);
+  }
+  if (!game.daily) {
+    if (game.variant === 'night' && extracted) progressContract('night');
+    progressContract('silent', s.silentWaves);
+    progressContract('takedowns', s.takedowns);
+    progressContract('bosses', s.bosses);
+    progressContract('crossbow', s.crossbowKills);
+  }
   profile.achievements.push(...game.newAchievements); saveProfile();
-  game.summary = { run, fresh };
+  const masteryXp = game.daily ? 0 : (profile.mastery[game.cls] ?? 0) - masteryBefore;
+  const masteryStart = masteryLevel(game.cls, masteryBefore), masteryEnd = masteryLevel(game.cls);
+  game.summary = { run, fresh, xp: masteryXp, levelUp: masteryEnd > masteryStart ? { from: masteryStart, to: masteryEnd } : null };
   renderEnd(); renderMenu();
-  UI.end.hidden = false; UI.perk.hidden = true; sound.music('stop'); sound.play(extracted ? 'extract' : 'gameOver');
+  UI.end.hidden = false; UI.perk.hidden = true; sound.music('stop'); sound.play(extracted || cleared ? 'extract' : 'gameOver');
 }
 const DIFFICULTY_KEYS = Object.keys(CONFIG.difficulty);
 // Run goals (wave on a difficulty or harder, quiet waves before the first manual shot, every gun owned) and cumulative goals.
 function achieved(a) {
+  if (a.cleared && !game.stats.cleared) return false;
   if (a.wave && game.wave < a.wave) return false;
   if (a.difficulty && (game.daily || DIFFICULTY_KEYS.indexOf(game.difficulty) < DIFFICULTY_KEYS.indexOf(a.difficulty))) return false;
   if (a.quietWaves && (game.wave <= a.quietWaves || (game.stats.shotWave ?? Infinity) <= a.quietWaves)) return false;
@@ -1485,6 +1661,7 @@ function achieved(a) {
 }
 const sourceName = key => CONFIG.weapons[key] ? t(`guns.${key}.title`) : CONFIG.autoWeapons[key] ? t(`auto.${key}.title`) : t(`source.${key}`);
 function renderEnd() {
+  $('endGoalsHeading').textContent = t('end.goals');
   const { run, fresh } = game.summary, s = game.stats, mark = field => fresh.includes(field) ? ` <em>${t('end.best')}</em>` : '';
   $('endWave').innerHTML = String(run.wave).padStart(2, '0') + mark('wave');
   $('endKills').innerHTML = run.kills + mark('kills');
@@ -1492,13 +1669,15 @@ function renderEnd() {
   $('endScore').innerHTML = run.score.toLocaleString(locale) + mark('score');
   $('endGold').textContent = game.earned;
   $('endAmbush').textContent = s.ambushKills; $('endTakedowns').textContent = s.takedowns; $('endTaken').textContent = Math.round(s.taken); $('endBosses').textContent = s.bosses; $('endChallenges').textContent = s.challenges;
-  $('endTitle').textContent = t(s.extracted ? 'end.title.extracted' : 'end.title.fallen');
+  $('endTitle').textContent = t(s.cleared ? 'end.title.cleared' : s.extracted ? 'end.title.extracted' : 'end.title.fallen');
   const sources = Object.entries(s.damage).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]);
-  $('endDamage').textContent = sources.length ? sources.map(([key, v]) => `${sourceName(key)} ${Math.round(v)}`).join(' · ') : t('hud.none');
+  $('endDamage').textContent = sources.length ? sources.map(([source, value]) => `${sourceName(source)} ${Math.round(value)}`).join(' · ') : t('hud.none');
   $('endPerks').textContent = s.perks.length ? s.perks.map(key => P[key].icon).join(' ') : t('hud.none');
-  $('endMode').textContent = [game.daily ? `${t('hud.daily')} ${game.daily}` : t('end.seed', { seed: game.seed }), !game.daily && t(`difficulty.${game.difficulty}`), t(`class.${game.cls}`), t(`variant.${game.variant}`), ...game.mutators.map(key => t(`mutator.${key}`))].filter(Boolean).join(' · ');
+  $('endMode').textContent = [game.daily ? `${t('hud.daily')} ${game.daily}` : t('end.seed', { seed: game.seed }), !game.daily && t(`difficulty.${game.difficulty}`), !game.daily && game.threat && t('hud.threat', { points: game.threat }), t(`class.${game.cls}`), t(`variant.${game.variant}`), ...game.mutators.map(key => t(`mutator.${key}`))].filter(Boolean).join(' · ');
   $('endAchievements').hidden = !game.newAchievements.length;
   $('endAchievements').textContent = t('end.unlocked', { list: game.newAchievements.map(id => `${CONFIG.achievements[id].icon} ${t(`achievement.${id}.title`)}`).join('、') });
+  $('endXp').textContent = game.daily ? '' : `${t('end.xp', { xp: game.summary.xp })}${game.summary.levelUp ? ` · ${t('end.masteryLevelUp', game.summary.levelUp)}` : ''}`;
+  renderNextGoals();
   $('shareBtn').textContent = t('end.share');
 }
 // Daily runs share the date; normal runs share the seed so friends can replay the same map.
@@ -1696,6 +1875,7 @@ function updateEnemy(e, dt) {
   const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), speed = stats.speed * e.speed;
   if (e.affix === 'regen') e.hp = Math.min(e.maxHp, e.hp + CONFIG.elites.affixes.regen.rate * e.maxHp * dt);
   e.cooldown -= dt; e.special -= dt; e.hit = Math.max(0, e.hit - dt); e.blocked = Math.max(0, e.blocked - dt); e.bladeCooldown -= dt; e.reveal -= dt;
+  if (e.stunnedUntil > game.time) return;
   if (e.kind === 'scout') { updateScout(e, dt, d); return; }
   if (e.kind === 'medic') { updateMedic(e, stats, dt); return; }
   if (e.fuse > 0) {
@@ -1807,6 +1987,7 @@ function takedown() {
   const p = game.player, e = takedownTarget();
   if (!e || p.takedownCooldown > 0) return;
   p.takedownCooldown = CONFIG.takedown.cooldown; game.stats.takedowns++; progressChallenge('takedowns');
+  if (perk('payback')) p.paybackShots = perk('payback');
   if (perk('shadeCircuit')) {
     const S = P.shadeCircuit;
     if (++p.shadeCircuitProgress >= S.takedowns) {
@@ -1841,16 +2022,26 @@ function cycleThrowable() {
 function useSkill() {
   const p = game.player, s = classInfo().skill;
   if (p.skillCooldown > 0) return;
+  const level = game.daily ? 0 : masteryLevel(game.cls);
   if (game.cls === 'ranger') {
     let { dx, dy } = moveInput();
     if (!dx && !dy) { dx = Math.cos(p.facing); dy = Math.sin(p.facing); }
     p.dash = { time: s.seconds, vx: dx * s.distance / s.seconds, vy: dy * s.distance / s.seconds }; p.invulnerable = Math.max(p.invulnerable, s.seconds);
+    if (level >= CONFIG.mastery.skillLevel) p.masteryStealthUntil = game.time + CONFIG.mastery.dodgeStealth;
   } else if (game.cls === 'engineer') {
     if (game.gadgets.filter(g => g.kind === 'mine').length >= s.max) { notify(t('toast.mineMax', { max: s.max })); return; }
-    game.gadgets.push({ kind: 'mine', x: p.x, y: p.y, age: 0 });
-  } else if (game.cls === 'heavy') p.bulwark = s.seconds;
-  else if (game.cls === 'marksman') p.focus = s.seconds;
-  else { p.hp = Math.min(p.maxHp, p.hp + s.heal); burst(p.x, p.y, '#e58582', 12); sound.play('heal'); }
+    game.gadgets.push({ kind: 'mine', x: p.x, y: p.y, age: 0, smokeOnDetonate: level >= CONFIG.mastery.skillLevel });
+  } else if (game.cls === 'heavy') {
+    p.bulwark = s.seconds;
+    if (level >= CONFIG.mastery.skillLevel) for (const e of game.enemies) if (!CONFIG.enemies[e.kind].boss && distance(e, p) < CONFIG.mastery.heavyPulseRadius) {
+      e.stunnedUntil = Math.max(e.stunnedUntil ?? 0, game.time + CONFIG.mastery.heavyStunSeconds); burst(e.x, e.y, '#9fe3ff', 6);
+    }
+  } else if (game.cls === 'marksman') p.focus = s.seconds;
+  else {
+    p.hp = Math.min(p.maxHp, p.hp + s.heal);
+    if (level >= CONFIG.mastery.skillLevel) game.gadgets.push({ kind: 'medicField', x: p.x, y: p.y, age: 0, pulse: 0, life: CONFIG.mastery.medicFieldSeconds, radius: CONFIG.mastery.medicArea });
+    burst(p.x, p.y, '#e58582', 12); sound.play('heal');
+  }
   p.skillCooldown = s.cooldown; burst(p.x, p.y, '#e9e597', 10); sound.play('skill'); updateHUD();
 }
 function moveInput() {
@@ -1874,10 +2065,15 @@ function updateGadgets(dt) {
   for (let i = game.gadgets.length - 1; i >= 0; i--) {
     const g = game.gadgets[i]; g.age += dt;
     if (g.kind === 'decoy' && (g.pulse -= dt) <= 0) { g.pulse = I.decoy.pulse; alertNoise(g.x, g.y, I.decoy.noise); sound.play('beep', g); }
+    if (g.kind === 'medicField' && (g.pulse -= dt) <= 0) {
+      g.pulse = CONFIG.mastery.medicFieldPulse;
+      if (distance(p, g) < g.radius) { const hp = p.hp; p.hp = Math.min(p.maxHp, p.hp + CONFIG.mastery.medicFieldHeal); if (p.hp > hp) updateHUD(); }
+    }
     const boom = g.kind === 'grenade' ? g.age >= I.grenade.fuse : g.kind === 'mine' && g.age >= mine.arm && game.enemies.some(e => e.kind !== 'scout' && distance(e, g) < mine.trigger + e.radius);
     if (boom) {
       const cfg = g.kind === 'mine' ? mine : I.grenade;
-      game.gadgets.splice(i, 1); explode(g.x, g.y, Math.round(cfg.damage * waveScale()), { blast: cfg.blast, source: g.kind });
+      game.gadgets.splice(i, 1); explode(g.x, g.y, Math.round(cfg.damage * waveScale() * (g.damageScale ?? 1)), { blast: cfg.blast, source: g.kind });
+      if (g.kind === 'mine' && g.smokeOnDetonate) game.gadgets.push({ kind: 'smoke', x: g.x, y: g.y, age: 0, life: CONFIG.mastery.engineerSmokeSeconds, radius: CONFIG.mastery.engineerSmokeRadius });
     } else if (g.life !== undefined && g.age >= g.life) game.gadgets.splice(i, 1);
   }
   for (let i = game.flares.length - 1; i >= 0; i--) if ((game.flares[i].life -= dt) <= 0) game.flares.splice(i, 1);
@@ -1889,7 +2085,7 @@ function updateGadgets(dt) {
 }
 function update(dt) {
   if (game.mode !== 'playing') return;
-  game.alert = Math.max(0, game.alert - CONFIG.alert.decayPerSecond * dt);
+  if (game.daily || !mutator('noDecay')) game.alert = Math.max(0, game.alert - CONFIG.alert.decayPerSecond * dt);
   game.time += dt;
   const p = game.player; p.cooldown -= dt; p.invulnerable = Math.max(0, p.invulnerable - dt); game.flash = Math.max(0, game.flash - dt); game.shake *= .82;
   if (perk('hunterFocus') && !p.hunterFocusReady) {
@@ -1948,6 +2144,7 @@ function update(dt) {
     }
   } else if (!game.enemies.length) {
     if (!game.nextWave) {
+      if (game.waveSilent) game.stats.silentWaves++;
       game.alert = Math.max(0, game.alert - CONFIG.alert.waveDecay - (game.waveSilent ? CONFIG.alert.silentBonus : 0));
       game.nextWave = CONFIG.waves.intermission; notify(t('toast.cleared')); addScore(CONFIG.score.waveBonus * game.wave);
       if (challengeOpen(game.challenge?.type) && !challengeGoal()) completeChallenge();
@@ -2052,7 +2249,7 @@ function drawHealth(x, y, ratio, width) { ctx.fillStyle = '#1b3029'; ctx.fillRec
 function drawChest(c) {
   ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(-.08);
   roundRect(-21, -15 + 5, 42, 33, 5, '#1a2920a0');
-  roundRect(-21, -19, 42, 33, 4, c.hit > 0 ? '#fff2c3' : c.airdrop ? '#4f6f8f' : '#9f683d');
+  roundRect(-21, -19, 42, 33, 4, c.hit > 0 ? '#fff2c3' : c.jammer ? '#8a3d32' : c.airdrop ? '#4f6f8f' : '#9f683d');
   ctx.strokeStyle = '#e3b466'; ctx.lineWidth = 3; ctx.strokeRect(-18, -16, 36, 27);
   ctx.fillStyle = '#e8cc7b'; ctx.fillRect(-4, -18, 8, 29); ctx.fillRect(-21, -3, 42, 5);
   ctx.fillStyle = '#5f452c'; ctx.fillRect(-3, -5, 6, 8);
@@ -2156,6 +2353,9 @@ function drawGadgets() {
       const armed = g.age >= CONFIG.classes.engineer.skill.arm;
       ctx.fillStyle = '#4b4f3c'; ctx.beginPath(); ctx.arc(g.x, g.y, 9, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#8c917b'; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = armed ? (blink ? '#ff8a6a' : '#7a3a26') : '#f3d182'; ctx.beginPath(); ctx.arc(g.x, g.y, 3, 0, Math.PI * 2); ctx.fill();
+    } else if (g.kind === 'medicField') {
+      ctx.strokeStyle = `rgba(131,214,160,${.45 + .15 * Math.sin(game.time * 5)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(g.x, g.y, g.radius, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(131,214,160,.1)'; ctx.fill();
     }
   }
   for (const th of game.throws) {
@@ -2178,7 +2378,7 @@ function drawSmoke() {
 function drawPointers(camera, w, h) {
   const ev = game.event, targets = [];
   if (ev?.started && !ev.done) {
-    const target = ev.type === 'hold' ? ev.zone : ev.type === 'assassinate' ? ev.mark : ev.type === 'intel' ? (ev.deliveryExpired ? null : ev.carrying ? ev.exit : ev.item) : null;
+    const target = ev.type === 'hold' ? ev.zone : ev.type === 'assassinate' ? ev.mark : ev.type === 'jammer' ? ev.crate : ev.type === 'intel' ? (ev.deliveryExpired ? null : ev.carrying ? ev.exit : ev.item) : null;
     if (target) targets.push([target, ev.type === 'assassinate' ? '#ff8a6a' : '#f3d182']);
   }
   if (game.merchant) targets.push([game.merchant, '#6fb3a0']);
@@ -2272,7 +2472,7 @@ function drawScout(e, stats) {
 }
 // Barrel length, width and muzzle color per gun; body, outline and visor colors per skin (rendering only).
 const GUN_LOOK = { rifle: [26, 12, '#e3eabc'], smg: [21, 10, '#f3e39a'], shotgun: [25, 15, '#f1c58f'], rail: [35, 8, '#9fe3ff'], crossbow: [22, 8, '#e8d2a0'], launcher: [27, 16, '#ffb36b'] };
-const SKIN_LOOK = { default: ['#d3dd9a', '#f2edc7', '#38563b'], shadow: ['#5d6b78', '#aab7c4', '#dfe9f2'], gold: ['#f2ca69', '#fff0a8', '#7a5a1e'], crimson: ['#d9745b', '#f5c0a8', '#4a1f16'], moss: ['#7fa35f', '#c7e0a6', '#26372e'] };
+const SKIN_LOOK = { default: ['#d3dd9a', '#f2edc7', '#38563b'], shadow: ['#5d6b78', '#aab7c4', '#dfe9f2'], gold: ['#f2ca69', '#fff0a8', '#7a5a1e'], crimson: ['#d9745b', '#f5c0a8', '#4a1f16'], moss: ['#7fa35f', '#c7e0a6', '#26372e'], rangerMastery: ['#71b9ab', '#d0f2d9', '#184d49'], engineerMastery: ['#dab15e', '#fff0a8', '#67501c'], heavyMastery: ['#af8774', '#ead2c4', '#57392f'], marksmanMastery: ['#9daed7', '#e0e9ff', '#344365'], medicMastery: ['#e08b98', '#ffe0e5', '#653643'], masteryElite: ['#ed6a4d', '#ffd5a0', '#5b271f'] };
 function drawPlayer(p) {
   const [length, width, muzzle] = GUN_LOOK[p.weapon], [body, outline, visor] = SKIN_LOOK[profile.skin];
   ctx.save(); ctx.globalAlpha = isHidden() ? .58 : p.invulnerable > 0 && Math.floor(game.time * 18) % 2 ? .55 : 1;
@@ -2415,12 +2615,14 @@ $('startBtn').addEventListener('click', () => startGame(false));
 $('dailyBtn').addEventListener('click', () => startGame(true));
 $('restartBtn').addEventListener('click', () => startGame(!!game.daily));
 $('menuBtn').addEventListener('click', () => { game.mode = 'menu'; UI.end.hidden = true; UI.start.hidden = false; renderMenu(); });
+$('progressBtn').addEventListener('click', () => { $('progressOverlay').hidden = false; });
+$('progressClose').addEventListener('click', () => { $('progressOverlay').hidden = true; });
 $('shareBtn').addEventListener('click', copyShare);
 $('shopBtn').addEventListener('click', () => { if (game.mode === 'playing' || game.mode === 'shop') toggleShop(); });
 $('closeShop').addEventListener('click', toggleShop);
 $('perkClose').addEventListener('click', () => { if (game.mode === 'market') resume(); });
 $('skinBtn').addEventListener('click', () => {
-  const skins = Object.keys(CONFIG.skins).filter(key => isOpen(CONFIG.skins[key]));
+  const skins = Object.keys(CONFIG.skins).filter(skinOpen);
   profile.skin = skins[(skins.indexOf(profile.skin) + 1) % skins.length]; saveProfile(); renderMenu();
 });
 $('seedInput').addEventListener('keydown', event => { if (event.key === 'Enter') startGame(false); });
