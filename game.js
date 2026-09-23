@@ -228,7 +228,7 @@ const CONFIG = Object.freeze({
   },
   // Explosive barrels: damage × wave HP scale to enemies in blast px, playerDamage to the player; they chain and burn grass.
   barrels: { radius: 14, hp: 20, blast: 95, damage: 55, playerDamage: 22, spacing: 90, chainDelay: 0.12 },
-  // Mid-wave events: rolled at wave start (not on boss waves); airdrop and hold begin once `trigger` of the wave has spawned.
+  // Mid-wave events: wave 2 guarantees an intel mission; later non-boss waves roll an event.
   events: {
     from: 3, chance: 0.4, trigger: 0.4,
     types: {
@@ -237,10 +237,12 @@ const CONFIG = Object.freeze({
       stalkers: { from: 5 },
       // A marked armored officer that flees on sight and escapes after `seconds`; killing it pays out.
       assassinate: { from: 4, kinds: ['shield', 'ranged'], seconds: 40, distance: 380, gold: [60, 80], scrap: 6, heal: 20 },
-      // Pick up the intel case, then carry it into the exit zone before `limit` runs out; carrying it prevents hiding.
-      intel: { from: 5, limit: 50, distance: 320, radius: 60, gold: [60, 85], scrap: 6, heal: 20 }
+      // Carrying intel prevents hiding; delivery pays more than wiping the wave.
+      intel: { from: 2, limit: 50, distance: 320, radius: 60, gold: [60, 85], scrap: 6, heal: 20, elimination: { gold: [30, 45], scrap: 3, heal: 8 } }
     }
   },
+  // Loud shots and detection build a bounded alert; quiet clears lower it, while high alert boosts next-wave patrols and recon.
+  alert: { max: 100, decayPerSecond: 0.12, waveDecay: 8, silentBonus: 18, manualShot: 4, detection: 6, scan: 9, searchlight: 7, sightBonus: 0.25, patrolBonus: 0.3, reconBonus: 0.35 },
   // Daily challenge: map, variant, one mutator, spawn roster, affixes, events and perk/route offers are seeded by the UTC date.
   daily: { difficulty: 'normal' },
   // Searchlight towers (night map): a beam of `range` px and ±halfAngle sweeps ±sweep rad around the tower's base angle at `speed`.
@@ -322,6 +324,9 @@ const overlap = (a, b, gap = 0) => a.x < b.x + b.w + gap && a.x + a.w + gap > b.
 const rectCenter = r => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 const worldCenter = { x: CONFIG.world.width / 2, y: CONFIG.world.height / 2 };
 const game = { mode: 'menu', wave: 1, walls: [], ponds: [], bushes: [], barrels: [], lights: [], enemies: [], bullets: [], missiles: [], arcs: [], bombs: [], blasts: [], chests: [], loot: [], particles: [], throws: [], gadgets: [], flares: [], pools: [], shopTab: 'guns', keys: new Set(), mouse: { x: 0, y: 0, down: false, active: false }, player: null, kills: 0, earned: 0, score: 0, combo: 0, comboTimer: 0, waveRemaining: 0, waveTotal: 0, spawnTimer: 0, nextWave: 0, chestTimer: 0, time: 0, flash: 0, shake: 0, toastUntil: 0, difficulty: 'normal', cls: 'ranger', mutators: [], variant: 'standard', seed: '', daily: null, rng: null, stats: null, event: null, boss: null, challenge: null, merchant: null, perks: {}, perkOffer: null, route: null, nextRoute: null, routeOffer: null, summary: null, seenAffixes: new Set(), newAchievements: [] };
+game.alert = 0; game.waveAlert = 0; game.waveSilent = true;
+function raiseAlert(amount) { game.alert = clamp(game.alert + amount, 0, CONFIG.alert.max); }
+function markDetected(amount) { game.waveSilent = false; raiseAlert(amount); }
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 // Chiptune synth: every sound is generated with WebAudio oscillators and a noise buffer; no audio files.
 const sound = (() => {
@@ -543,10 +548,11 @@ function generateMap(random, variant, bushScale = 1) {
   addBarrels(v.barrels);
   addLights(v.searchlights ?? 0);
 }
-function freeSpot(radius, minDistance, avoidTerrain = false) {
+function freeSpot(radius, minDistance, avoidTerrain = false, maxDistance = Infinity) {
   for (let attempt = 0; attempt < CONFIG.world.spawnAttempts; attempt++) {
     const margin = CONFIG.world.spawnMargin, x = rand(margin, CONFIG.world.width - margin), y = rand(margin, CONFIG.world.height - margin);
-    if (!passable(x, y, radius) || distance({ x, y }, game.player) < minDistance) continue;
+    const d = distance({ x, y }, game.player);
+    if (!passable(x, y, radius) || d < minDistance || d > maxDistance) continue;
     if (avoidTerrain && [...game.ponds, ...game.bushes].some(r => circleRect(x, y, radius + CONFIG.world.terrainSpawnPadding, r))) continue;
     if (game.chests.some(c => distance(c, { x, y }) < radius + c.radius + CONFIG.world.chestSpacing)) continue;
     return { x, y };
@@ -579,8 +585,8 @@ function scrapAmount(n) {
 }
 function makeEnemy(kind, pos, { affix = null, noLoot = false, hpScale = 1, radius } = {}) {
   const stats = CONFIG.enemies[kind], E = CONFIG.elites, scale = waveScale() * difficulty().hp * hpScale * (1 + (route().hp ?? 0)) * (mutator('brittle') ? CONFIG.mutators.brittle.enemyHp : 1);
-  const hp = Math.max(1, Math.round(stats.hp * scale * (affix ? E.hp : 1))), shieldHp = Math.round((stats.shieldHp || 0) * scale);
-  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * (affix === 'swift' ? E.affixes.swift.speed : 1), state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, cooldown: rand(0, .6), special: rand(0, 1), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0, lastSeen: null, goal: null, sweep: null, searchTime: 0, arrived: false };
+  const hp = Math.max(1, Math.round(stats.hp * scale * (affix ? E.hp : 1))), shieldHp = Math.round((stats.shieldHp || 0) * scale), pressure = clamp(game.waveAlert / CONFIG.alert.max, 0, 1);
+  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * (affix === 'swift' ? E.affixes.swift.speed : 1), sightScale: 1 + pressure * CONFIG.alert.sightBonus, patrolScale: 1 + pressure * CONFIG.alert.patrolBonus, reconScale: 1 + pressure * CONFIG.alert.reconBonus, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, cooldown: rand(0, .6), special: rand(0, 1), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0, lastSeen: null, goal: null, sweep: null, searchTime: 0, arrived: false };
   game.enemies.push(e); return e;
 }
 function rollAffix() {
@@ -590,7 +596,9 @@ function rollAffix() {
   return game.rng.roster() < chance ? pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1])) : null;
 }
 function spawnEnemy() {
-  const pos = freeSpot(18, CONFIG.waves.enemySpawnDistance);
+  const guided = game.wave === 1 && game.waveRemaining === game.waveTotal;
+  const pos = (guided && freeSpot(18, CONFIG.waves.enemySpawnDistance, false, CONFIG.throwables.items.decoy.noise - 20))
+    || freeSpot(18, CONFIG.waves.enemySpawnDistance);
   if (!pos) return false;
   const e = makeEnemy(pickEnemyKind(), pos, { affix: rollAffix() });
   if (e.affix && !game.seenAffixes.has(e.affix)) { game.seenAffixes.add(e.affix); notify(t('toast.elite', { name: t(`affix.${e.affix}`), desc: t(`affix.${e.affix}.desc`) })); }
@@ -621,8 +629,10 @@ function waveSize(wave) {
 const isBossWave = () => game.wave % CONFIG.boss.every === 0;
 function startWave() {
   const boss = isBossWave();
+  if (game.wave === 2 && !mutator('rifleOnly')) game.player.owned.add('crossbow');
   game.waveRemaining = game.waveTotal = Math.round(waveSize(game.wave) * difficulty().count * (1 + (route().count ?? 0)) * (boss ? CONFIG.boss.regularShare : 1));
   game.spawnTimer = CONFIG.waves.initialSpawnDelay; game.nextWave = 0; game.merchant = null;
+  game.waveAlert = game.alert; game.waveSilent = true;
   if (game.event && !(game.event.started && !game.event.done)) game.event = null;
   const fresh = CONFIG.waves.roster.find(r => r.from === game.wave && r.from > 1);
   notify(fresh ? t('toast.newEnemy', { wave: game.wave, name: t(`enemy.${fresh.kind}`) }) : t('toast.wave', { wave: game.wave }));
@@ -630,11 +640,15 @@ function startWave() {
   rollChallenge();
   if (boss) spawnBoss(); else { if (!game.event) rollEvent(); rollMarket(); }
 }
-// Stalker waves announce at once; the other events begin once `trigger` of the wave has spawned.
+// Wave 2 stages intel; later non-boss events use the seeded roster stream.
 function rollEvent() {
   const E = CONFIG.events, random = game.rng.roster;
-  if (game.wave < E.from || random() >= E.chance) return;
-  const type = pickWeighted(random, Object.entries(E.types).filter(([, v]) => game.wave >= (v.from ?? 0)).map(([key]) => [key, 1]));
+  let type;
+  if (game.wave === 2) type = 'intel';
+  else {
+    if (game.wave < E.from || random() >= E.chance) return;
+    type = pickWeighted(random, Object.entries(E.types).filter(([, v]) => game.wave >= (v.from ?? 0)).map(([key]) => [key, 1]));
+  }
   game.event = { type, started: type === 'stalkers', done: type === 'stalkers' };
   if (type === 'stalkers') notify(t('event.stalkers', { wave: game.wave }));
 }
@@ -744,8 +758,8 @@ function beginEvent(ev) {
   } else {
     const pos = freeSpot(20, cfg.distance, true);
     if (!pos) { ev.done = true; return; }
-    Object.assign(ev, { item: pos, exit: null, carrying: false, limit: cfg.limit });
-    notify(t('event.intel', { seconds: cfg.limit }));
+    Object.assign(ev, { item: pos, exit: null, carrying: false, limit: cfg.limit, deliveryExpired: false });
+    notify(t('event.intelChoice'));
   }
   sound.play('wave');
 }
@@ -753,7 +767,25 @@ function updateEvent(dt) {
   const ev = game.event, p = game.player;
   if (!ev) return;
   if (!ev.started && game.waveTotal && (game.waveTotal - game.waveRemaining) / game.waveTotal >= CONFIG.events.trigger) beginEvent(ev);
-  if (!ev.started || ev.done || !ev.limit) return;
+  if (!ev.started || ev.done) return;
+  if (ev.type === 'intel') {
+    if (ev.deliveryExpired) return;
+    ev.limit -= dt;
+    if (!ev.carrying && distance(p, ev.item) < CONFIG.player.pickupRadius) {
+      ev.carrying = true; ev.exit = freeSpot(CONFIG.events.types.intel.radius, CONFIG.events.types.intel.distance) ?? { ...worldCenter };
+      sound.play('scrap'); notify(t('event.intelCarry'));
+    } else if (ev.carrying && distance(p, ev.exit) < CONFIG.events.types.intel.radius) {
+      ev.done = true; ev.outcome = 'delivered'; ev.carrying = false;
+      payout(ev.exit.x, ev.exit.y, CONFIG.events.types.intel); stopIntelWave();
+      notify(t('event.intelDone'));
+    }
+    if (!ev.done && ev.limit <= 0) {
+      ev.limit = 0; ev.deliveryExpired = true; ev.carrying = false; ev.exit = null;
+      notify(t('event.intelFailed'));
+    }
+    return;
+  }
+  if (!ev.limit) return;
   const cfg = CONFIG.events.types[ev.type];
   ev.limit -= dt;
   if (ev.type === 'hold') {
@@ -761,16 +793,23 @@ function updateEvent(dt) {
     if (ev.progress >= cfg.seconds) { ev.done = true; payout(ev.zone.x, ev.zone.y, cfg); notify(t('event.holdDone')); }
   } else if (ev.type === 'assassinate') {
     if (ev.mark.hp <= 0) { ev.done = true; payout(ev.mark.x, ev.mark.y, cfg); notify(t('event.targetDown')); }
-  } else if (!ev.carrying) {
-    if (distance(p, ev.item) < CONFIG.player.pickupRadius) {
-      ev.carrying = true; ev.exit = freeSpot(cfg.radius, cfg.distance) ?? { ...worldCenter };
-      sound.play('scrap'); notify(t('event.intelCarry'));
-    }
-  } else if (distance(p, ev.exit) < cfg.radius) { ev.done = true; ev.carrying = false; payout(ev.exit.x, ev.exit.y, cfg); notify(t('event.intelDone')); }
+  }
   if (ev.done || ev.limit > 0) return;
   ev.done = true; ev.carrying = false;
   if (ev.type === 'assassinate' && game.enemies.includes(ev.mark)) { game.enemies.splice(game.enemies.indexOf(ev.mark), 1); burst(ev.mark.x, ev.mark.y, '#d5ecf5', 14); }
   notify(t(`event.${ev.type}Failed`));
+}
+function stopIntelWave() {
+  game.waveRemaining = 0; game.spawnTimer = 0; game.enemies.length = 0;
+  game.bullets = game.bullets.filter(b => b.friendly);
+  game.bombs.length = 0; game.flares.length = 0; game.pools.length = 0; game.boss = null;
+}
+function completeIntelWipe() {
+  const ev = game.event;
+  if (!ev?.started || ev.done || ev.type !== 'intel' || game.waveRemaining || game.enemies.length) return;
+  ev.done = true; ev.outcome = 'eliminated'; ev.carrying = false;
+  payout(game.player.x, game.player.y, CONFIG.events.types.intel.elimination);
+  notify(t('event.intelEliminateDone'));
 }
 // A run is either a normal game (random or typed seed, chosen difficulty/mutators, achievement rewards) or today's daily challenge
 // (date seed, seeded mutator). The seed drives every seeded stream, so a typed seed replays the same map and rolls.
@@ -781,7 +820,7 @@ function startGame(daily) {
   game.seed = seed; game.daily = daily ? seed : null; game.difficulty = daily ? CONFIG.daily.difficulty : profile.difficulty; game.variant = variantFor(seed);
   game.cls = profile.cls; game.mutators = daily ? [dailyMutator(seed)] : [...profile.mutators];
   game.rng = { roster: seededRandom(`${seed}:roster`), perks: seededRandom(`${seed}:perks`), challenge: seededRandom(`${seed}:challenge`), market: seededRandom(`${seed}:market`) };
-  game.mode = 'playing'; game.time = 0; game.wave = 1; game.kills = 0; game.earned = 0; game.score = 0; game.combo = 0; game.comboTimer = 0;
+  game.mode = 'playing'; game.time = 0; game.wave = 1; game.kills = 0; game.earned = 0; game.score = 0; game.combo = 0; game.comboTimer = 0; game.alert = 0; game.waveAlert = 0; game.waveSilent = true;
   game.enemies = []; game.bullets = []; game.missiles = []; game.arcs = []; game.bombs = []; game.blasts = []; game.chests = []; game.loot = []; game.particles = [];
   game.throws = []; game.gadgets = []; game.flares = []; game.pools = [];
   game.boss = null; game.event = null; game.challenge = null; game.merchant = null; game.perks = {}; game.perkOffer = null; game.route = null; game.nextRoute = null; game.routeOffer = null; game.seenAffixes = new Set(); game.newAchievements = [];
@@ -1081,11 +1120,13 @@ function applyLocale(lang) {
 // Sidebar objective line for the running event (hold point, marked officer, intel run).
 function objectiveText() {
   const ev = game.event;
-  if (!ev?.started || ev.done || !ev.limit) return '';
+  if (!ev?.started || ev.done) return '';
+  if (ev.type === 'intel') return ev.deliveryExpired ? t('hud.intelEliminate') : t('hud.intelChoice', { left: Math.ceil(ev.limit) });
+  if (!ev.limit) return '';
   const left = Math.ceil(ev.limit);
   if (ev.type === 'hold') return t('hud.hold', { progress: Math.floor(ev.progress), seconds: CONFIG.events.types.hold.seconds, left });
   if (ev.type === 'assassinate') return t('hud.assassinate', { left });
-  return t(ev.carrying ? 'hud.intelCarry' : 'hud.intel', { left });
+  return '';
 }
 function updateHUD() {
   if (!game.player) return;
@@ -1111,7 +1152,10 @@ function updateHUD() {
   $('perkList').title = perks.map(([key]) => `${t(`perk.${key}.title`)} ×${perk(key)}`).join('\n');
   const hidden = isHidden(), inBush = inTerrain(p, game.bushes), holding = inBush && autos.length ? t('hud.autoHold') : '';
   $('stealthText').textContent = (hidden ? t('hud.hidden') : game.event?.carrying ? t('hud.carrying') : litTower(p) ? t('hud.lit') : inBush ? t('hud.revealed') : inTerrain(p, game.ponds) ? t('hud.wading') : t('hud.exposed')) + holding;
-  $('fieldStatus').textContent = objectiveText() || (hidden ? t('hud.concealed') : `● HOSTILES ${game.enemies.length + game.waveRemaining}`);
+  const status = objectiveText() || (hidden ? t('hud.concealed') : `● HOSTILES ${game.enemies.length + game.waveRemaining}`);
+  const pressure = Math.round(game.alert / CONFIG.alert.max * CONFIG.alert.patrolBonus * 100);
+  const tactic = game.wave === 1 ? 'tutorial.tacticBushDecoy' : game.wave === 2 && p.owned.has('crossbow') ? 'tutorial.tacticCrossbow' : 'tutorial.tacticDecoy';
+  $('fieldStatus').textContent = [status, t('hud.alert', { level: Math.round(game.alert), pressure }), game.wave <= 2 && t('hud.stealthTip', { tactic: t(tactic) })].filter(Boolean).join(' · ');
 }
 // Burned bushes stop concealing anyone until they regrow.
 function inTerrain(entity, terrain) { return terrain.some(r => !r.burned && pointIn(entity.x, entity.y, r)); }
@@ -1144,7 +1188,7 @@ function lineRect(x1, y1, x2, y2, r) {
 function clearSight(a, b) { return !game.walls.some(r => lineRect(a.x, a.y, b.x, b.y, r)); }
 // Enemy eyes are also blocked by smoke clouds.
 function enemySight(e, p) { return clearSight(e, p) && !game.gadgets.some(g => g.kind === 'smoke' && segmentCircle(e.x, e.y, p.x, p.y, g, g.radius * .8)); }
-function startSearch(e, x, y) { Object.assign(e, { state: 'search', goal: { x, y }, sweep: null, arrived: false, searchTime: CONFIG.search.seconds }); }
+function startSearch(e, x, y) { Object.assign(e, { state: 'search', goal: { x, y }, sweep: null, arrived: false, searchTime: CONFIG.search.seconds * e.patrolScale }); }
 // Noise sends every unaware or searching enemy within radius (scouts excepted) to search its origin.
 function alertNoise(x, y, radius) {
   for (const e of game.enemies) if ((e.state === 'wander' || e.state === 'search') && e.kind !== 'scout' && Math.hypot(e.x - x, e.y - y) < radius) startSearch(e, x, y);
@@ -1162,7 +1206,11 @@ function shoot() {
     const a = angle + (i - (gun.pellets - 1) / 2) * gun.spreadRadians + rand(-gun.jitter, gun.jitter), x = p.x + Math.cos(a) * 21, y = p.y + Math.sin(a) * 21;
     game.bullets.push({ x, y, vx: Math.cos(a) * gun.bulletSpeed, vy: Math.sin(a) * gun.bulletSpeed, traveled: 0, range: gun.range, damage, radius: CONFIG.gun.bulletRadius, friendly: true, pierce: gun.blast ? 0 : gun.pierce, hits: gun.pierce ? new Set() : null, bounces: gun.bounces, color: gun.color, trail: p.weapon === 'rail' || p.weapon === 'crossbow', source: p.weapon, ambush, bolt: !!gun.ammo && i === 0, blast: gun.blast });
   }
-  if (gun.noise) alertNoise(p.x, p.y, gun.noise);
+  if (gun.noise) {
+    game.waveSilent = false;
+    raiseAlert(CONFIG.alert.manualShot * clamp(gun.noise / CONFIG.weapons.rifle.noise, 0.25, 1.5));
+    alertNoise(p.x, p.y, gun.noise);
+  }
   burst(p.x + Math.cos(angle) * 23, p.y + Math.sin(angle) * 23, '#f3e8aa', 5);
   sound.play(gun.sound); game.shake = gun.shake; updateHUD();
 }
@@ -1560,9 +1608,9 @@ function updateScout(e, dt, d) {
   if (e.wanderTime <= 0) { e.direction = angleTo(e, p) + rand(-1.4, 1.4); e.wanderTime = rand(...CONFIG.enemies.wanderInterval); }
   e.x = clamp(e.x + Math.cos(e.direction) * speed * dt, edge, W.width - edge); e.y = clamp(e.y + Math.sin(e.direction) * speed * dt, edge, W.height - edge);
   e.facing = e.direction; e.state = e.special > s.scanCooldown - .8 ? 'alert' : 'wander';
-  if (d < s.scan && e.special <= 0) {
+  if (d < s.scan * e.reconScale && e.special <= 0) {
     p.revealedUntil = Math.max(p.revealedUntil, game.time + s.revealSeconds);
-    alertNoise(p.x, p.y, s.alarm); e.special = s.scanCooldown; sound.play('beep', e); failChallenge('ghost');
+    alertNoise(p.x, p.y, s.alarm * e.reconScale); markDetected(CONFIG.alert.scan); e.special = s.scanCooldown / e.reconScale; sound.play('beep', e); failChallenge('ghost');
   }
 }
 // Searchers sweep random points inside grass near the search spot (or open ground when none is near).
@@ -1576,12 +1624,12 @@ function updateSearch(e, stats, speed, dt) {
   const S = CONFIG.search;
   if ((e.searchTime -= dt) <= 0) { e.state = 'wander'; e.wanderTime = 0; return; }
   if (!e.arrived) {
-    if (distance(e, e.goal) > S.arrive + e.radius) { steer(e, angleTo(e, e.goal), speed * S.speed, dt); return; }
+    if (distance(e, e.goal) > S.arrive + e.radius) { steer(e, angleTo(e, e.goal), speed * S.speed * e.patrolScale, dt); return; }
     e.arrived = true; e.sweep = sweepPoint(e.goal);
   }
   if (distance(e, e.sweep) < S.arrive) e.sweep = sweepPoint(e.goal);
-  steer(e, angleTo(e, e.sweep), speed * S.speed * .7, dt);
-  if (stats.projectileSpeed && e.cooldown <= 0) { gunnerShot(e, stats, angleTo(e, e.sweep)); e.cooldown = S.reconFire; }
+  steer(e, angleTo(e, e.sweep), speed * S.speed * .7 * e.patrolScale, dt);
+  if (stats.projectileSpeed && e.cooldown <= 0) { gunnerShot(e, stats, angleTo(e, e.sweep)); e.cooldown = S.reconFire / e.reconScale; }
   if (stats.flareEvery && e.special <= 0) {
     game.flares.push({ x: e.goal.x, y: e.goal.y, radius: stats.flareRadius, life: stats.flareSeconds });
     e.special = stats.flareEvery; burst(e.goal.x, e.goal.y, '#fff0a0', 16); sound.play('zap', e);
@@ -1596,7 +1644,8 @@ function flame(e, stats, d, speed, dt) {
   for (let i = 0; i < 4; i++) { const a = e.facing + rand(-stats.cone, stats.cone), v = rand(200, 320), life = rand(.25, .4); game.particles.push({ x: e.x + Math.cos(e.facing) * e.radius, y: e.y + Math.sin(e.facing) * e.radius, vx: Math.cos(a) * v, vy: Math.sin(a) * v, color: ['#f6b36b', '#f0a24f', '#ffe08a'][i % 3], life, maxLife: life }); }
   if (Math.abs(angleDiff(angleTo(e, p), e.facing)) < stats.cone && d < stats.reach + p.radius && clearSight(e, p)) hurtPlayer(enemyDamage(stats));
 }
-// States: wander → alert (on sight) → chase/attack; losing sight or hearing noise → search (walk to the spot, sweep grass) → wander.
+// States: wander → alert (on sight) → chase/attack; losing sight or hearing noise → search (walk to the spot, sweep grass until
+// alert-scaled search time expires).
 function updateEnemy(e, dt) {
   const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), speed = stats.speed * e.speed;
   if (e.affix === 'regen') e.hp = Math.min(e.maxHp, e.hp + CONFIG.elites.affixes.regen.rate * e.maxHp * dt);
@@ -1609,17 +1658,22 @@ function updateEnemy(e, dt) {
     return;
   }
   const detect = !isHidden() || d < (stats.sense ?? 0) || (e.state === 'search' && d < CONFIG.search.probe);
-  const visible = detect && d < stats.sight * CONFIG.variants[game.variant].sight && enemySight(e, p);
+  const visible = detect && d < stats.sight * e.sightScale * CONFIG.variants[game.variant].sight && enemySight(e, p);
   const melee = !stats.projectileSpeed && !stats.fuse && !stats.cone && stats.damage > 0;
   const look = e.state === 'wander' ? e.direction : e.state === 'search' ? angleTo(e, e.arrived ? e.sweep : e.goal) : angleTo(e, p);
   const maxTurn = (stats.turnRate ?? Infinity) * dt;
   e.facing += clamp(angleDiff(look, e.facing), -maxTurn, maxTurn);
   if (visible) {
+    if (!e.wasVisible) markDetected(CONFIG.alert.detection);
+    e.wasVisible = true;
     e.lastSeen = { x: p.x, y: p.y }; failChallenge('ghost');
     if (e.state === 'wander') { e.state = 'alert'; e.alertTime = CONFIG.enemies.alertSeconds; }
     if (e.state === 'alert') { e.alertTime -= dt; if (e.alertTime <= 0) e.state = 'chase'; }
     else e.state = d <= stats.reach ? 'attack' : 'chase';
-  } else if (e.state === 'alert' || hunting(e)) { const spot = e.lastSeen ?? p; startSearch(e, spot.x, spot.y); }
+  } else {
+    e.wasVisible = false;
+    if (e.state === 'alert' || hunting(e)) { const spot = e.lastSeen ?? p; startSearch(e, spot.x, spot.y); }
+  }
   if (e.cover) { /* sniper relocating: moved by updateSniper */ }
   else if (e.state === 'wander') {
     e.wanderTime -= dt;
@@ -1777,6 +1831,7 @@ function updateGadgets(dt) {
 }
 function update(dt) {
   if (game.mode !== 'playing') return;
+  game.alert = Math.max(0, game.alert - CONFIG.alert.decayPerSecond * dt);
   game.time += dt;
   const p = game.player; p.cooldown -= dt; p.invulnerable = Math.max(0, p.invulnerable - dt); game.flash = Math.max(0, game.flash - dt); game.shake *= .82;
   p.skillCooldown -= dt; p.takedownCooldown -= dt; p.bulwark -= dt; p.focus -= dt;
@@ -1804,6 +1859,7 @@ function update(dt) {
   updateBombs(dt);
   updateBarrels(dt);
   updateEvent(dt);
+  completeIntelWipe();
   if (game.mode !== 'playing') return;
   const pickup = CONFIG.player.pickupRadius * (1 + perk('magnet') * P.magnet.pickup);
   for (let i = game.loot.length - 1; i >= 0; i--) {
@@ -1830,6 +1886,7 @@ function update(dt) {
     }
   } else if (!game.enemies.length) {
     if (!game.nextWave) {
+      game.alert = Math.max(0, game.alert - CONFIG.alert.waveDecay - (game.waveSilent ? CONFIG.alert.silentBonus : 0));
       game.nextWave = CONFIG.waves.intermission; notify(t('toast.cleared')); addScore(CONFIG.score.waveBonus * game.wave);
       if (challengeOpen(game.challenge?.type) && !challengeGoal()) completeChallenge();
       p.bolts = CONFIG.weapons.crossbow.ammo;
@@ -1855,7 +1912,7 @@ function updateLights(dt) {
   const L = CONFIG.searchlights, p = game.player;
   for (const l of game.lights) { l.hit = Math.max(0, l.hit - dt); l.alarm -= dt; }
   const lit = litTower(p);
-  if (lit && lit.alarm <= 0) { lit.alarm = L.alarmCooldown; alertNoise(p.x, p.y, L.alarm); sound.play('beep', lit); }
+  if (lit && lit.alarm <= 0) { lit.alarm = L.alarmCooldown; alertNoise(p.x, p.y, L.alarm); markDetected(CONFIG.alert.searchlight); sound.play('beep', lit); }
 }
 // Route reward: random throwables up to carry.
 function grantThrowables(count) {
@@ -2016,7 +2073,7 @@ function drawObjectives() {
   };
   if (ev.type === 'hold') zone(ev.zone, CONFIG.events.types.hold.radius, ev.progress / CONFIG.events.types.hold.seconds);
   else if (ev.type === 'intel' && ev.carrying) zone(ev.exit, CONFIG.events.types.intel.radius, 0);
-  else if (ev.type === 'intel') {
+  else if (ev.type === 'intel' && !ev.deliveryExpired) {
     const y = ev.item.y + Math.sin(game.time * 4) * 3;
     ctx.save(); ctx.shadowColor = '#9fe3ff'; ctx.shadowBlur = 16; roundRect(ev.item.x - 13, y - 9, 26, 18, 3, '#3d5566');
     ctx.fillStyle = '#9fe3ff'; ctx.fillRect(ev.item.x - 4, y - 12, 8, 4); ctx.fillRect(ev.item.x - 9, y - 2, 18, 3); ctx.restore();
@@ -2059,7 +2116,7 @@ function drawSmoke() {
 function drawPointers(camera, w, h) {
   const ev = game.event, targets = [];
   if (ev?.started && !ev.done) {
-    const target = ev.type === 'hold' ? ev.zone : ev.type === 'assassinate' ? ev.mark : ev.type === 'intel' ? (ev.carrying ? ev.exit : ev.item) : null;
+    const target = ev.type === 'hold' ? ev.zone : ev.type === 'assassinate' ? ev.mark : ev.type === 'intel' ? (ev.deliveryExpired ? null : ev.carrying ? ev.exit : ev.item) : null;
     if (target) targets.push([target, ev.type === 'assassinate' ? '#ff8a6a' : '#f3d182']);
   }
   if (game.merchant) targets.push([game.merchant, '#6fb3a0']);
