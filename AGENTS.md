@@ -21,13 +21,14 @@
 | `tools/build-pages.mjs` | 產生 `index.html` 與 `sitemap.xml` |
 | `index.html`、`sitemap.xml` | **產生檔，勿手動編輯** |
 | `robots.txt`、`CNAME`、`assets/og-cover.{svg,png}` | 靜態檔 |
+| `assets/favicon.svg` | 瀏覽器圖示原稿；修改後重新輸出 `favicon.ico`（16／32／48）與 `assets/apple-touch-icon.png`（180 × 180、無圓角），再執行建置 |
 | `.nojekyll` | 空檔，停用 GitHub Pages 的 Jekyll 處理；**不可刪除**，否則 Markdown 文件中的 `{{…}}` 會被 Liquid 解析而導致建置失敗 |
 | `DESIGN.md`、`README.md` | 必須與程式同步更新 |
 | `ACCEPTANCE.md` | 驗收紀錄：對應企劃 Q1–Q14 與後續需求的實測結果，必須與目前版本相符 |
 
 ## 必要規則
 
-1. **建置**：修改 `tools/index.template.html`、`i18n.js`、`game.js` 或 `style.css` 後、提交前執行：
+1. **建置**：修改 `tools/index.template.html`、`i18n.js`、`game.js`、`style.css` 或圖示檔後、提交前執行：
 
    ```sh
    node tools/build-pages.mjs

@@ -5,7 +5,7 @@
 //   attr="{{a.key}}"    attribute text; the element gets data-i18n-attr="attr:key" for runtime replacement
 //   {{s.key}}           static text in the default locale (for elements that cannot hold markup, e.g. <title>)
 //   {{asset:file}}      local asset with ?v=<content hash> so browsers and CDNs fetch new versions after changes
-// Run after editing the template, i18n.js, game.js or style.css: `node tools/build-pages.mjs`
+// Run after editing the template, i18n.js, game.js, style.css or the icons: `node tools/build-pages.mjs`
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,7 @@ const sandbox = {}; sandbox.globalThis = sandbox;
 vm.runInNewContext(read('i18n.js'), sandbox);
 const locales = sandbox.BUSHWHACK_I18N;
 const page = locales[DEFAULT_LOCALE].page;
-const hashes = Object.fromEntries(['style.css', 'i18n.js', 'game.js'].map(file => [file, createHash('sha256').update(readFileSync(`${root}${file}`)).digest('hex').slice(0, 10)]));
+const hashes = Object.fromEntries(['style.css', 'i18n.js', 'game.js', 'favicon.ico', 'assets/favicon.svg', 'assets/apple-touch-icon.png'].map(file => [file, createHash('sha256').update(readFileSync(`${root}${file}`)).digest('hex').slice(0, 10)]));
 
 for (const [lang, locale] of Object.entries(locales)) {
   const missing = Object.keys(page).filter(key => !(key in locale.page)).concat(Object.keys(locales[DEFAULT_LOCALE].game).filter(key => !(key in locale.game)));
@@ -47,7 +47,7 @@ const html = read('tools/index.template.html')
     const filled = tag.replace(/([\w:-]+)="\{\{a\.(\w+)\}\}"/g, (_, attr, key) => { pairs.push(`${attr}:${key}`); return `${attr}="${text(key)}"`; });
     return filled.replace(/\s*\/?>$/, end => ` data-i18n-attr="${pairs.join(',')}"${end}`);
   })
-  .replace(/\{\{([\w.:-]+)\}\}/g, (_, key) => {
+  .replace(/\{\{([\w.:\/-]+)\}\}/g, (_, key) => {
     if (key.startsWith('t.')) return `<x-i18n data-i18n="${key.slice(2)}">${text(key.slice(2))}</x-i18n>`;
     if (key.startsWith('s.')) return text(key.slice(2));
     if (key.startsWith('asset:')) { const file = key.slice(6); if (!hashes[file]) throw new Error(`Unknown asset ${file}`); return `${file}?v=${hashes[file]}`; }

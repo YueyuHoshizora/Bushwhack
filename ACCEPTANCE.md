@@ -176,7 +176,7 @@
   - 音效實際聽感未以耳測驗證，僅確認設定與 UI 狀態。
 - [x] **Sitemap 與資源雜湊**：
   - `sitemap.xml` 列出 3 個語系網址。
-  - `index.html` 以 `?v=<內容雜湊>` 引用 `style.css`、`i18n.js`、`game.js`。
+  - `index.html` 以 `?v=<內容雜湊>` 引用 `style.css`、`i18n.js`、`game.js`、`favicon.ico`、`assets/favicon.svg` 與 `assets/apple-touch-icon.png`。
   - 重新執行 `node tools/build-pages.mjs` 後產生檔沒有差異。
 - [x] **OG / Twitter**：
   - `og:url` 為 `https://bushwhack.yustellar.dev/`，`og:image` 為 `https://bushwhack.yustellar.dev/assets/og-cover.png`，`twitter:card` 為 `summary_large_image`。
@@ -373,11 +373,15 @@
   - 以真實按鍵輸入代碼、Enter、數字鍵選天賦、`J` 選路線：鐵壁要塞（中文）、綠野迷宮（英文）、狙擊長廊（日文）的天賦視窗顯示 WAVE 06，作戰地圖視窗與頁面沒有溢出，波次標籤含地圖名稱（如「WAVE 06 / 作戰中 · ▣ 鐵壁要塞 · …」）且沒有溢出。1440 × 900 截圖可見鐵壁要塞的環形石牆與四個缺口。
 - [x] **建置與錯誤**：`node --check`（game.js、i18n.js）與 `node tools/build-pages.mjs` 通過，三語鍵值齊全；以上過程沒有 `pageerror`。
 
+### 瀏覽器圖示（本機 Chromium，2026-09-24）
+
+- [x] **圖示檔**：`assets/favicon.svg`（64 × 64 視圖，圓角深綠底、從草叢探頭開火的士兵）；由它輸出的 `favicon.ico`（16、32、48 三種 PNG 尺寸）與 `assets/apple-touch-icon.png`（180 × 180，無圓角）。以 256、128、64、32、16 px 在白底與深色底並排預覽，16 px 仍可辨識草叢與人物。
+- [x] **頁面引用**：`http://localhost:8765/` 的三個圖示連結都回傳 200（`image/x-icon`、`image/svg+xml`、`image/png`）；頁面不捲動（1280 × 720：720／720），沒有 `pageerror`。
+
 ## 未驗證／已知事項
 
 - **分享預覽**：未實際在 Facebook、X 等平台抓取驗證。已知這些爬蟲不執行 JavaScript，任何語系網址的預覽文字都是繁體中文。
 - **Cloudflare**：SSL 模式與快取規則未驗證（無權限）。GitHub Pages 的 `https_enforced` 目前為 `false`。
-- **favicon**：首次載入會請求 `/favicon.ico` 並得到 404，只在主控台出現一則錯誤，不影響遊戲。
 - **效能與手感**：長時間實玩的難度手感，以及實機是否維持 60fps，未驗證。
 - **裝置支援**：只支援鍵盤與滑鼠，不宣稱支援觸控或行動裝置。
 - **Q1–Q14 未於重玩系統之後的版本重測**：Q4 已依新行為重測（見上）。其餘項目的基礎數值未變，但兵種抽選改用 seeded 串流、掉落改經 `goldAmount`、敵人狀態流加入 `search`，原觀察值未重新量測，視為未驗證。
