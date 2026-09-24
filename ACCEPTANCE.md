@@ -2,7 +2,7 @@
 
 驗收版本：Gate、Q1–Q14 與既有「額外需求」為 `cf06c6d`（`game.js?v=b61b6c7efc`）實測，時間 2026-09-23 21:18 (UTC+8)。「重玩系統」各項為加入天賦／首領／每日挑戰的提交（`game.js?v=8a805822c0`）實測，時間 2026-09-23 (UTC+8)。「潛行與進階重玩」各項與 Q4 重測為 v1.2（`5be0b7a`）實測。「v1.3 新內容」各項為本次版本（建置時 `game.js` 已含全部功能）實測，時間 2026-09-23 (UTC+8)。
 
-最新本機驗收：桌面 PWA，2026-09-24；尚未推送。前次已推送版本的瀏覽器圖示驗收（`cedaea6`）及外網狀態見 Gate D。下方舊版 Gate／版本紀錄是歷史驗收。
+最新本機驗收：桌面 PWA，2026-09-24；已推送程式碼，部署實測見 Gate D。下方舊版 Gate／版本紀錄是歷史驗收。
 
 驗證環境：本機 `python3 -m http.server 8765`，無頭 Chromium，停用快取。驗證方式分兩種：
 
@@ -29,8 +29,9 @@
   - 靜態檔：`/sitemap.xml` 回傳 200 `application/xml`；`/assets/og-cover.png` 回傳 200。
   - 舊路徑：`/en/` 已回傳 404（舊語系資料夾已移除）。
   - v1.10（`9103e60`，遊騎兵翻滾傷害）、v1.10-fix（`bea589b`，略過天賦改為 `C`）、v1.11（`9f6cef4`，Pages 建置 2026-09-24 05:55:59 UTC，外網 `game.js?v=afbced6e02`）、v1.11-fix（`11e5197`，06:42:04 UTC 建置，外網 `game.js?v=8fd7584f70`）、v1.12（`2fed2d4`，06:57:44 UTC 建置，外網 `game.js?v=762fb30318`）皆已推送並發佈 GitHub Release；v1.11 起的外網 `game.js` 雜湊與當時本機建置相同，v1.10／v1.10-fix 的外網雜湊未另行記錄。
-  - 目前版本（`cedaea6`，瀏覽器圖示，2026-09-24 07:07:13 UTC 建置）：API 回報 `status: built`、最新建置 `cedaea6`；外網首頁引用 `favicon.ico?v=5f1563b6c2` 與 `assets/favicon.svg?v=26fa8956a8`，`/favicon.ico` 回傳 200。
+  - 當時版本（`cedaea6`，瀏覽器圖示，2026-09-24 07:07:13 UTC 建置）：API 回報 `status: built`、最新建置 `cedaea6`；外網首頁引用 `favicon.ico?v=5f1563b6c2` 與 `assets/favicon.svg?v=26fa8956a8`，`/favicon.ico` 回傳 200。
   - v2.0 分享圖網址修正（`9170694`，2026-09-24 07:53:46 UTC 查詢）：Pages API 回報 `status: built`，建置時間為 07:53:42 UTC；外網首頁的 `og:image`／`twitter:image` 為 `https://bushwhack.yustellar.dev/assets/og-cover.png`，圖片回傳 200 `image/png`，`game.js?v=8640136c6e` 與本機建置一致。另確認無快取破除參數的首頁也已使用絕對分享圖網址。
+  - 桌面 PWA（`b2b322b`，2026-09-24 14:07:00 UTC）：Pages API 回報 `status: built`、建置提交 `b2b322b`；當時遠端 `main` 與 `v2.0` 均指向該提交。外網首頁含 `manifest.webmanifest?v=3c42c983e0` 與 `sw.js` 註冊；清單回傳 `application/manifest+json`，工作者回傳 `application/javascript`，快取版本為 `bushwhack-shell-501d42a6005d`。線上瀏覽器實際安裝及離線遊玩未驗證。
 
 ## Q1–Q14
 
@@ -389,7 +390,7 @@
 - [x] **資源快取**：首次開啟 `/?lang=ja&seed=SP-SWARM` 後，工作者作用範圍為 `/`，安裝 `bushwhack-shell-cd5b765ab6fc`。快取含首頁 `/`、`style.css?v=7738ed7c89`、`i18n.js?v=98ad428b4c`、`game.js?v=8640136c6e`、`manifest.webmanifest?v=3c42c983e0`、三種既有圖示與兩張 PWA PNG（含安裝用的原始路徑），共 12 筆。
 - [x] **離線實際操作**：先重新載入使頁面受工作者控制，再模擬瀏覽器斷線、導向 `/?lang=zh-Hant&seed=SP-NIGHT`：標題為「草叢突擊 Bushwhack」、語系為 `zh-Hant`、種子欄為 `SP-NIGHT`、開始視窗可見。點「開始行動」後顯示 `WAVE 06 / 作戰中 · ☾ 永夜 · 威脅 +6 · 夜戰 · 困難`。1280 × 720 畫面高度 720，沒有 `pageerror`；Google Fonts 跨網域請求離線失敗，畫面使用備援字型。
 - [x] **更新不打斷舊分頁**：保持舊版頁面開啟，修改工作者範本並重新建置後呼叫 `registration.update()`；舊工作者仍為 `activated`，新工作者為 `installed`／`waiting`，兩個快取 `bushwhack-shell-cd5b765ab6fc`、`bushwhack-shell-501d42a6005d` 並存。關閉舊分頁再開新分頁，新工作者為 `activated`，只剩 `bushwhack-shell-501d42a6005d`；1280 × 720 頁面高度 720、無 `pageerror`。
-- [ ] **尚未驗證**：實際點選「安裝」後的獨立視窗、真實 Cloudflare/CDN 部署與長時間離線遊玩。PWA 本次只在本機測試，尚未推送；外網目前版本以 Gate D 記錄的 2026-09-24 07:53:46 UTC 查詢為準。
+- [ ] **尚未驗證**：實際點選「安裝」後的獨立視窗、外網安裝／離線遊玩、長時間離線遊玩，以及 Cloudflare 的 SSL／快取設定；本次離線機制只在本機 Chromium 實測。
 
 ## 未驗證／已知事項
 
