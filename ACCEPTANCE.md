@@ -30,6 +30,7 @@
   - 舊路徑：`/en/` 已回傳 404（舊語系資料夾已移除）。
   - v1.10（`9103e60`，遊騎兵翻滾傷害）、v1.10-fix（`bea589b`，略過天賦改為 `C`）、v1.11（`9f6cef4`，Pages 建置 2026-09-24 05:55:59 UTC，外網 `game.js?v=afbced6e02`）、v1.11-fix（`11e5197`，06:42:04 UTC 建置，外網 `game.js?v=8fd7584f70`）、v1.12（`2fed2d4`，06:57:44 UTC 建置，外網 `game.js?v=762fb30318`）皆已推送並發佈 GitHub Release；v1.11 起的外網 `game.js` 雜湊與當時本機建置相同，v1.10／v1.10-fix 的外網雜湊未另行記錄。
   - 目前版本（`cedaea6`，瀏覽器圖示，2026-09-24 07:07:13 UTC 建置）：API 回報 `status: built`、最新建置 `cedaea6`；外網首頁引用 `favicon.ico?v=5f1563b6c2` 與 `assets/favicon.svg?v=26fa8956a8`，`/favicon.ico` 回傳 200。
+  - v2.0 分享圖網址修正（`9170694`，2026-09-24 07:53:46 UTC 查詢）：Pages API 回報 `status: built`，建置時間為 07:53:42 UTC；外網首頁的 `og:image`／`twitter:image` 為 `https://bushwhack.yustellar.dev/assets/og-cover.png`，圖片回傳 200 `image/png`，`game.js?v=8640136c6e` 與本機建置一致。另確認無快取破除參數的首頁也已使用絕對分享圖網址。
 
 ## Q1–Q14
 
