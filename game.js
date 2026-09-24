@@ -1599,7 +1599,7 @@ function renderPerkControls() {
   const banish = button(t(game.perkBanishing ? 'perk.action.cancelBanish' : 'perk.action.banish', { used: game.perkBans.size, max: A.banishMax }), !game.perkBanishing && game.perkBans.size >= A.banishMax, armPerkBanish);
   banish.setAttribute('aria-keyshortcuts', 'X');
   const skip = button(t('perk.action.skip', { gold: A.skipGold }), false, skipPerks);
-  skip.setAttribute('aria-keyshortcuts', 'S');
+  skip.setAttribute('aria-keyshortcuts', 'C');
   $('perkChoices').insertAdjacentElement('afterend', row);
   if (game.perkBanishing) $('perkHint').textContent += ` · ${t('perk.action.selectCard')}`;
 }
@@ -4234,7 +4234,7 @@ window.addEventListener('keydown', event => {
   else if ((key === 'm' || key === 'n') && !event.repeat) { sound.toggle(key === 'm' ? 'music' : 'sfx'); renderSettings(); }
   else if (game.mode === 'perk' && !event.repeat && key === 'r') rerollPerks();
   else if (game.mode === 'perk' && !event.repeat && key === 'x') armPerkBanish();
-  else if (game.mode === 'perk' && !event.repeat && key === 's') skipPerks();
+  else if (game.mode === 'perk' && !event.repeat && key === 'c') skipPerks();
   else if (game.mode === 'route' && !event.repeat && CONFIG.operations.routeKeys.includes(key)) choose(CONFIG.operations.routeKeys.indexOf(key));
   else if (CHOICE_MODES.includes(game.mode) && game.mode !== 'route' && !event.repeat && key >= '1' && key <= '9') choose(Number(key) - 1);
   else if (game.mode !== 'playing' || event.repeat) game.keys.add(key);
