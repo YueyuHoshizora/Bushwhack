@@ -2,7 +2,7 @@
 
 驗收版本：Gate、Q1–Q14 與既有「額外需求」為 `cf06c6d`（`game.js?v=b61b6c7efc`）實測，時間 2026-09-23 21:18 (UTC+8)。「重玩系統」各項為加入天賦／首領／每日挑戰的提交（`game.js?v=8a805822c0`）實測，時間 2026-09-23 (UTC+8)。「潛行與進階重玩」各項與 Q4 重測為 v1.2（`5be0b7a`）實測。「v1.3 新內容」各項為本次版本（建置時 `game.js` 已含全部功能）實測，時間 2026-09-23 (UTC+8)。
 
-最新驗收：瀏覽器圖示（`cedaea6`），2026-09-24。已推送；外網部署狀態見 Gate D。下方舊版 Gate／版本紀錄是歷史驗收。
+最新本機驗收：桌面 PWA，2026-09-24；尚未推送。前次已推送版本的瀏覽器圖示驗收（`cedaea6`）及外網狀態見 Gate D。下方舊版 Gate／版本紀錄是歷史驗收。
 
 驗證環境：本機 `python3 -m http.server 8765`，無頭 Chromium，停用快取。驗證方式分兩種：
 
@@ -382,6 +382,14 @@
 
 - [x] **圖示檔**：`assets/favicon.svg`（64 × 64 視圖，圓角深綠底、從草叢探頭開火的士兵）；由它輸出的 `favicon.ico`（16、32、48 三種 PNG 尺寸）與 `assets/apple-touch-icon.png`（180 × 180，無圓角）。以 256、128、64、32、16 px 在白底與深色底並排預覽，16 px 仍可辨識草叢與人物。
 - [x] **頁面引用**：`http://localhost:8765/` 的三個圖示連結都回傳 200（`image/x-icon`、`image/svg+xml`、`image/png`）；頁面不捲動（1280 × 720：720／720），沒有 `pageerror`。
+
+### 桌面 PWA（本機 Chromium，2026-09-24）
+
+- [x] **建置與安裝資格**：`node tools/build-pages.mjs` 產生 `index.html`、`sitemap.xml`、`sw.js`；`node --check game.js`、`node --check tools/sw.template.js`、`node --check sw.js`、`node --check tools/build-pages.mjs` 通過。清單 JSON 解析成功、圖示為 192 × 192 與 512 × 512 PNG。Chromium 的 `Page.getAppManifest` 顯示 `startUrl`／`scope` 均為 `http://localhost:8765/`、`display: standalone`、兩個圖示，`Page.getInstallabilityErrors` 回傳空陣列；未實際點選瀏覽器安裝選單。
+- [x] **資源快取**：首次開啟 `/?lang=ja&seed=SP-SWARM` 後，工作者作用範圍為 `/`，安裝 `bushwhack-shell-cd5b765ab6fc`。快取含首頁 `/`、`style.css?v=7738ed7c89`、`i18n.js?v=98ad428b4c`、`game.js?v=8640136c6e`、`manifest.webmanifest?v=3c42c983e0`、三種既有圖示與兩張 PWA PNG（含安裝用的原始路徑），共 12 筆。
+- [x] **離線實際操作**：先重新載入使頁面受工作者控制，再模擬瀏覽器斷線、導向 `/?lang=zh-Hant&seed=SP-NIGHT`：標題為「草叢突擊 Bushwhack」、語系為 `zh-Hant`、種子欄為 `SP-NIGHT`、開始視窗可見。點「開始行動」後顯示 `WAVE 06 / 作戰中 · ☾ 永夜 · 威脅 +6 · 夜戰 · 困難`。1280 × 720 畫面高度 720，沒有 `pageerror`；Google Fonts 跨網域請求離線失敗，畫面使用備援字型。
+- [x] **更新不打斷舊分頁**：保持舊版頁面開啟，修改工作者範本並重新建置後呼叫 `registration.update()`；舊工作者仍為 `activated`，新工作者為 `installed`／`waiting`，兩個快取 `bushwhack-shell-cd5b765ab6fc`、`bushwhack-shell-501d42a6005d` 並存。關閉舊分頁再開新分頁，新工作者為 `activated`，只剩 `bushwhack-shell-501d42a6005d`；1280 × 720 頁面高度 720、無 `pageerror`。
+- [ ] **尚未驗證**：實際點選「安裝」後的獨立視窗、真實 Cloudflare/CDN 部署與長時間離線遊玩。PWA 本次只在本機測試，尚未推送；外網目前版本以 Gate D 記錄的 2026-09-24 07:53:46 UTC 查詢為準。
 
 ## 未驗證／已知事項
 

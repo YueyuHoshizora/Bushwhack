@@ -7,6 +7,7 @@
   <link rel="icon" href="{{asset:favicon.ico}}" sizes="16x16 32x32 48x48">
   <link rel="icon" href="{{asset:assets/favicon.svg}}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{{asset:assets/apple-touch-icon.png}}">
+  <link rel="manifest" href="{{asset:manifest.webmanifest}}">
   <title data-i18n="title">{{s.title}}</title>
   <link rel="canonical" href="./">
 {{alternates}}
@@ -54,5 +55,13 @@
   </div>
   <script src="{{asset:i18n.js}}"></script>
   <script src="{{asset:game.js}}"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+          .catch(error => console.warn('Offline installation unavailable:', error));
+      });
+    }
+  </script>
 </body>
 </html>

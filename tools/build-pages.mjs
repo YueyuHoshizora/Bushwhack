@@ -8,7 +8,7 @@
 // Every link in index.html is relative to the page so the site works from any host or subpath, except the share image:
 // Open Graph requires absolute image URLs, so og:image and twitter:image use ORIGIN, as does sitemap.xml (the sitemap
 // protocol requires absolute URLs).
-// Run after editing the template, i18n.js, game.js, style.css or the icons: `node tools/build-pages.mjs`
+// Run after editing the template, i18n.js, game.js, style.css, manifest, service worker template or icons.
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +23,7 @@ const sandbox = {}; sandbox.globalThis = sandbox;
 vm.runInNewContext(read('i18n.js'), sandbox);
 const locales = sandbox.BUSHWHACK_I18N;
 const page = locales[DEFAULT_LOCALE].page;
-const hashes = Object.fromEntries(['style.css', 'i18n.js', 'game.js', 'favicon.ico', 'assets/favicon.svg', 'assets/apple-touch-icon.png'].map(file => [file, createHash('sha256').update(readFileSync(`${root}${file}`)).digest('hex').slice(0, 10)]));
+const hashes = Object.fromEntries(['style.css', 'i18n.js', 'game.js', 'favicon.ico', 'assets/favicon.svg', 'assets/apple-touch-icon.png', 'manifest.webmanifest', 'assets/pwa-icon-192.png', 'assets/pwa-icon-512.png'].map(file => [file, createHash('sha256').update(readFileSync(`${root}${file}`)).digest('hex').slice(0, 10)]));
 
 for (const [lang, locale] of Object.entries(locales)) {
   const missing = Object.keys(page).filter(key => !(key in locale.page)).concat(Object.keys(locales[DEFAULT_LOCALE].game).filter(key => !(key in locale.game)));
@@ -60,6 +60,15 @@ const html = read('tools/index.template.html')
   });
 writeFileSync(`${root}index.html`, html);
 
+// A new shell cache is installed atomically; the old one remains active until its tabs close.
+const workerTemplate = read('tools/sw.template.js');
+const version = createHash('sha256').update(html).update(workerTemplate).update(JSON.stringify(hashes)).digest('hex').slice(0, 12);
+const files = ['./', 'assets/pwa-icon-192.png', 'assets/pwa-icon-512.png',
+  ...Object.entries(hashes).map(([file, hash]) => `${file}?v=${hash}`)];
+writeFileSync(`${root}sw.js`, workerTemplate
+  .replace('__CACHE_NAME__', JSON.stringify(`bushwhack-shell-${version}`))
+  .replace('__FILES__', JSON.stringify(files)));
+
 // Every public HTML page. The game is the only page; each locale variant lists all variants as hreflang alternates.
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
@@ -70,5 +79,5 @@ ${alternates.map(([code, link]) => `    <xhtml:link rel="alternate" hreflang="${
 </urlset>
 `;
 writeFileSync(`${root}sitemap.xml`, sitemap);
-console.log(`index.html, sitemap.xml (${Object.keys(locales).join(', ')})`);
+console.log(`index.html, sitemap.xml, sw.js (${Object.keys(locales).join(', ')})`);
 console.log(Object.entries(hashes).map(([file, hash]) => `${file}?v=${hash}`).join('\n'));

@@ -144,6 +144,12 @@ node tools/build-pages.mjs
 
 新增語系：在 `i18n.js` 加入含 `label`、`ogLocale`、`page`、`game` 的項目後重新建置（sitemap 與切換連結會自動加入）；缺少任何鍵值時腳本會中止並列出。新增其他 HTML 頁面時，也要將其加入建置腳本的 sitemap 輸出。
 
+### 桌面 PWA 與離線遊玩
+
+以 Chromium 系桌面瀏覽器開啟 HTTPS 網站（本機開發可用 `localhost`），首次連線載入並等待離線資源安裝完成後，可從瀏覽器選單安裝為獨立視窗；仍需鍵盤與滑鼠，**不支援手機操作**。離線時以相同網址重開遊戲，`?lang=` 與 `?seed=` 仍可使用；外部 Google Fonts 無法連線時使用系統字型。音效即時合成，存檔只在該瀏覽器的 `localStorage`，不跨裝置同步，也不保存進行中的對局。首次安裝前或清除網站資料後，離線無法開啟。
+
+`manifest.webmanifest` 定義獨立視窗、啟動網址與 192／512 px 圖示（由 `assets/favicon.svg` 輸出）；`sw.js` 由 `tools/sw.template.js` 在建置時產生，請勿手改。工作者原子預快取首頁、版本化的遊戲腳本／樣式／圖示與清單；連線時頁面採網路優先，離線時回退到已安裝的同一份首頁，不為每個語系、種子建立快取。更新版本會先在背景安裝，所有舊遊戲分頁關閉後才啟用，不會中途重載對局。修改上述檔案後重新執行建置並部署 `index.html`、`sw.js` 及所有靜態資源；Cloudflare 應避免快取 `/sw.js` 和 `/` 的舊版本，否則用戶端更新可能延遲。修改圖示時，另由 SVG 重新輸出兩張 PWA PNG 圖示。
+
 ## GitHub Pages + Cloudflare
 
 1. 推送本儲存庫至 [`YueyuHoshizora/bushwhack`](https://github.com/YueyuHoshizora/bushwhack)；在 **Settings → Pages → Build and deployment** 選擇 **Deploy from a branch**，分支 `main`、目錄 `/ (root)`。在 Pages 設定確認自訂網域為 `bushwhack.yustellar.dev`，並啟用 HTTPS；儲存庫根目錄已含對應 `CNAME`。
