@@ -2,7 +2,7 @@
 
 驗收版本：Gate、Q1–Q14 與既有「額外需求」為 `cf06c6d`（`game.js?v=b61b6c7efc`）實測，時間 2026-09-23 21:18 (UTC+8)。「重玩系統」各項為加入天賦／首領／每日挑戰的提交（`game.js?v=8a805822c0`）實測，時間 2026-09-23 (UTC+8)。「潛行與進階重玩」各項與 Q4 重測為 v1.2（`5be0b7a`）實測。「v1.3 新內容」各項為本次版本（建置時 `game.js` 已含全部功能）實測，時間 2026-09-23 (UTC+8)。
 
-最新本機驗收：遊騎兵翻滾傷害，2026-09-24。資源為 `game.js?v=000e1aa6f4`、`i18n.js?v=0f0103129d`、`style.css?v=7738ed7c89`；尚未推送。外網部署狀態見 Gate D（該處為前一版的查詢結果）。下方舊版 Gate／版本紀錄是歷史驗收。
+最新驗收：瀏覽器圖示（`cedaea6`），2026-09-24。已推送；外網部署狀態見 Gate D。下方舊版 Gate／版本紀錄是歷史驗收。
 
 驗證環境：本機 `python3 -m http.server 8765`，無頭 Chromium，停用快取。驗證方式分兩種：
 
@@ -28,6 +28,8 @@
   - 外網網址：`https://bushwhack.yustellar.dev/` 回傳 200（經 Cloudflare），頁面引用的 `game.js?v=2eb0956443`、`i18n.js?v=5e37772229`、`style.css?v=29b6c9907a` 與本機建置相同（檔案 sha256 前 10 碼相符），含 `cardBtn`；`game.js` 含 `downloadResultCard`。
   - 靜態檔：`/sitemap.xml` 回傳 200 `application/xml`；`/assets/og-cover.png` 回傳 200。
   - 舊路徑：`/en/` 已回傳 404（舊語系資料夾已移除）。
+  - v1.10（`9103e60`，遊騎兵翻滾傷害）、v1.10-fix（`bea589b`，略過天賦改為 `C`）、v1.11（`9f6cef4`，Pages 建置 2026-09-24 05:55:59 UTC，外網 `game.js?v=afbced6e02`）、v1.11-fix（`11e5197`，06:42:04 UTC 建置，外網 `game.js?v=8fd7584f70`）、v1.12（`2fed2d4`，06:57:44 UTC 建置，外網 `game.js?v=762fb30318`）皆已推送並發佈 GitHub Release；v1.11 起的外網 `game.js` 雜湊與當時本機建置相同，v1.10／v1.10-fix 的外網雜湊未另行記錄。
+  - 目前版本（`cedaea6`，瀏覽器圖示，2026-09-24 07:07:13 UTC 建置）：API 回報 `status: built`、最新建置 `cedaea6`；外網首頁引用 `favicon.ico?v=5f1563b6c2` 與 `assets/favicon.svg?v=26fa8956a8`，`/favicon.ico` 回傳 200。
 
 ## Q1–Q14
 

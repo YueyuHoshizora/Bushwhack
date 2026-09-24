@@ -20,7 +20,7 @@
 | `tools/index.template.html` | 頁面範本 |
 | `tools/build-pages.mjs` | 產生 `index.html` 與 `sitemap.xml` |
 | `index.html`、`sitemap.xml` | **產生檔，勿手動編輯** |
-| `robots.txt`、`CNAME`、`assets/og-cover.{svg,png}` | 靜態檔 |
+| `robots.txt`、`CNAME`、`LICENSE`、`assets/og-cover.{svg,png}`、`favicon.ico`、`assets/apple-touch-icon.png` | 靜態檔 |
 | `assets/favicon.svg` | 瀏覽器圖示原稿；修改後重新輸出 `favicon.ico`（16／32／48）與 `assets/apple-touch-icon.png`（180 × 180、無圓角），再執行建置 |
 | `.nojekyll` | 空檔，停用 GitHub Pages 的 Jekyll 處理；**不可刪除**，否則 Markdown 文件中的 `{{…}}` 會被 Liquid 解析而導致建置失敗 |
 | `DESIGN.md`、`README.md` | 必須與程式同步更新 |
@@ -45,8 +45,8 @@
 5. **不得在正式程式碼加入測試掛勾**（例如把內部狀態掛到 `window`）。
 6. **文件**：玩法、數值、兵種、武器、裝備、流程有變動時，同步更新 `DESIGN.md`；使用方式或部署有變動時更新 `README.md`；功能、數值或驗收結果有變動時更新 `ACCEPTANCE.md`（見下節）。
 7. **Git**：每完成一個里程碑自動提交（訊息用英文、祈使句）。**只有使用者要求時才 `git push`**。
-8. **隨機性**：影響「同一種子是否得到相同內容」的抽選（地圖、木牆、探照燈、變體、突變、兵種、精英詞綴、事件、波次挑戰、黑市出現與商品、天賦與路線選項、敵軍編組、首領任務）必須使用 run 的 seeded 串流（`seededRandom` / `game.rng` 的 `roster`、`perks`、`challenge`、`market`、`theme`（敵軍編組）、`mission`（首領任務）），不可用 `Math.random`；戰鬥與特效隨機才用 `rand`。每日挑戰與自訂種子都依賴這點；改變這些抽選的呼叫順序會改變每日挑戰與既有種子的內容。
-   - 章節作戰分支、換場木牆與通訊站分別使用 `${seed}:operations:${chapter}`、`${seed}:battlefield:${chapter}`、`${seed}:stealth-map:${mapIndex}` 的獨立 seeded 來源；天賦重抽與槍械進化抽選沿用 `perks` 串流。
+8. **隨機性**：影響「同一種子是否得到相同內容」的抽選（地圖、木牆、探照燈、變體、突變、兵種、精英詞綴、事件、波次挑戰、黑市出現與商品、天賦與路線選項、敵軍編組、首領任務）必須使用 run 的 seeded 串流（`seededRandom` / `game.rng` 的 `roster`、`perks`、`challenge`、`market`、`contract`、`theme`（敵軍編組）、`mission`（首領任務）），不可用 `Math.random`；戰鬥與特效隨機才用 `rand`。每日挑戰與自訂種子都依賴這點；改變這些抽選的呼叫順序會改變每日挑戰與既有種子的內容。
+   - 獨立 seeded 來源：地圖 `${seed}:map`、變體 `${seed}:variant`、每日突變 `${seed}:mutator`、章節作戰分支 `${seed}:operations:${chapter}`、換場木牆 `${seed}:battlefield:${chapter}`、通訊站 `${seed}:stealth-map:${mapIndex}`，以及不依 run 種子的每週合約 `contract:${week}` 與每週種子挑戰條件 `seed-challenge:${week}`；天賦重抽與槍械進化抽選沿用 `perks` 串流。
 9. **本機儲存**：`localStorage` 鍵為 `bushwhack-profile`（紀錄含最佳撤離波次、累計值（含 `clears`）、擊倒過的首領種類、成就、難度、兵種、外觀、威脅條件，以及長期進度：`mastery` 各兵種 XP、`threatRecords` 以 `難度:兵種` 為鍵的最高撤離威脅、`weekly` 本週合約、`streak` 每日連續出擊、`intel` 情報檔案、`analytics` 各來源承受傷害與致死次數、`chapters` 各難度章節最佳評價、`badges` 徽章數、`training` 當日訓練 XP、`seedRuns` 近週每週種子挑戰最佳）、`bushwhack-music`／`bushwhack-sfx` 與其 `-volume`。修改 `profile` 結構時要相容舊資料（缺欄位補預設值、保留未知欄位、未解鎖的兵種、外觀與威脅條件退回預設，威脅總點數超過上限時截去多出的條件）。
 10. **嚴苛機制**：懲罰性機制（自動武器過熱、敵軍編組、精英隊長、首領反制、拖延增援、首領任務失敗懲罰）只在 `CONFIG.difficulty` 標記 `harsh` 的難度（困難、地獄）啟用，一律以 `harsh()` 判斷；新增懲罰性機制時沿用同一判斷，普通與每日挑戰不得受影響。
    - 涉水噪音、延遲呼喊、屍體警戒、通訊／滲透增援及環境火對玩家的傷害也須沿用 `harsh()`；敵方誤傷、方向視野、追蹤犬與水中電弧則適用所有難度。

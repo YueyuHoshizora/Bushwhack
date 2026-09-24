@@ -12,7 +12,7 @@
 
 - 所有特殊地圖都從**第 6 波**開始。開局先連續選 3–4 次天賦，並額外獲得金幣、零件與十字弩，之後照常走章節作戰地圖直到第 25 波。
 - 難度、天氣與威脅條件由地圖固定，不套用自選的難度與威脅條件；換章時保留地圖天氣，只重建木牆。
-- 地圖與所有抽選都固定，同一代碼每次內容相同，可與朋友比較分數。
+- 地圖與使用種子亂數的抽選（兵種、天賦、事件、黑市等）都固定，同一代碼的內容相同，可與朋友比較分數；戰鬥與特效的隨機結果仍會不同。
 - 特殊地圖不更新各難度紀錄、章節評價、威脅紀錄與通關次數，也無法達成波次、無聲波次與通關類成就；熟練度只計實際打過的波次。
 
 | 種子代碼 | 地圖 | 難度・天氣 | 特色 |
@@ -40,7 +40,7 @@ Type a code into the seed field on the start screen (case does not matter) and p
 
 - Every special map starts at **wave 6**. You first make 3–4 perk picks and get extra gold, scrap and the crossbow, then follow the chapter operation map as usual up to wave 25.
 - Each map fixes its own difficulty, weather and threat modifiers; your selected difficulty and threat modifiers are not used. The map keeps its weather through chapter changes; only the wooden walls are rebuilt.
-- The map and every seeded roll are fixed, so the same code always plays the same way and scores can be compared with friends.
+- The map and every seeded roll (enemies, perks, events, the black market and so on) are fixed, so the same code gives the same content and scores can be compared with friends; combat and visual-effect randomness still varies.
 - Special runs do not update difficulty records, chapter grades, threat records or clear counts, and cannot earn the wave, quiet-wave or clear achievements. Mastery XP counts only the waves you actually fought.
 
 | Seed code | Map | Difficulty · weather | Features |
@@ -68,7 +68,7 @@ Type a code into the seed field on the start screen (case does not matter) and p
 
 - 特殊マップはすべて**ウェーブ 6** から始まります。最初にパークを 3～4 回続けて選び、追加のゴールド・スクラップとクロスボウを受け取ります。その後は通常どおり章の作戦マップを進み、ウェーブ 25 まで戦います。
 - 難易度・天候・脅威条件はマップごとに固定され、自分で選んだ難易度と脅威条件は使われません。章が変わっても天候は変わらず、木の壁だけが作り直されます。
-- マップとすべての抽選は固定なので、同じコードなら毎回同じ内容になり、友達とスコアを比べられます。
+- マップとシード乱数を使う抽選（敵、パーク、イベント、闇市など）は固定なので、同じコードなら同じ内容になり、友達とスコアを比べられます。戦闘や演出のランダム結果は毎回変わります。
 - 特殊マップでは難易度別の記録、章の評価、脅威記録、クリア回数は更新されず、ウェーブ・無音ウェーブ・クリア系の実績も達成できません。熟練度は実際に戦ったウェーブ分だけ加算されます。
 
 | シードコード | マップ | 難易度・天候 | 特徴 |
@@ -136,7 +136,7 @@ v1.4：第 2 波的情報任務可選「送達撤離點」或「殲滅全部敵�
 
 ## 多語系、Sitemap 與快取版本
 
-`index.html` 與 `sitemap.xml` 由 `tools/index.template.html` 與 `i18n.js` 產生，請勿手動編輯。頁面預填繁體中文，其他語系由 `game.js` 依 `?lang=` 在執行期替換；`sitemap.xml` 列出 `/`、`/?lang=en`、`/?lang=ja` 並附 `hreflang` 對應，`robots.txt` 指向該 sitemap。頁面以內容雜湊引用 `style.css?v=…`、`i18n.js?v=…` 與 `game.js?v=…`，瀏覽器與 CDN 在檔案變更後會取得新版。修改範本、`i18n.js`、`game.js` 或 `style.css` 後、提交前執行：
+`index.html` 與 `sitemap.xml` 由 `tools/index.template.html` 與 `i18n.js` 產生，請勿手動編輯。頁面預填繁體中文，其他語系由 `game.js` 依 `?lang=` 在執行期替換；`sitemap.xml` 列出 `/`、`/?lang=en`、`/?lang=ja` 並附 `hreflang` 對應，`robots.txt` 指向該 sitemap。頁面以內容雜湊引用 `style.css?v=…`、`i18n.js?v=…`、`game.js?v=…` 與瀏覽器圖示，瀏覽器與 CDN 在檔案變更後會取得新版。修改範本、`i18n.js`、`game.js`、`style.css` 或圖示後、提交前執行：
 
 ```sh
 node tools/build-pages.mjs
