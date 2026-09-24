@@ -5,6 +5,8 @@
 //   attr="{{a.key}}"    attribute text; the element gets data-i18n-attr="attr:key" for runtime replacement
 //   {{s.key}}           static text in the default locale (for elements that cannot hold markup, e.g. <title>)
 //   {{asset:file}}      local asset with ?v=<content hash> so browsers and CDNs fetch new versions after changes
+// Every link in index.html is relative to the page so the site works from any host or subpath; only sitemap.xml needs
+// absolute URLs (the sitemap protocol requires them) and uses ORIGIN.
 // Run after editing the template, i18n.js, game.js, style.css or the icons: `node tools/build-pages.mjs`
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -12,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const ORIGIN = 'https://bushwhack.yustellar.dev/';
-const DEFAULT_LOCALE = 'zh-Hant';
+const DEFAULT_LOCALE = 'en';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = file => readFileSync(`${root}${file}`, 'utf8');
 
@@ -29,15 +31,16 @@ for (const [lang, locale] of Object.entries(locales)) {
 
 const escape = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const text = key => { if (page[key] === undefined) throw new Error(`Unknown page key ${key}`); return escape(page[key]); };
-// Default locale has no query so `/` stays canonical for it; other locales are `/?lang=<code>`.
-const localeUrl = lang => lang === DEFAULT_LOCALE ? ORIGIN : `${ORIGIN}?lang=${lang}`;
-const alternates = Object.keys(locales).map(code => [code, localeUrl(code)]).concat([['x-default', ORIGIN]]);
+// Default locale has no query so `./` stays canonical for it; other locales are `?lang=<code>` (relative to the page).
+const localeLink = lang => lang === DEFAULT_LOCALE ? './' : `?lang=${lang}`;
+const alternates = Object.keys(locales).map(code => [code, localeLink(code)]).concat([['x-default', './']]);
+const absolute = link => new URL(link, ORIGIN).href;
 
 const values = {
-  lang: DEFAULT_LOCALE, origin: ORIGIN, ogLocale: locales[DEFAULT_LOCALE].ogLocale,
+  lang: DEFAULT_LOCALE, ogLocale: locales[DEFAULT_LOCALE].ogLocale,
   alternates: alternates.map(([code, url]) => `  <link rel="alternate" hreflang="${code}" href="${escape(url)}">`).join('\n'),
   ogAlternates: Object.entries(locales).filter(([code]) => code !== DEFAULT_LOCALE).map(([, l]) => `  <meta property="og:locale:alternate" content="${l.ogLocale}">`).join('\n'),
-  langSwitch: Object.entries(locales).map(([code, l]) => `<a href="${code === DEFAULT_LOCALE ? './' : `?lang=${code}`}" hreflang="${code}" lang="${code}" data-lang="${code}"${code === DEFAULT_LOCALE ? ' aria-current="page"' : ''}>${escape(l.label)}</a>`).join('')
+  langSwitch: Object.entries(locales).map(([code, l]) => `<a href="${localeLink(code)}" hreflang="${code}" lang="${code}" data-lang="${code}"${code === DEFAULT_LOCALE ? ' aria-current="page"' : ''}>${escape(l.label)}</a>`).join('')
 };
 
 const html = read('tools/index.template.html')
@@ -60,8 +63,8 @@ writeFileSync(`${root}index.html`, html);
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${Object.keys(locales).map(lang => `  <url>
-    <loc>${escape(localeUrl(lang))}</loc>
-${alternates.map(([code, url]) => `    <xhtml:link rel="alternate" hreflang="${code}" href="${escape(url)}"/>`).join('\n')}
+    <loc>${escape(absolute(localeLink(lang)))}</loc>
+${alternates.map(([code, link]) => `    <xhtml:link rel="alternate" hreflang="${code}" href="${escape(absolute(link))}"/>`).join('\n')}
   </url>`).join('\n')}
 </urlset>
 `;

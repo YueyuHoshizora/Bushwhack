@@ -32,7 +32,7 @@
 
 Bushwhack is a top-down survival shooter built with plain HTML5 Canvas and JavaScript, playable in Traditional Chinese, English and Japanese. Hide in the grass, sneak up for silent takedowns, or break through with six evolving guns, auto weapons and throwables. Pick a perk after every cleared wave; every 5 waves close a chapter with a boss, and wave 25 is the final operation. There is no backend, no account and no download. Each run generates a new, fully connected layout of walls, ponds and grass. It is made for desktop browsers with a keyboard and mouse; phones are not supported.
 
-To play locally, run `python3 -m http.server 8000` in this folder and open `http://localhost:8000/?lang=en`. Move with WASD, aim with the mouse and hold the left button to fire. `V` toggles auto-fire, `Space` uses your class skill, `F` performs a takedown and `B` opens the armory.
+To play locally, run `python3 -m http.server 8000` in this folder and open `http://localhost:8000/` (English is the default language). Move with WASD, aim with the mouse and hold the left button to fire. `V` toggles auto-fire, `Space` uses your class skill, `F` performs a takedown and `B` opens the armory.
 
 ### Special maps
 
@@ -90,7 +90,7 @@ Type a code into the seed field on the start screen (case does not matter) and p
 
 ## 開始遊玩
 
-在本目錄執行 `python3 -m http.server 8000`，瀏覽 `http://localhost:8000/`（中文）、`/?lang=en`、`/?lang=ja`；也可直接開啟 `index.html`。右上角切換語系不會重新載入頁面，進行中的遊戲會保留。可離線遊玩；字型服務無法連線時會使用系統字型。
+在本目錄執行 `python3 -m http.server 8000`，瀏覽 `http://localhost:8000/`（英文，預設語系）、`/?lang=zh-Hant`（中文）、`/?lang=ja`；也可直接開啟 `index.html`。右上角切換語系不會重新載入頁面，進行中的遊戲會保留。可離線遊玩；字型服務無法連線時會使用系統字型。
 
 | 操作 | 按鍵 |
 | --- | --- |
@@ -136,7 +136,7 @@ v1.4：第 2 波的情報任務可選「送達撤離點」或「殲滅全部敵�
 
 ## 多語系、Sitemap 與快取版本
 
-`index.html` 與 `sitemap.xml` 由 `tools/index.template.html` 與 `i18n.js` 產生，請勿手動編輯。頁面預填繁體中文，其他語系由 `game.js` 依 `?lang=` 在執行期替換；`sitemap.xml` 列出 `/`、`/?lang=en`、`/?lang=ja` 並附 `hreflang` 對應，`robots.txt` 指向該 sitemap。頁面以內容雜湊引用 `style.css?v=…`、`i18n.js?v=…`、`game.js?v=…` 與瀏覽器圖示，瀏覽器與 CDN 在檔案變更後會取得新版。修改範本、`i18n.js`、`game.js`、`style.css` 或圖示後、提交前執行：
+`index.html` 與 `sitemap.xml` 由 `tools/index.template.html` 與 `i18n.js` 產生，請勿手動編輯。頁面預填英文（預設語系），其他語系由 `game.js` 依 `?lang=` 在執行期替換；`sitemap.xml` 列出 `/`、`/?lang=zh-Hant`、`/?lang=ja` 並附 `hreflang` 對應，`robots.txt` 指向該 sitemap。頁面內所有連結與資源引用（圖示、樣式、腳本、canonical、`hreflang`、`og:url`、分享圖）都是相對路徑，可部署在任何網域或子路徑；只有 `sitemap.xml` 與 `robots.txt` 依規範使用 `https://bushwhack.yustellar.dev/` 絕對網址。頁面以內容雜湊引用 `style.css?v=…`、`i18n.js?v=…`、`game.js?v=…` 與瀏覽器圖示，瀏覽器與 CDN 在檔案變更後會取得新版。修改範本、`i18n.js`、`game.js`、`style.css` 或圖示後、提交前執行：
 
 ```sh
 node tools/build-pages.mjs
@@ -154,7 +154,7 @@ node tools/build-pages.mjs
 
 ## 分享預覽
 
-頁面含 Open Graph／X（Twitter）大型圖片標籤，分享封面為 `assets/og-cover.png`（1200 × 630）；可編輯 `assets/og-cover.svg` 後重新輸出 PNG。`og:url`、canonical 與圖片絕對網址已設定為 `https://bushwhack.yustellar.dev/`。實際對外分享前須先完成上述 DNS 與 Pages 部署。
+頁面含 Open Graph／X（Twitter）大型圖片標籤，分享封面為 `assets/og-cover.png`（1200 × 630）；可編輯 `assets/og-cover.svg` 後重新輸出 PNG。`og:url`、canonical 與 `og:image`／`twitter:image` 皆為相對路徑。Open Graph 規範要求絕對網址，部分社群平台的爬蟲可能因此無法顯示預覽圖或正確網址。遊戲內「複製戰績」的連結以目前頁面網址產生。
 
 瀏覽器圖示原稿為 `assets/favicon.svg`，另輸出 `favicon.ico`（16／32／48 px）與 `assets/apple-touch-icon.png`（180 × 180）；修改圖示後重新執行 `node tools/build-pages.mjs` 更新引用雜湊。
 

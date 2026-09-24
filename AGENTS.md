@@ -15,7 +15,7 @@
 | 檔案 | 說明 |
 | --- | --- |
 | `game.js` | 全部遊戲邏輯，包在 IIFE 內（無全域變數）。開頭的 `CONFIG` 是**唯一**的數值／平衡設定區塊 |
-| `i18n.js` | 全部介面文字（`zh-Hant` 預設、`en`、`ja`），每個語系含 `label`、`ogLocale`、`page`、`game` |
+| `i18n.js` | 全部介面文字（`en` 預設、`zh-Hant`、`ja`），每個語系含 `label`、`ogLocale`、`page`、`game` |
 | `style.css` | 樣式；介面必須完整放進視窗，不可出現捲軸 |
 | `tools/index.template.html` | 頁面範本 |
 | `tools/build-pages.mjs` | 產生 `index.html` 與 `sitemap.xml` |
@@ -41,6 +41,7 @@
    - `attr="{{a.key}}"`：可切換語系的屬性（產生 `data-i18n-attr`）
    - `{{s.key}}`：只輸出預設語系的靜態文字
    - `{{asset:檔名}}`：資源路徑加雜湊
+   - `index.html` 內的連結與資源一律使用相對路徑（含 canonical、`hreflang`、`og:url`、`og:image`）；只有 `sitemap.xml`（`ORIGIN`）與 `robots.txt` 使用絕對網址。
 4. **語系**以 `?lang=` 在執行期切換，不重新載入頁面（`applyLocale`）；只有一個 `index.html`。新增語系：在 `i18n.js` 加項目後重新建置即可。
 5. **不得在正式程式碼加入測試掛勾**（例如把內部狀態掛到 `window`）。
 6. **文件**：玩法、數值、兵種、武器、裝備、流程有變動時，同步更新 `DESIGN.md`；使用方式或部署有變動時更新 `README.md`；功能、數值或驗收結果有變動時更新 `ACCEPTANCE.md`（見下節）。
@@ -74,4 +75,4 @@
 ## 部署注意
 
 - 推送 `main` 後 GitHub Pages 直接發布靜態檔（`.nojekyll` 停用 Jekyll）；推送後以 `gh api repos/YueyuHoshizora/bushwhack/pages/builds/latest` 確認 `status: built`。Cloudflare 若仍快取舊的 `index.html`，清除 `/` 的快取。
-- 社群分享預覽爬蟲不執行 JavaScript，任何語系網址的 OG／Twitter 文字皆為預設語系（繁體中文）。
+- 社群分享預覽爬蟲不執行 JavaScript，任何語系網址的 OG／Twitter 文字皆為預設語系（英文）；`og:image` 為相對路徑，部分平台可能不顯示預覽圖。

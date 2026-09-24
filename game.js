@@ -523,7 +523,7 @@ const CONFIG = Object.freeze({
   audio: { master: 0.5, music: 0.3, sfx: 0.7, duck: 0.35, tempo: 140, falloff: 900 }
 });
 // UI text comes from i18n.js; ?lang=<code> selects the dictionary and switching rewrites the page in place (no reload).
-const LOCALES = globalThis.BUSHWHACK_I18N, DEFAULT_LOCALE = 'zh-Hant';
+const LOCALES = globalThis.BUSHWHACK_I18N, DEFAULT_LOCALE = 'en';
 // Accepts exact codes case-insensitively and language prefixes (zh-TW → zh-Hant, en-US → en).
 function resolveLocale(value) {
   const wanted = String(value || '').toLowerCase(), codes = Object.keys(LOCALES);
@@ -2074,7 +2074,7 @@ function renderSettings() {
   }
 }
 // Rewrites every marked static string ([data-i18n] text, [data-i18n-attr] "attr:key" pairs) and re-renders dynamic UI.
-const SITE_URL = document.querySelector('link[rel=canonical]').href; // build writes the default-locale URL
+const SITE_URL = document.querySelector('link[rel=canonical]').href; // build writes `./`, so this is the page's own URL without a query
 function applyLocale(lang) {
   locale = lang; STRINGS = LOCALES[lang].game;
   const page = LOCALES[lang].page, query = lang === DEFAULT_LOCALE ? '' : `?lang=${lang}`, url = new URL(location.href);
@@ -2086,7 +2086,8 @@ function applyLocale(lang) {
   }
   if (query) url.searchParams.set('lang', lang); else url.searchParams.delete('lang');
   history.replaceState(history.state, '', url);
-  document.querySelector('link[rel=canonical]').href = document.querySelector('meta[property="og:url"]').content = new URL(query, SITE_URL).href;
+  const link = query || './';
+  document.querySelector('link[rel=canonical]').setAttribute('href', link); document.querySelector('meta[property="og:url"]').content = link;
   renderSettings(); renderMenu(); updateHUD(); if (game.mode === 'shop') renderShop();
   if (CHOICE_MODES.includes(game.mode)) renderChoice();
   if (game.mode === 'ended') renderEnd();

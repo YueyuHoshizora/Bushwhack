@@ -501,10 +501,10 @@ WASD／方向鍵移動，滑鼠瞄準、按住左鍵射擊，`V` 開關自動開
 
 ## 多語系（i18n）
 
-支援繁體中文、英文、日文，以查詢參數 `?lang=` 選擇：未指定為 zh-Hant（預設與 `x-default`），`?lang=en`、`?lang=ja`。代碼不分大小寫，並接受語言前綴（如 `zh-TW` → zh-Hant、`en-US` → en）；無法辨識時使用預設語系。
+支援繁體中文、英文、日文，以查詢參數 `?lang=` 選擇：未指定為 en（預設與 `x-default`），`?lang=zh-Hant`、`?lang=ja`。代碼不分大小寫，並接受語言前綴（如 `zh-TW` → zh-Hant、`en-US` → en）；無法辨識時使用預設語系。
 
 只有一個 `index.html`，由 `tools/build-pages.mjs` 以 `tools/index.template.html` 與 `i18n.js` 產生，預先填入預設語系文字。可替換的文字元素標記 `data-i18n="鍵"`（內文包在 `<x-i18n>`）或 `data-i18n-attr="屬性:鍵"`（`aria-label`、meta `content` 等）。點右上角語言連結時 `game.js` 就地改寫這些文字、`<html lang>`、標題、描述、canonical 與 `og:url`，重繪 HUD、設定與開啟中的軍械庫，並以 `history.replaceState` 更新網址的 `?lang=`（預設語系移除該參數）；**不重新載入頁面**，進行中的遊戲不受影響。以修飾鍵或中鍵點連結仍可在新分頁開啟該語系。
 
-`hreflang` 與 `sitemap.xml` 列出三個語系網址。社群平台的分享預覽爬蟲不執行 JavaScript，因此任何語系網址的 Open Graph／Twitter 預覽文字皆為預設語系（繁體中文）。
+`hreflang` 與 `sitemap.xml` 列出三個語系網址。頁面內的 canonical、`hreflang`、`og:url` 與分享圖皆為相對路徑（`./`、`?lang=…`、`assets/og-cover.png`），只有 `sitemap.xml` 使用絕對網址；分享文字與戰績卡上的網址取自目前頁面位置。社群平台的分享預覽爬蟲不執行 JavaScript，因此任何語系網址的 Open Graph／Twitter 預覽文字皆為預設語系（英文）。
 
 `i18n.js` 每個語系含 `label`（切換連結文字）、`ogLocale`、`page`（靜態頁面文字）與 `game`（遊戲內執行期文字，`{name}` 形式插值）。遊戲數值仍只來自 `CONFIG`，敘述中的數字（百分比、傷害、間隔等）執行時由 `CONFIG` 帶入。建置腳本會檢查每個語系是否具備預設語系的全部鍵值，缺漏時中止。
