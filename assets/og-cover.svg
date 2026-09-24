@@ -15,10 +15,10 @@
 <g transform="translate(233 468) rotate(-8)"><rect x="-28" y="-18" width="57" height="45" rx="5" fill="#a3703c" stroke="#f0bd69" stroke-width="4"/><path d="M0-18v45m-28-25h57" stroke="#f1d487" stroke-width="8"/><rect x="-4" y="-5" width="9" height="13" fill="#60402a"/></g></g></g>
 <rect x="37" y="38" width="1126" height="554" fill="none" stroke="#b9d196" stroke-opacity=".33" stroke-width="2"/><rect x="53" y="54" width="61" height="61" fill="#d9e8a0"/><text x="83" y="99" text-anchor="middle" font-size="47" fill="#25432e">✳</text>
 <text x="137" y="83" fill="#b8d495" font-family="sans-serif" font-weight="700" font-size="16" letter-spacing="5">FIELD OPS / 001</text>
-<text x="68" y="208" fill="#eaf1db" font-family="sans-serif" font-weight="900" font-size="66">草叢突擊</text>
-<text x="68" y="286" fill="#d7e99f" font-family="Arial,sans-serif" font-weight="900" font-size="70" letter-spacing="3">BUSHWHACK</text>
-<rect x="69" y="313" width="290" height="4" fill="#d9e8a0"/><text x="68" y="368" fill="#e2e9d9" font-family="sans-serif" font-weight="600" font-size="25">伏擊，或被伏擊。</text>
-<text x="69" y="417" fill="#aac3a9" font-family="sans-serif" font-size="21">射擊敵人 · 搜刮寶箱 · 隱身草叢</text>
-<rect x="68" y="486" width="392" height="65" rx="4" fill="#d9e8a0"/><text x="264" y="529" text-anchor="middle" fill="#1d3427" font-family="sans-serif" font-weight="900" font-size="25" letter-spacing="4">立即出擊  ↗</text>
+<text x="68" y="196" fill="#eaf1db" font-family="Arial,sans-serif" font-weight="700" font-size="24" letter-spacing="6">TOP-DOWN SURVIVAL SHOOTER</text>
+<text x="64" y="286" fill="#d7e99f" font-family="Arial,sans-serif" font-weight="900" font-size="86" letter-spacing="2">BUSHWHACK</text>
+<rect x="69" y="313" width="290" height="4" fill="#d9e8a0"/><text x="68" y="368" fill="#e2e9d9" font-family="Arial,sans-serif" font-weight="700" font-size="30">Ambush, or be ambushed.</text>
+<text x="69" y="417" fill="#aac3a9" font-family="Arial,sans-serif" font-size="21">Shoot enemies · Loot crates · Vanish into the grass</text>
+<rect x="68" y="486" width="392" height="65" rx="4" fill="#d9e8a0"/><text x="264" y="529" text-anchor="middle" fill="#1d3427" font-family="Arial,sans-serif" font-weight="900" font-size="25" letter-spacing="4">PLAY NOW  ↗</text>
 <text x="905" y="572" text-anchor="middle" fill="#e5eccf" font-family="Arial,sans-serif" font-size="13" letter-spacing="4">TOP-DOWN SURVIVAL / NO INSTALL</text>
 </svg>
