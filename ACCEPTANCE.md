@@ -2,7 +2,7 @@
 
 驗收版本：Gate、Q1–Q14 與既有「額外需求」為 `cf06c6d`（`game.js?v=b61b6c7efc`）實測，時間 2026-09-23 21:18 (UTC+8)。「重玩系統」各項為加入天賦／首領／每日挑戰的提交（`game.js?v=8a805822c0`）實測，時間 2026-09-23 (UTC+8)。「潛行與進階重玩」各項與 Q4 重測為 v1.2（`5be0b7a`）實測。「v1.3 新內容」各項為本次版本（建置時 `game.js` 已含全部功能）實測，時間 2026-09-23 (UTC+8)。
 
-最新本機驗收：後期兵種與作戰地圖修正，2026-09-24。資源為 `game.js?v=11c0b7a8e2`、`i18n.js?v=ea06f93bf7`、`style.css?v=29b6c9907a`；未推送、未發布，外網仍為 v1.8（見 Gate D）。下方舊版 Gate／版本紀錄是歷史驗收。
+最新驗收：後期兵種與作戰地圖修正（v1.9），本機驗收 2026-09-24，外網部署查詢 2026-09-24 03:57 UTC。資源為 `game.js?v=11c0b7a8e2`、`i18n.js?v=ea06f93bf7`、`style.css?v=29b6c9907a`。下方舊版 Gate／版本紀錄是歷史驗收。
 
 驗證環境：本機 `python3 -m http.server 8765`，無頭 Chromium，停用快取。驗證方式分兩種：
 
@@ -22,8 +22,8 @@
   - 30 張隨機地圖全部連通。
 - **Gate D：通過（部署需另行確認 SSL 設定）。**
   - 本機功能驗收：全部通過。
-  - GitHub Pages（v1.8，2026-09-24 03:03 UTC 查詢）：API 回報 `status: built`，最新建置為 `a5f613c`，自訂網域 `bushwhack.yustellar.dev`；`https_enforced` 為 `false`。
-  - 外網網址：`https://bushwhack.yustellar.dev/` 回傳 200（經 Cloudflare），頁面引用的 `game.js?v=d443615e5a`、`i18n.js?v=67ac29a743`、`style.css?v=29b6c9907a` 與本機建置相同。
+  - GitHub Pages（v1.9，2026-09-24 03:57 UTC 查詢）：API 回報 `status: built`，最新建置為 `df1fe34`，自訂網域 `bushwhack.yustellar.dev`；`https_enforced` 為 `false`。
+  - 外網網址：`https://bushwhack.yustellar.dev/` 回傳 200（經 Cloudflare），頁面引用的 `game.js?v=11c0b7a8e2`、`i18n.js?v=ea06f93bf7`、`style.css?v=29b6c9907a` 與本機建置相同。
   - 靜態檔：`/sitemap.xml` 回傳 200 `application/xml`；`/assets/og-cover.png` 回傳 200。
   - 舊路徑：`/en/` 已回傳 404（舊語系資料夾已移除）。
 
@@ -73,7 +73,7 @@
 
 ## 額外需求
 
-### 後期兵種與作戰地圖修正（本機、未發布）
+### 後期兵種與作戰地圖修正（v1.9）
 
 以 Chromium 請求攔截在記憶體暴露 IIFE、直接呼叫真實遊戲函式；14 個場景全部通過，既有兩組 28 個場景重跑也全部通過。正式檔沒有測試掛勾。
 
