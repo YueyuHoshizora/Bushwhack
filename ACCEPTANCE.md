@@ -2,7 +2,7 @@
 
 驗收版本：Gate、Q1–Q14 與既有「額外需求」為 `cf06c6d`（`game.js?v=b61b6c7efc`）實測，時間 2026-09-23 21:18 (UTC+8)。「重玩系統」各項為加入天賦／首領／每日挑戰的提交（`game.js?v=8a805822c0`）實測，時間 2026-09-23 (UTC+8)。「潛行與進階重玩」各項與 Q4 重測為 v1.2（`5be0b7a`）實測。「v1.3 新內容」各項為本次版本（建置時 `game.js` 已含全部功能）實測，時間 2026-09-23 (UTC+8)。
 
-最新本機驗收：戰績卡下載，2026-09-24。資源為 `game.js?v=2eb0956443`、`i18n.js?v=5e37772229`、`style.css?v=29b6c9907a`；未推送、未發布，外網仍為 v1.9（見 Gate D）。下方舊版 Gate／版本紀錄是歷史驗收。
+最新本機驗收：戰績卡下載，2026-09-24。資源為 `game.js?v=2eb0956443`、`i18n.js?v=5e37772229`、`style.css?v=29b6c9907a`；已推送、未發布（無 tag）；外網自 2026-09-24 04:58 UTC 起服務此版本（見 Gate D）。下方舊版 Gate／版本紀錄是歷史驗收。
 
 驗證環境：本機 `python3 -m http.server 8765`，無頭 Chromium，停用快取。驗證方式分兩種：
 
@@ -24,6 +24,8 @@
   - 本機功能驗收：全部通過。
   - GitHub Pages（v1.9，2026-09-24 03:57 UTC 查詢）：API 回報 `status: built`，最新建置為 `df1fe34`，自訂網域 `bushwhack.yustellar.dev`；`https_enforced` 為 `false`。
   - 外網網址：`https://bushwhack.yustellar.dev/` 回傳 200（經 Cloudflare），頁面引用的 `game.js?v=11c0b7a8e2`、`i18n.js?v=ea06f93bf7`、`style.css?v=29b6c9907a` 與本機建置相同。
+  - GitHub Pages（未發布 tag，2026-09-24 04:58 UTC 查詢）：API 回報 `status: built`，最新建置為 `d183dcb`，自訂網域 `bushwhack.yustellar.dev`。
+  - 外網網址：`https://bushwhack.yustellar.dev/` 回傳 200（經 Cloudflare），頁面引用的 `game.js?v=2eb0956443`、`i18n.js?v=5e37772229`、`style.css?v=29b6c9907a` 與本機建置相同（檔案 sha256 前 10 碼相符），含 `cardBtn`；`game.js` 含 `downloadResultCard`。
   - 靜態檔：`/sitemap.xml` 回傳 200 `application/xml`；`/assets/og-cover.png` 回傳 200。
   - 舊路徑：`/en/` 已回傳 404（舊語系資料夾已移除）。
 
@@ -73,7 +75,7 @@
 
 ## 額外需求
 
-### 戰績卡下載（本機、未發布）
+### 戰績卡下載（已部署、未發布）
 
 - **方式**：Chromium 請求攔截暴露 IIFE，以困難、種子 `CARD-TEST`、第 17 波、312 擊倒、184,250 分、四項天賦與三章評價結束一局，點擊「下載戰績卡」。
 - **結果**：三語 × 1280×720／1440×900 皆出現按鈕（下載戰績卡／Download result card／戦績カードを保存），點擊產生 `blob:` 連結、檔名 `bushwhack-CARD-TEST-w17.png`；結算對話框與頁面無捲動溢出、無 `pageerror`。目視檢查繁中與日文 1200×630 圖片：標題、模式、四項數據（分數過長時縮小字級而非截斷）、天賦、章節評價、種子網址與日期正確。
