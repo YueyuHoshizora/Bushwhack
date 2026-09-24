@@ -2804,7 +2804,8 @@ function environmentUpdate(dt) {
     pool.enemyTick = (pool.enemyTick ?? 0) - dt;
     if (pool.enemyTick > 0) continue;
     pool.enemyTick = E.fireTick;
-    const fire = pool.kind === 'fire', damage = pool.damage ?? enemyDamage(CONFIG.boss.hive.acid), source = pool.source ?? (fire ? 'fire' : 'hive');
+    // Pools left by enemies (boss fire, acid) count as friendly fire in the damage breakdown; the player's Molotov keeps its own source.
+    const fire = pool.kind === 'fire', damage = pool.damage ?? enemyDamage(CONFIG.boss.hive.acid), source = pool.owner && pool.owner !== game.player ? 'friendlyFire' : pool.source ?? 'fire';
     for (const e of [...game.enemies]) {
       if ((fire && inTerrain(e, game.ponds)) || e === pool.owner || distance(e, pool) >= pool.radius + e.radius) continue;
       hitEnemyBody(e, damage * (pool.enemyScale ?? E.enemyBlastDamage), source);
@@ -2857,12 +2858,13 @@ function environmentBulletTarget(b, x1, y1, x2, y2) {
   }
   return target;
 }
+// Enemy bullets (including mirror reflections) that strike other enemies are recorded as friendly fire.
 function environmentDamageEnemy(e, b) {
   if (!e || e === b.owner || e.hp <= 0) return;
-  const damage = b.damage;
-  b.damage *= CONFIG.environment.enemyBulletDamage;
+  const { damage, source } = b;
+  b.damage *= CONFIG.environment.enemyBulletDamage; b.source = 'friendlyFire';
   damageEnemy(e, b);
-  b.damage = damage;
+  b.damage = damage; b.source = source;
 }
 function environmentBlastEnemies(x, y, radius, damage, exclude) {
   if (!damage) return;
