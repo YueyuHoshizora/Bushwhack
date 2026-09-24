@@ -3070,6 +3070,7 @@ function renderEnd() {
   $('endXp').textContent = game.daily ? '' : `${t('end.xp', { xp: game.summary.xp })}${game.summary.levelUp ? ` · ${t('end.masteryLevelUp', game.summary.levelUp)}` : ''}`;
   renderNextGoals();
   $('shareBtn').textContent = t('end.share'); $('shareBtn').hidden = !!game.training;
+  $('cardBtn').textContent = t('end.card'); $('cardBtn').hidden = !!game.training;
 }
 // Daily runs share the date; normal runs share the seed and a link that fills it in, so friends can replay the same map.
 function shareText() {
@@ -3086,6 +3087,47 @@ async function copyShare() {
     document.body.append(area); area.select(); document.execCommand('copy'); area.remove();
   }
   $('shareBtn').textContent = t('end.copied');
+}
+// Result card: a 1200×630 PNG of the end screen (outcome, mode, headline stats, perks, chapter grades, share link), downloaded locally.
+function drawResultCard() {
+  const W = 1200, H = 630, c = document.createElement('canvas'), g = c.getContext('2d'), run = game.summary.run, s = game.stats;
+  c.width = W; c.height = H;
+  const mono = "'DM Mono', 'Noto Sans TC', 'Noto Sans JP', monospace", sans = "'Noto Sans TC', 'Noto Sans JP', sans-serif";
+  const fit = (text, x, y, max, font) => { g.font = font; let str = text; while (str.length > 1 && g.measureText(str).width > max) str = str.slice(0, -2) + '…'; g.fillText(str, x, y); };
+  g.fillStyle = '#10251c'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#ffffff0d'; g.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+  for (let y = 0; y < H; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  g.strokeStyle = '#e6f59a'; g.lineWidth = 3; g.strokeRect(24, 24, W - 48, H - 48);
+  g.textBaseline = 'alphabetic'; g.textAlign = 'left';
+  g.fillStyle = '#e6f59a'; g.font = `bold 22px ${mono}`; g.fillText('✳ BUSHWHACK / FIELD OPS', 64, 84);
+  g.fillStyle = '#f3ecd0'; fit($('endTitle').textContent, 64, 150, W - 128, `bold 54px ${sans}`);
+  g.fillStyle = '#b9d4c4'; fit($('endMode').textContent, 64, 196, W - 128, `22px ${sans}`);
+  const labels = [...document.querySelectorAll('#endOverlay .summary span')].map(span => span.firstChild?.textContent?.trim() ?? '');
+  const values = [String(run.wave).padStart(2, '0'), String(run.kills), formatTime(run.time), run.score.toLocaleString(locale)], bw = (W - 128 - 3 * 20) / 4;
+  values.forEach((value, i) => {
+    const x = 64 + i * (bw + 20);
+    g.fillStyle = '#ffffff0f'; g.fillRect(x, 232, bw, 150); g.strokeStyle = '#e6f59a55'; g.lineWidth = 1.5; g.strokeRect(x, 232, bw, 150);
+    g.fillStyle = '#b9d4c4'; fit(labels[i] ?? '', x + 20, 270, bw - 40, `20px ${sans}`);
+    let size = 58; g.font = `bold ${size}px ${mono}`;
+    while (size > 30 && g.measureText(value).width > bw - 40) g.font = `bold ${--size}px ${mono}`;
+    g.fillStyle = '#f2d481'; fit(value, x + 20, 350, bw - 40, g.font);
+  });
+  const chapters = s.chapters.map(ch => `${t('end.chapter', { index: ch.index })} ${CONFIG.chapters.grades[ch.grade]}${ch.badges.map(key => CONFIG.badges[key].icon).join('')}`).join(' · ');
+  const lines = [s.perks.length && `${$('endPerks').previousElementSibling?.textContent ?? ''} ${s.perks.map(key => P[key].icon).join(' ')}`, chapters && t('end.chapters', { list: chapters })].filter(Boolean);
+  g.fillStyle = '#e8eedd'; lines.slice(0, 2).forEach((line, i) => fit(line, 64, 436 + i * 40, W - 128, `24px ${sans}`));
+  g.fillStyle = '#e6f59a'; g.font = `bold 22px ${mono}`;
+  g.fillText(game.daily ? SITE_URL : `${SITE_URL}?seed=${encodeURIComponent(game.seed)}`, 64, H - 64);
+  g.textAlign = 'right'; g.fillStyle = '#b9d4c4'; g.fillText(new Date().toISOString().slice(0, 10), W - 64, H - 64);
+  return c;
+}
+function downloadResultCard() {
+  drawResultCard().toBlob(blob => {
+    const link = document.createElement('a'), run = game.summary.run;
+    link.href = URL.createObjectURL(blob); link.download = `bushwhack-${game.daily ?? game.seed}-w${run.wave}.png`;
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  }, 'image/png');
 }
 function steer(enemy, angle, speed, dt) {
   const x = enemy.x, y = enemy.y;
@@ -4154,6 +4196,7 @@ $('trainingClose').addEventListener('click', () => { $('trainingOverlay').hidden
 $('seedChallengeBtn').addEventListener('click', () => startGame(false, { seedWeek: isoWeek() }));
 $('progressClose').addEventListener('click', () => { $('progressOverlay').hidden = true; });
 $('shareBtn').addEventListener('click', copyShare);
+$('cardBtn').addEventListener('click', downloadResultCard);
 $('shopBtn').addEventListener('click', () => { if (game.mode === 'playing' || game.mode === 'shop') toggleShop(); });
 $('closeShop').addEventListener('click', toggleShop);
 $('perkClose').addEventListener('click', () => { if (game.mode === 'market') resume(); });
