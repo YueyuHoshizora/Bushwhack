@@ -52,13 +52,35 @@ const CONFIG = Object.freeze({
     // Runs for a radio station to raise a map-wide alarm; hounds follow recent scent, not the player's live position.
     radio: { hp: 58, speed: 112, radius: 15, sight: 320, reach: 30, damage: 8, cooldown: 1.05, wanderSpeed: 0.42, bounty: 1.5, color: '#cfaa66' },
     hound: { hp: 46, speed: 186, radius: 14, sight: 335, reach: 25, damage: 10, cooldown: 0.85, wanderSpeed: 0.52, bounty: 1.6, color: '#c6816f' },
+    // Late-war kinds (behaviour under `legion`). Jammer: EMP pulses that shut down auto weapons and shield regen.
+    jammer: { hp: 60, speed: 92, radius: 16, sight: 340, reach: 0, damage: 0, cooldown: 0, wanderSpeed: 0.4, bounty: 1.8, color: '#6fc3d6' },
+    // Lobs telegraphed grenades (damage per blast) over walls at the player or the spot it is searching.
+    grenadier: { hp: 55, speed: 95, radius: 15, sight: 380, reach: 330, damage: 22, cooldown: 3.2, wanderSpeed: 0.38, bounty: 1.6, color: '#a3b86b' },
+    // Laser-sighted single shot; walls block the round.
+    sharpshooter: { hp: 50, speed: 90, radius: 15, sight: 520, reach: 480, damage: 24, cooldown: 3.5, wanderSpeed: 0.35, bounty: 1.9, color: '#d98f8f' },
+    // Steals pickups and escapes off the map edge; killing it drops the haul.
+    looter: { hp: 44, speed: 175, radius: 13, sight: 300, reach: 0, damage: 0, cooldown: 0, wanderSpeed: 0.5, bounty: 1.4, color: '#b99a55' },
+    // War banner: nearby allies move and attack faster.
+    banner: { hp: 90, speed: 85, radius: 17, sight: 320, reach: 0, damage: 0, cooldown: 0, wanderSpeed: 0.35, bounty: 2, color: '#e0b04a' },
+    // Mirror shield: bullets from the front arc bounce back at the shooter.
+    mirror: { hp: 70, speed: 92, radius: 17, sight: 320, reach: 30, damage: 12, cooldown: 1.2, wanderSpeed: 0.4, turnRate: 2.2, bounty: 1.9, color: '#bcd6e8' },
+    // Arrives as a pack of legion.swarm.count fragile, fast biters.
+    swarm: { hp: 14, speed: 215, radius: 9, sight: 330, reach: 22, damage: 5, cooldown: 0.6, wanderSpeed: 0.6, weave: 0.4, weaveSpeed: 9, bounty: 0.35, color: '#d6c25a' },
+    // Plants mines where the player recently hid in grass.
+    trapper: { hp: 58, speed: 100, radius: 15, sight: 330, reach: 26, damage: 9, cooldown: 1.1, wanderSpeed: 0.45, bounty: 1.7, color: '#8c9a6a' },
+    // Flying suicide drone: crosses walls, locks on with a warning, then dives and explodes (blast px).
+    kamikaze: { hp: 30, speed: 150, radius: 11, sight: 0, reach: 0, damage: 26, blast: 64, wanderSpeed: 0.8, bounty: 1.3, color: '#e0766a', flying: true },
+    // Heavy armor: bullets to the front are mostly absorbed, bullets to the back hurt more; blasts and blades ignore the armor.
+    juggernaut: { hp: 190, speed: 70, radius: 21, sight: 300, reach: 34, damage: 20, cooldown: 1.4, wanderSpeed: 0.3, turnRate: 1.1, bounty: 2.6, color: '#8a8f99' },
     // Bosses (attack patterns under `boss`). They sense hidden players within sense px; loot comes from boss.loot.
     commander: { boss: true, hp: 1100, speed: 72, radius: 30, sight: 520, sense: 160, reach: 56, damage: 18, cooldown: 1.2, wanderSpeed: 0.5, bounty: 0, color: '#c7866f' },
     // Cloaked (bushCloak alpha, skipped by auto-targeting) while inside grass and not aiming.
     sniper: { boss: true, hp: 850, speed: 125, radius: 24, sight: 720, sense: 140, reach: 0, damage: 0, cooldown: 1, wanderSpeed: 0.5, bushCloak: 0.12, revealSeconds: 1.5, bounty: 0, color: '#9aa6b8' },
     hive: { boss: true, hp: 1500, speed: 52, radius: 34, sight: 480, sense: 200, reach: 58, damage: 20, cooldown: 1.4, wanderSpeed: 0.4, bounty: 0, color: '#b58ad6' },
     incinerator: { boss: true, hp: 1300, speed: 66, radius: 32, sight: 520, sense: 170, reach: 55, damage: 16, cooldown: 1.1, wanderSpeed: 0.45, bounty: 0, color: '#eb754c' },
-    wanderInterval: [1.8, 3.6], alertSeconds: 0.28, bushRevealDistance: 110, healthPerWave: 0.14, damagePerWave: 0.095, waterMultiplier: 0.6
+    wanderInterval: [1.8, 3.6], alertSeconds: 0.28, bushRevealDistance: 110, healthPerWave: 0.14, damagePerWave: 0.095, waterMultiplier: 0.6,
+    // From wave lateFrom the per-wave HP growth rises by lateStep each wave (0.14 → 0.2 at wave 20 → 0.26 at wave 25).
+    lateFrom: 15, lateStep: 0.012
   },
   // Enemies that lose sight of the player, or hear a noise, walk to that spot and sweep nearby grass until `seconds` run out.
   // A hidden player within probe px of a searcher is found; searching gunners fire recon shots at their sweep point every reconFire s.
@@ -79,12 +101,14 @@ const CONFIG = Object.freeze({
     baseCount: 2, growth: 2, lateFrom: 5, lateGrowth: 2, maxCount: 64, maxAlive: 34,
     spawnInterval: 0.72, spawnIntervalStep: 0.035, minSpawnInterval: 0.3, batchEvery: 4, maxBatch: 3,
     intermission: 3.5, initialSpawnDelay: 0.5, enemySpawnDistance: 330,
-    // Relative spawn weight per kind: weight + (wave - from) × perWave, capped at max.
+    // Relative spawn weight per kind: weight + (wave - from) × perWave, capped at max. Rows marked `fade` (the early basics) are
+    // multiplied by max(fadeFloor, 1 - (wave - fadeFrom) × fadePerWave) after fadeFrom, so late waves lean on the late-war kinds.
+    fadeFrom: 15, fadePerWave: 0.06, fadeFloor: 0.4,
     roster: [
-      { kind: 'melee', from: 1, weight: 1, perWave: 0, max: 1 },
-      { kind: 'ranged', from: 2, weight: 0.35, perWave: 0.04, max: 0.9 },
-      { kind: 'runner', from: 3, weight: 0.3, perWave: 0.04, max: 0.8 },
-      { kind: 'shield', from: 4, weight: 0.22, perWave: 0.035, max: 0.7 },
+      { kind: 'melee', from: 1, weight: 1, perWave: 0, max: 1, fade: true },
+      { kind: 'ranged', from: 2, weight: 0.35, perWave: 0.04, max: 0.9, fade: true },
+      { kind: 'runner', from: 3, weight: 0.3, perWave: 0.04, max: 0.8, fade: true },
+      { kind: 'shield', from: 4, weight: 0.22, perWave: 0.035, max: 0.7, fade: true },
       { kind: 'medic', from: 6, weight: 0.2, perWave: 0.03, max: 0.5 },
       { kind: 'stalker', from: 6, weight: 0.22, perWave: 0.03, max: 0.6 },
       { kind: 'flamer', from: 7, weight: 0.2, perWave: 0.03, max: 0.5 },
@@ -93,6 +117,16 @@ const CONFIG = Object.freeze({
       { kind: 'scout', from: 11, weight: 0.15, perWave: 0.02, max: 0.35 },
       { kind: 'radio', from: 10, weight: 0.24, perWave: 0.035, max: 0.65 },
       { kind: 'hound', from: 12, weight: 0.25, perWave: 0.035, max: 0.6 },
+      { kind: 'jammer', from: 13, weight: 0.25, perWave: 0.04, max: 0.6 },
+      { kind: 'grenadier', from: 14, weight: 0.3, perWave: 0.045, max: 0.75 },
+      { kind: 'sharpshooter', from: 16, weight: 0.3, perWave: 0.045, max: 0.75 },
+      { kind: 'looter', from: 16, weight: 0.25, perWave: 0.03, max: 0.5 },
+      { kind: 'banner', from: 17, weight: 0.22, perWave: 0.03, max: 0.5 },
+      { kind: 'mirror', from: 18, weight: 0.3, perWave: 0.045, max: 0.7 },
+      { kind: 'swarm', from: 19, weight: 0.25, perWave: 0.04, max: 0.6 },
+      { kind: 'trapper', from: 21, weight: 0.3, perWave: 0.04, max: 0.65 },
+      { kind: 'kamikaze', from: 21, weight: 0.3, perWave: 0.05, max: 0.7 },
+      { kind: 'juggernaut', from: 22, weight: 0.3, perWave: 0.05, max: 0.7 }
     ]
   },
   chests: { minimum: 2, maximum: 4, initial: 3, radius: 23, hpBase: 23, hpPerWave: 3, replenishSeconds: 5, spawnDistance: 130 },
@@ -253,10 +287,39 @@ const CONFIG = Object.freeze({
     hard: { hp: 1.3, damage: 1.25, speed: 1.06, count: 1.2, gold: 1.1, elite: 0.04, score: 1.3, harsh: true },
     hell: { hp: 1.65, damage: 1.5, speed: 1.12, count: 1.4, gold: 1.2, elite: 0.08, score: 1.6, harsh: true, unlock: 'fearless' }
   },
-  // Elite affix chance per regular spawn: base + (wave - from) × perWave, capped at max, plus the difficulty's elite. Elites: HP × hp, loot × bounty.
+  // Elite affix chance per regular spawn: base + (wave - from) × perWave, capped at max, plus the difficulty's elite. From lateFrom the cap
+  // rises by latePerWave per wave, up to lateMax more. Elites: HP × hp, loot × bounty.
   elites: {
-    from: 4, base: 0.05, perWave: 0.012, max: 0.3, hp: 1.5, bounty: 2,
+    from: 4, base: 0.05, perWave: 0.012, max: 0.3, lateFrom: 15, latePerWave: 0.015, lateMax: 0.15, hp: 1.5, bounty: 2,
     affixes: { swift: { speed: 1.35, color: '#ffe36e' }, regen: { rate: 0.04, color: '#8ef08a' }, splitter: { count: 2, hp: 0.5, radius: 10, color: '#d59bff' }, armored: { reduction: 0.35, color: '#a9d4ff' } }
+  },
+  // Late-war enemy behaviour (stats under enemies). All difficulties; harsh only shrinks the distance at which mines become visible.
+  // jammer: keeps `keep` px away; every `every` s, a player within radius (after a `warn` s charge ring) has auto weapons and shield
+  //   regen shut down for `seconds`.
+  // grenadier: lobs a bomb (fall s, blast px, scatter px) at the player, or at its search spot every searchEvery s while searching.
+  // sharpshooter: aims for `aim` s (tracking until the last `lock` s), fires a bulletSpeed round; backs off inside `retreat` px.
+  // looter: grabs pickups within grab px (seeking up to seek px, carrying at most carry), flees to the nearest edge once full, when
+  //   nothing is left or the player comes within panic px; escaping takes the haul.
+  // banner: allies within radius move × (1 + speed) and recover attacks × (1 + rate); keeps `keep` px from the player.
+  // mirror: bullets arriving within ±arc of its facing bounce back at reflect × damage (at most maxDamage).
+  // swarm: each swarm spawn brings count - 1 extra biters within spread px (wave size unchanged, maxAlive respected).
+  // trapper: the player's grass positions are logged every hideEvery s (last hideSpots); a trapper walks to the nearest logged spot
+  //   within seek px and plants a mine (at most `max` live, life s) that arms after arm s, triggers within trigger px and blasts for
+  //   damage in blast px. Mines are drawn within reveal px (harshReveal on harsh difficulties).
+  // kamikaze: homes when the player is visible or within sense px; within lockRange it hovers for `lock` s, then dives at speed × dive
+  //   for up to diveSeconds and detonates on contact (trigger px) or at the end of the dive.
+  // juggernaut: bullets within ±frontArc of its facing deal × front; from behind (beyond π - backArc) × back.
+  legion: {
+    jammer: { keep: 170, every: 5, warn: 0.8, radius: 190, seconds: 2.5 },
+    grenadier: { fall: 1.1, blast: 72, scatter: 30, searchEvery: 4.5 },
+    sharpshooter: { aim: 1.1, lock: 0.3, bulletSpeed: 1100, radius: 4, retreat: 260 },
+    looter: { grab: 22, seek: 520, carry: 6, panic: 170, flee: 1.1 },
+    banner: { radius: 170, speed: 0.2, rate: 0.35, keep: 220 },
+    mirror: { arc: 1, reflect: 0.5, maxDamage: 30 },
+    swarm: { count: 6, spread: 34 },
+    trapper: { hideEvery: 1, hideSpots: 8, seek: 600, max: 6, life: 60, arm: 0.8, trigger: 34, blast: 70, damage: 22, reveal: 90, harshReveal: 50 },
+    kamikaze: { sense: 200, lockRange: 220, lock: 0.6, dive: 2.4, diveSeconds: 0.9, trigger: 24 },
+    juggernaut: { frontArc: 1.2, front: 0.25, backArc: 0.9, back: 1.5 }
   },
   // Every `every` waves a boss joins a wave of regularShare × the normal size, rotating through `order`; below phase2At HP it escalates.
   // Boss bullets fly bulletRange px; minions they spawn drop no loot.
@@ -400,8 +463,10 @@ const CONFIG = Object.freeze({
   // After-action report: the damage log keeps the last `window` s before the end and lists up to `entries` hits; preview names `kinds` foes.
   report: { window: 5, entries: 4 },
   preview: { kinds: 3 },
+  // Each multi-lane row draws distinct types and routes (seeded), redrawing up to `redraws` times to avoid repeating the previous row.
+  // Route picks use the `routeKeys` hotkeys (right hand, away from WASD, Space and the gun number keys).
   operations: {
-    lanes: 3, weather: ['standard', 'rain', 'night'],
+    lanes: 3, weather: ['standard', 'rain', 'night'], redraws: 12, routeKeys: ['j', 'k', 'l'],
     supplyHeal: 40, alarmReinforcements: 2,
     types: ['eliminate', 'infiltrate', 'elite', 'supply'],
     icons: { eliminate: '◇', infiltrate: '◈', elite: '◆', supply: '+', boss: '♛' }
@@ -767,7 +832,10 @@ function pickEnemyKind() {
   if (theme && game.rng.roster() < CONFIG.themes.share) return theme.kinds[Math.floor(game.rng.roster() * theme.kinds.length)];
   return pickWeighted(game.rng.roster, rosterWeights(game.wave));
 }
-const rosterWeights = wave => CONFIG.waves.roster.filter(r => wave >= r.from).map(r => [r.kind, Math.min(r.max, r.weight + (wave - r.from) * r.perWave)]);
+function rosterWeights(wave) {
+  const W = CONFIG.waves, fade = Math.max(W.fadeFloor, 1 - Math.max(0, wave - W.fadeFrom) * W.fadePerWave);
+  return W.roster.filter(r => wave >= r.from).map(r => [r.kind, Math.min(r.max, r.weight + (wave - r.from) * r.perWave) * (r.fade ? fade : 1)]);
+}
 const difficulty = () => CONFIG.difficulty[game.difficulty];
 // Punishing systems run only on harsh difficulties (never in daily runs, which are fixed to normal).
 const harsh = () => !!difficulty().harsh && !game.daily;
@@ -779,7 +847,7 @@ const route = () => CONFIG.routes.list[game.route] ?? {};
 const classInfo = () => CONFIG.classes[game.cls];
 // Tightest view limit among the map variant, the wave's route and vision mutators (eclipse, night raid); Infinity = unlimited.
 const visionLimit = () => Math.min(CONFIG.variants[game.variant].vision ?? Infinity, route().vision ?? Infinity, ...game.mutators.map(key => CONFIG.mutators[key].vision ?? Infinity));
-const waveScale = () => 1 + (game.wave - 1) * CONFIG.enemies.healthPerWave;
+const waveScale = () => { const E = CONFIG.enemies, late = Math.max(0, game.wave - E.lateFrom); return 1 + (game.wave - 1) * E.healthPerWave + E.lateStep * late * (late + 1) / 2; };
 const enemyDamage = stats => Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave) * difficulty().damage);
 const goldAmount = n => Math.max(1, Math.round(n * difficulty().gold * (1 + perk('greed') * P.greed.gold + perk('hoarder') * P.hoarder.gold + perk('bloodPrice') * P.bloodPrice.gold + (route().gold ?? 0))));
 function scrapAmount(n) {
@@ -795,7 +863,8 @@ function makeEnemy(kind, pos, { affix = null, noLoot = false, hpScale = 1, radiu
 function rollAffix() {
   const E = CONFIG.elites;
   if (game.operation?.type === 'elite') return pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1]));
-  const chance = Math.min(E.max, E.base + (game.wave - E.from) * E.perWave) + difficulty().elite + (route().elite ?? 0) + (mutator('elites') ? CONFIG.mutators.elites.elite : 0);
+  const late = Math.min(E.lateMax, Math.max(0, game.wave - E.lateFrom) * E.latePerWave);
+  const chance = Math.min(E.max + late, E.base + (game.wave - E.from) * E.perWave) + difficulty().elite + (route().elite ?? 0) + (mutator('elites') ? CONFIG.mutators.elites.elite : 0);
   return game.rng.roster() < chance ? pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1])) : null;
 }
 function spawnEnemy() {
@@ -807,6 +876,7 @@ function spawnEnemy() {
   if (e.affix && !game.seenAffixes.has(e.affix)) { game.seenAffixes.add(e.affix); notify(t('toast.elite', { name: t(`affix.${e.affix}`), desc: t(`affix.${e.affix}.desc`) })); }
   if (e.affix && harsh() && game.wave >= CONFIG.captains.from && game.rng.roster() < CONFIG.captains.chance) makeCaptain(e);
   markIntel(CONFIG.enemies[e.kind].boss ? 'bosses' : 'enemies', e.kind);
+  legionSpawned(e);
   return true;
 }
 // Captain (harsh): an elite escorted by guards of its kind (assault troopers for support kinds) that start at its side.
@@ -878,8 +948,8 @@ function startWave() {
   if (!game.chapter || (game.wave - 1) % CONFIG.chapters.length === 0) game.chapter = { index: Math.ceil(game.wave / CONFIG.chapters.length), time: game.time, detections: game.stats.detections, taken: game.stats.taken, enemies: 0, waves: 0, mission: null };
   game.chapter.enemies += game.waveTotal; game.chapter.waves++;
   if (game.event && !(game.event.started && !game.event.done)) game.event = null;
-  const fresh = CONFIG.waves.roster.find(r => r.from === game.wave && r.from > 1);
-  notify(game.training ? t('toast.training', { name: t(`enemy.${game.training}`) }) : game.theme ? t('toast.theme', { wave: game.wave, name: t(`theme.${game.theme}`) }) : fresh ? t('toast.newEnemy', { wave: game.wave, name: t(`enemy.${fresh.kind}`) }) : t('toast.wave', { wave: game.wave }));
+  const fresh = CONFIG.waves.roster.filter(r => r.from === game.wave && r.from > 1).map(r => t(`enemy.${r.kind}`)).join('、');
+  notify(game.training ? t('toast.training', { name: t(`enemy.${game.training}`) }) : game.theme ? t('toast.theme', { wave: game.wave, name: t(`theme.${game.theme}`) }) : fresh ? t('toast.newEnemy', { wave: game.wave, name: fresh }) : t('toast.wave', { wave: game.wave }));
   sound.play('wave');
   if (!game.training) rollChallenge();
   if (boss) { spawnBoss(); startMission(); } else { if (!game.event) rollEvent(); rollMarket(); }
@@ -1198,7 +1268,7 @@ function startGame(daily, { training = null, seedWeek = null } = {}) {
   }
   if (training) { p.gold += CONFIG.training.gold; p.scrap += CONFIG.training.scrap; if (!mutator('rifleOnly')) p.owned.add('crossbow'); }
   game.operationPlan = null; game.operation = null; game.nextOperation = null; game.operationLane = null; game.supplyReady = true;
-  stealthResetRun(); buildReset();
+  stealthResetRun(); legionResetRun(); buildReset();
   generateMap(seededRandom(`${seed}:map`), game.variant, mutator('sparse') ? CONFIG.mutators.sparse.bushes : 1);
   stealthResetMap();
   for (let i = 0; i < Math.min(CONFIG.chests.initial, CONFIG.chests.maximum); i++) spawnChest();
@@ -1589,7 +1659,7 @@ function renderChoice() {
   $('perkChoices').replaceChildren(...cards.map((card, i) => {
     const button = document.createElement('button');
     button.type = 'button'; button.className = card.rarity ? `perk-card rarity-${card.rarity}` : 'perk-card'; button.disabled = !!card.disabled;
-    button.innerHTML = `<span class="keycap">${i + 1}</span><span class="perk-icon">${card.icon}</span><b>${card.title}</b><small>${card.note}</small><span>${card.text}</span>`;
+    button.innerHTML = `<span class="keycap">${mode === 'route' ? CONFIG.operations.routeKeys[i].toUpperCase() : i + 1}</span><span class="perk-icon">${card.icon}</span><b>${card.title}</b><small>${card.note}</small><span>${card.text}</span>`;
     button.addEventListener('click', () => choose(i));
     return button;
   }));
@@ -1641,16 +1711,27 @@ function operationPlan(wave) {
   const length = CONFIG.chapters.length, chapter = Math.ceil(wave / length);
   if (game.operationPlan?.chapter === chapter) return game.operationPlan;
   const random = seededRandom(`${game.seed}:operations:${chapter}`), start = (chapter - 1) * length + 1;
+  let previous = null;
   const rows = Array.from({ length }, (_, row) => {
-    const next = start + row, boss = isBossWave(next);
-    return Array.from({ length: boss || next <= CONFIG.routes.from ? 1 : CONFIG.operations.lanes }, (_, lane) => {
-      const type = boss ? 'boss' : next === 1 ? 'eliminate' : next === 2 ? 'infiltrate' : CONFIG.operations.types[(Math.floor(random() * CONFIG.operations.types.length) + lane) % CONFIG.operations.types.length];
-      const routes = Object.keys(CONFIG.routes.list), route = next > CONFIG.routes.from && type !== 'boss' && type !== 'supply' ? routes[Math.floor(random() * routes.length)] : 'calm';
-      return { wave: next, lane, type, route };
-    });
+    const next = start + row, boss = isBossWave(next), lanes = boss || next <= CONFIG.routes.from ? 1 : CONFIG.operations.lanes;
+    if (lanes === 1) return previous = [{ wave: next, lane: 0, type: boss ? 'boss' : next === 2 ? 'infiltrate' : 'eliminate', route: 'calm' }];
+    return previous = operationRow(random, next, lanes, previous);
   });
   game.operationLane = null;
   return game.operationPlan = { chapter, start, rows, selected: {} };
+}
+// One multi-lane row: distinct operation types and distinct route modifiers (supply always calm), redrawn while any lane repeats the
+// previous row's node in that lane or the row offers the same set of nodes as the previous row.
+function operationRow(random, wave, lanes, previous) {
+  const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const key = node => `${node.type}:${node.route}`, signature = row => row.map(key).sort().join('|');
+  let row;
+  for (let attempt = 0; attempt < CONFIG.operations.redraws; attempt++) {
+    const types = shuffled(CONFIG.operations.types), routes = shuffled(Object.keys(CONFIG.routes.list));
+    row = Array.from({ length: lanes }, (_, lane) => ({ wave, lane, type: types[lane % types.length], route: types[lane % types.length] === 'supply' ? 'calm' : routes[lane % routes.length] }));
+    if (!previous || previous.length !== lanes || (row.every((node, lane) => key(node) !== key(previous[lane])) && signature(row) !== signature(previous))) break;
+  }
+  return row;
 }
 function offerOperation(wave) {
   const plan = operationPlan(wave), row = plan.rows[wave - plan.start];
@@ -1823,7 +1904,8 @@ function renderMenu() {
   }));
 }
 function renderCodex() {
-  const groups = { enemies: Object.keys(CONFIG.enemies).filter(key => !CONFIG.enemies[key].boss), bosses: Object.keys(CONFIG.enemies).filter(key => CONFIG.enemies[key].boss), perks: Object.keys(CONFIG.perks.list), variants: Object.keys(CONFIG.variants) };
+  const kinds = Object.keys(CONFIG.enemies).filter(key => CONFIG.enemies[key].hp);
+  const groups = { enemies: kinds.filter(key => !CONFIG.enemies[key].boss), bosses: kinds.filter(key => CONFIG.enemies[key].boss), perks: Object.keys(CONFIG.perks.list), variants: Object.keys(CONFIG.variants) };
   $('codexInfo').replaceChildren(...Object.entries(groups).flatMap(([group, keys]) => keys.map(key => {
     const entry = document.createElement('span'), seen = profile.intel[group].includes(key);
     entry.className = seen ? 'codex-entry seen' : 'codex-entry';
@@ -2296,6 +2378,219 @@ function shoot() {
 function burst(x, y, color, count) {
   for (let i = 0; i < count; i++) { const a = rand(0, Math.PI * 2), speed = rand(35, 160), life = rand(.2, .7); game.particles.push({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, color, life, maxLife: life }); }
 }
+// Late-war enemies (CONFIG.legion): per-run mines and logged hiding spots live in game.legion.
+function legionResetRun() { game.legion = { mines: [], hideSpots: [], hideTimer: 0, pulses: [] }; }
+const legionData = () => game.legion ??= { mines: [], hideSpots: [], hideTimer: 0, pulses: [] };
+const legionJammed = p => !!p && game.time < (p.jammedUntil ?? 0);
+// Banner aura: returns the move-speed factor and speeds up attack recovery for rallied allies.
+function legionRally(e, dt) {
+  const B = CONFIG.legion.banner;
+  e.rallied = e.kind !== 'banner' && !CONFIG.enemies[e.kind].boss && game.enemies.some(o => o.kind === 'banner' && o.hp > 0 && distance(o, e) < B.radius);
+  if (!e.rallied) return 1;
+  e.cooldown -= dt * B.rate;
+  return 1 + B.speed;
+}
+function legionSpawned(e) {
+  if (e.kind !== 'swarm' || e.swarmExtra) return;
+  const S = CONFIG.legion.swarm, radius = CONFIG.enemies.swarm.radius;
+  for (let i = 1; i < S.count && game.enemies.length < CONFIG.waves.maxAlive; i++) {
+    const a = rand(0, Math.PI * 2), pos = { x: e.x + Math.cos(a) * rand(radius * 2, S.spread), y: e.y + Math.sin(a) * rand(radius * 2, S.spread) };
+    if (passable(pos.x, pos.y, radius)) makeEnemy('swarm', pos).swarmExtra = true;
+  }
+}
+function legionDeath(e) {
+  for (const item of e.stolen ?? []) drop(e.x, e.y, item.kind, item.amount);
+}
+// Mirror shields bounce bullets from their front arc back at the shooter.
+function legionReflect(e, b) {
+  const M = CONFIG.legion.mirror;
+  if (e.kind !== 'mirror' || Math.abs(angleDiff(Math.atan2(b.y - e.y, b.x - e.x), e.facing)) >= M.arc) return false;
+  game.bullets.push({ x: b.x, y: b.y, vx: -b.vx, vy: -b.vy, range: b.range, traveled: 0, damage: Math.min(M.maxDamage, b.damage * M.reflect), radius: CONFIG.gun.bulletRadius, friendly: false, source: 'mirror', owner: e });
+  e.blocked = .12; burst(b.x, b.y, '#e8f6ff', 6); sound.play('block', e);
+  return true;
+}
+function legionArmor(e, b) {
+  if (e.kind !== 'juggernaut') return 1;
+  const J = CONFIG.legion.juggernaut, diff = Math.abs(angleDiff(Math.atan2(b.y - e.y, b.x - e.x), e.facing));
+  if (diff < J.frontArc) { e.blocked = .12; burst(b.x, b.y, '#c9cdd4', 3); return J.front; }
+  return diff > Math.PI - J.backArc ? J.back : 1;
+}
+function legionUpdate(dt) {
+  const L = legionData(), T = CONFIG.legion.trapper, p = game.player;
+  for (let i = L.pulses.length - 1; i >= 0; i--) if ((L.pulses[i].life -= dt) <= 0) L.pulses.splice(i, 1);
+  if (!p) return;
+  if (inTerrain(p, game.bushes) && (L.hideTimer -= dt) <= 0) {
+    L.hideSpots.push({ x: p.x, y: p.y }); if (L.hideSpots.length > T.hideSpots) L.hideSpots.shift();
+    L.hideTimer = T.hideEvery;
+  }
+  for (let i = L.mines.length - 1; i >= 0; i--) {
+    const m = L.mines[i]; m.life -= dt; m.arm -= dt;
+    if (m.life <= 0) { L.mines.splice(i, 1); continue; }
+    if (m.arm <= 0 && distance(m, p) < T.trigger + p.radius) {
+      L.mines.splice(i, 1);
+      explode(m.x, m.y, 0, { blast: T.blast, playerDamage: m.damage, hurtBy: 'trapper', enemyDamage: m.damage });
+    }
+  }
+}
+function legionAway(e, from, speed, dt) { steer(e, angleTo(from, e), speed, dt); }
+function legionLob(e, x, y) {
+  const G = CONFIG.legion.grenadier, damage = enemyDamage(CONFIG.enemies.grenadier);
+  game.bombs.push({ x: clamp(x + rand(-G.scatter, G.scatter), 0, CONFIG.world.width), y: clamp(y + rand(-G.scatter, G.scatter), 0, CONFIG.world.height), time: G.fall, fall: G.fall, radius: G.blast, damage, enemyDamage: damage, owner: e, source: 'grenadier' });
+  sound.play('fuse', e);
+}
+// Kind-specific behaviour after the shared sight/state logic; returns true when it moved the enemy itself.
+function legionUpdateEnemy(e, dt, d, visible, speed) {
+  const p = game.player, stats = CONFIG.enemies[e.kind], L = CONFIG.legion;
+  if (e.kind === 'jammer') {
+    const J = L.jammer;
+    e.pulse = hunting(e) && d < J.radius ? (e.pulse ?? 0) + dt : Math.min(e.pulse ?? 0, J.every - J.warn);
+    if (e.pulse >= J.every) {
+      e.pulse = 0; legionData().pulses.push({ x: e.x, y: e.y, radius: J.radius, life: .4 }); sound.play('zap', e);
+      if (distance(e, p) < J.radius + p.radius) {
+        if (!legionJammed(p)) notify(t('legion.jammed', { seconds: J.seconds }));
+        p.jammedUntil = game.time + J.seconds;
+      }
+    }
+    if (!hunting(e)) return false;
+    if (d > J.keep + 30) steer(e, angleTo(e, p), speed, dt); else if (d < J.keep - 30) legionAway(e, p, speed, dt);
+    return true;
+  }
+  if (e.kind === 'grenadier') {
+    if (e.state === 'search' && e.special <= 0 && e.goal && distance(e, e.goal) <= stats.reach) { legionLob(e, e.goal.x, e.goal.y); e.special = L.grenadier.searchEvery; }
+    if (!hunting(e)) return false;
+    if (d > stats.reach) steer(e, angleTo(e, p), speed, dt); else if (d < stats.reach * .5) legionAway(e, p, speed, dt);
+    if (visible && d <= stats.reach && e.cooldown <= 0) { legionLob(e, p.x, p.y); e.cooldown = stats.cooldown; }
+    return true;
+  }
+  if (e.kind === 'sharpshooter') {
+    const S = L.sharpshooter;
+    if (e.aimTime > 0) {
+      if (!visible) { e.aimTime = 0; e.cooldown = stats.cooldown / 2; return true; }
+      if ((e.aimTime -= dt) > S.lock) e.aimAngle = angleTo(e, p);
+      e.facing = e.aimAngle;
+      if (e.aimTime <= 0) {
+        game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(e.aimAngle) * S.bulletSpeed, vy: Math.sin(e.aimAngle) * S.bulletSpeed, range: stats.sight, traveled: 0, damage: enemyDamage(stats), radius: S.radius, friendly: false, source: e.kind, owner: e });
+        sound.play('enemyShot', e); e.cooldown = stats.cooldown;
+      }
+      return true;
+    }
+    if (!hunting(e)) return false;
+    if (d < S.retreat) legionAway(e, p, speed, dt); else if (d > stats.reach) steer(e, angleTo(e, p), speed, dt);
+    if (visible && d <= stats.reach && e.cooldown <= 0) { e.aimTime = S.aim; e.aimAngle = angleTo(e, p); sound.play('beep', e); }
+    return true;
+  }
+  if (e.kind === 'looter') return legionUpdateLooter(e, dt, d, speed);
+  if (e.kind === 'banner') {
+    if (!hunting(e)) return false;
+    const B = L.banner;
+    if (d < B.keep) legionAway(e, p, speed, dt); else if (d > B.keep + 60) steer(e, angleTo(e, p), speed, dt);
+    return true;
+  }
+  if (e.kind === 'trapper' && !hunting(e)) {
+    const T = L.trapper, data = legionData();
+    if (data.mines.length >= T.max || !data.hideSpots.length) return false;
+    const spot = data.hideSpots.reduce((best, s) => distance(e, s) < distance(e, best) ? s : best);
+    if (distance(e, spot) > T.seek) return false;
+    if (distance(e, spot) > 16) { steer(e, angleTo(e, spot), speed * stats.wanderSpeed * 2, dt); return true; }
+    data.mines.push({ x: spot.x, y: spot.y, life: T.life, arm: T.arm, damage: enemyDamage(T) });
+    data.hideSpots.splice(data.hideSpots.indexOf(spot), 1); sound.play('fuse', e);
+    return true;
+  }
+  return false;
+}
+function legionUpdateLooter(e, dt, d, speed) {
+  const L = CONFIG.legion.looter, W = CONFIG.world, p = game.player;
+  e.stolen ??= [];
+  if (!e.exit) {
+    let target = null, best = L.seek;
+    if (e.stolen.length < L.carry) for (const item of game.loot) { const gap = distance(e, item); if (item.kind !== 'bolt' && gap < best) { best = gap; target = item; } }
+    if (target) {
+      e.facing = angleTo(e, target); steer(e, e.facing, speed, dt);
+      if (distance(e, target) < L.grab + e.radius) { game.loot.splice(game.loot.indexOf(target), 1); e.stolen.push(target); sound.play('coin', e); }
+      if (!(e.stolen.length && d < L.panic)) return true;
+    }
+    if (!e.stolen.length) { if (hunting(e) && d < L.panic * 1.5) legionAway(e, p, speed, dt); return hunting(e); }
+    const m = W.borderMargin + e.radius + 2;
+    e.exit = [{ x: m, y: e.y }, { x: W.width - m, y: e.y }, { x: e.x, y: m }, { x: e.x, y: W.height - m }].reduce((a, b) => distance(e, a) < distance(e, b) ? a : b);
+  }
+  e.facing = angleTo(e, e.exit); steer(e, e.facing, speed * L.flee, dt);
+  if (distance(e, e.exit) < e.radius) {
+    game.enemies.splice(game.enemies.indexOf(e), 1);
+    notify(t('legion.looterEscaped', { gold: e.stolen.filter(item => item.kind === 'gold').reduce((sum, item) => sum + item.amount, 0) }));
+  }
+  return true;
+}
+// Suicide drone: flies over walls, locks on (hover + warning), dives and detonates.
+function legionUpdateKamikaze(e, dt, d) {
+  const K = CONFIG.legion.kamikaze, stats = CONFIG.enemies.kamikaze, p = game.player, W = CONFIG.world, edge = W.borderMargin + e.radius;
+  const fly = (angle, speed) => { e.x = clamp(e.x + Math.cos(angle) * speed * dt, edge, W.width - edge); e.y = clamp(e.y + Math.sin(angle) * speed * dt, edge, W.height - edge); };
+  if (e.dive > 0) {
+    e.dive -= dt; fly(e.facing, stats.speed * e.speed * K.dive);
+    if (distance(e, p) < K.trigger + p.radius || e.dive <= 0) detonate(e);
+    return;
+  }
+  if (e.lock > 0) {
+    e.facing = angleTo(e, p);
+    if ((e.lock -= dt) <= 0) e.dive = K.diveSeconds;
+    return;
+  }
+  const aware = !isHidden() || d < K.sense;
+  if (aware && d < K.lockRange) { e.lock = K.lock; e.state = 'attack'; sound.play('beep', e); return; }
+  e.wanderTime -= dt;
+  if (e.wanderTime <= 0) { e.direction = angleTo(e, p) + rand(-1.4, 1.4); e.wanderTime = rand(...CONFIG.enemies.wanderInterval); }
+  e.facing = aware ? angleTo(e, p) : e.direction; e.state = aware ? 'chase' : 'wander';
+  fly(e.facing, stats.speed * e.speed * (aware ? 1 : stats.wanderSpeed));
+}
+function legionDrawWorld() {
+  const L = legionData(), T = CONFIG.legion.trapper, p = game.player, reveal = harsh() ? T.harshReveal : T.reveal;
+  for (const m of L.mines) {
+    if (!p || distance(m, p) > reveal) continue;
+    ctx.fillStyle = '#3b3e37'; ctx.beginPath(); ctx.arc(m.x, m.y, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = m.arm > 0 || Math.floor(game.time * 4) % 2 ? '#ff7050' : '#6e2a20'; ctx.beginPath(); ctx.arc(m.x, m.y, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,112,80,.35)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(m.x, m.y, T.trigger, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  }
+  for (const pulse of L.pulses) { ctx.strokeStyle = `rgba(111,195,214,${pulse.life / .4})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pulse.x, pulse.y, pulse.radius * (1 - pulse.life / .4 * .5), 0, Math.PI * 2); ctx.stroke(); }
+  if (legionJammed(p)) { ctx.strokeStyle = '#6fc3d6aa'; ctx.lineWidth = 2; ctx.setLineDash([2, 5]); ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 10 + Math.sin(game.time * 20) * 2, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+}
+function legionDrawEnemy(e) {
+  const L = CONFIG.legion, stats = CONFIG.enemies[e.kind];
+  if (isCloaked(e)) return;
+  if (e.rallied) { ctx.fillStyle = '#e0b04a'; ctx.beginPath(); ctx.moveTo(e.x - 5, e.y + e.radius + 8); ctx.lineTo(e.x, e.y + e.radius + 3); ctx.lineTo(e.x + 5, e.y + e.radius + 8); ctx.fill(); }
+  if (e.kind === 'banner') {
+    ctx.fillStyle = 'rgba(224,176,74,.06)'; ctx.beginPath(); ctx.arc(e.x, e.y, L.banner.radius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#e0b04a55'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.x, e.y, L.banner.radius, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = '#5a4020'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(e.x - 4, e.y); ctx.lineTo(e.x - 4, e.y - e.radius - 22); ctx.stroke();
+    ctx.fillStyle = '#d8412f'; ctx.beginPath(); ctx.moveTo(e.x - 4, e.y - e.radius - 22); ctx.lineTo(e.x + 12 + Math.sin(game.time * 6) * 2, e.y - e.radius - 17); ctx.lineTo(e.x - 4, e.y - e.radius - 12); ctx.fill();
+  }
+  if (e.kind === 'jammer') {
+    const J = L.jammer, charge = ((e.pulse ?? 0) - (J.every - J.warn)) / J.warn;
+    ctx.strokeStyle = '#9fe3ff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(e.x, e.y - e.radius); ctx.lineTo(e.x, e.y - e.radius - 12); ctx.stroke();
+    ctx.fillStyle = '#9fe3ff'; ctx.beginPath(); ctx.arc(e.x, e.y - e.radius - 13, 3, 0, Math.PI * 2); ctx.fill();
+    if (charge > 0) { ctx.strokeStyle = `rgba(111,195,214,${.3 + .5 * charge})`; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(e.x, e.y, J.radius * charge, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+  }
+  if (e.kind === 'sharpshooter' && e.aimTime > 0) {
+    const locked = e.aimTime <= L.sharpshooter.lock;
+    ctx.strokeStyle = locked ? '#ff5a4acc' : '#ff8a6a66'; ctx.lineWidth = locked ? 2 : 1;
+    ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + Math.cos(e.aimAngle) * stats.reach, e.y + Math.sin(e.aimAngle) * stats.reach); ctx.stroke();
+  }
+  ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.facing);
+  if (e.kind === 'mirror') { ctx.strokeStyle = e.blocked > 0 ? '#ffffff' : '#d8f0ff'; ctx.shadowColor = '#bfe8ff'; ctx.shadowBlur = 10; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, e.radius + 6, -L.mirror.arc, L.mirror.arc); ctx.stroke(); ctx.shadowBlur = 0; }
+  else if (e.kind === 'juggernaut') { ctx.strokeStyle = e.blocked > 0 ? '#ffffff' : '#5d636d'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(0, 0, e.radius + 4, -L.juggernaut.frontArc, L.juggernaut.frontArc); ctx.stroke(); ctx.fillStyle = '#ff8a6a'; ctx.fillRect(-e.radius - 2, -4, 5, 8); }
+  else if (e.kind === 'grenadier') { ctx.fillStyle = '#4e5a2e'; for (const y of [-6, 6]) { ctx.beginPath(); ctx.arc(-e.radius + 1, y, 4, 0, Math.PI * 2); ctx.fill(); } }
+  else if (e.kind === 'looter' && e.stolen?.length) { ctx.fillStyle = '#7a5a2a'; ctx.beginPath(); ctx.arc(-e.radius - 3, 0, 6 + e.stolen.length, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#f2d481'; ctx.fillRect(-e.radius - 5, -2, 4, 4); }
+  else if (e.kind === 'trapper') { ctx.fillStyle = '#3b3e37'; ctx.beginPath(); ctx.arc(-e.radius + 2, 0, 6, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#ff7050'; ctx.fillRect(-e.radius + 1, -1, 2, 2); }
+  else if (e.kind === 'kamikaze') {
+    ctx.fillStyle = '#10251c60'; ctx.beginPath(); ctx.ellipse(3, 14, 9, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = e.hit > 0 || (e.lock > 0 && Math.floor(game.time * 14) % 2) ? '#fff0d1' : stats.color;
+    ctx.beginPath(); ctx.moveTo(e.radius + 4, 0); ctx.lineTo(-e.radius, -e.radius); ctx.lineTo(-e.radius + 4, 0); ctx.lineTo(-e.radius, e.radius); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#3b3e37'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  ctx.restore();
+  if (e.kind === 'kamikaze') {
+    if (e.lock > 0 || e.dive > 0) { ctx.strokeStyle = '#ff5a4acc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, stats.blast, 0, Math.PI * 2); ctx.stroke(); }
+    if (e.hp < e.maxHp) drawHealth(e.x, e.y - e.radius - 14, e.hp / e.maxHp, 30);
+  }
+}
 function drop(x, y, kind, amount) { game.loot.push({ x: x + rand(-13, 13), y: y + rand(-13, 13), kind, amount, age: 0, phase: rand(0, 6) }); }
 // Score multiplier: combo × difficulty × mutators (see CONFIG.score).
 function scoreMultiplier() {
@@ -2305,7 +2600,7 @@ function scoreMultiplier() {
 const addScore = points => { game.score += Math.round(points * scoreMultiplier()); };
 function enemyDeath(enemy, ambush, source) {
   game.enemies.splice(game.enemies.indexOf(enemy), 1); game.kills++;
-  stealthDeath(enemy);
+  stealthDeath(enemy); legionDeath(enemy);
   buildOnKill(enemy, ambush, source);
   if (source === 'crossbow') game.stats.crossbowKills++;
   const l = CONFIG.loot, stats = CONFIG.enemies[enemy.kind], p = game.player, S = CONFIG.score;
@@ -2363,7 +2658,8 @@ function damageEnemy(e, b) {
     return;
   }
   if (CONFIG.weapons[b.source]) { game.stats.hitRange += distance(game.player, e); game.stats.hits++; }
-  hitEnemyBody(e, b.damage, b.source, b.ambush);
+  if (legionReflect(e, b)) return;
+  hitEnemyBody(e, b.damage * legionArmor(e, b), b.source, b.ambush);
 }
 // Direct body damage: used by bullets past the shield and by blades, missiles and arcs, which ignore frontal shields.
 // `source` feeds the end-of-run damage breakdown; armored elites shrug off part of every hit.
@@ -2543,8 +2839,8 @@ function dronePosition(p) {
   const s = CONFIG.autoWeapons.drone, a = game.time * s.orbitSpeed;
   return { x: p.x + Math.cos(a) * s.orbit, y: p.y + Math.sin(a) * s.orbit };
 }
-// Auto weapons stay off under the purist curse and while overheated (harsh difficulties).
-const autosOff = p => perk('purist') > 0 || p.overheat > 0;
+// Auto weapons stay off under the purist curse, while overheated (harsh difficulties) and while jammed by a jammer's EMP.
+const autosOff = p => perk('purist') > 0 || p.overheat > 0 || legionJammed(p);
 function bladePositions(p) {
   const s = CONFIG.autoWeapons.blades, n = p.levels.blades && !autosOff(p) ? s.count[p.levels.blades - 1] : 0;
   return Array.from({ length: n }, (_, i) => { const a = game.time * s.spin + i * Math.PI * 2 / n; return { x: p.x + Math.cos(a) * s.radius, y: p.y + Math.sin(a) * s.radius, a }; });
@@ -3003,11 +3299,12 @@ function updateMedic(e, stats, dt) {
 }
 function updateEnemy(e, dt) {
   if (e.hp <= 0) return;
-  const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), speed = stats.speed * e.speed * (guarded(e) ? CONFIG.captains.speed : 1);
+  const p = game.player, stats = CONFIG.enemies[e.kind], d = distance(e, p), speed = stats.speed * e.speed * (guarded(e) ? CONFIG.captains.speed : 1) * legionRally(e, dt);
   if (e.affix === 'regen') e.hp = Math.min(e.maxHp, e.hp + CONFIG.elites.affixes.regen.rate * e.maxHp * dt);
   e.cooldown -= dt; e.special -= dt; e.hit = Math.max(0, e.hit - dt); e.blocked = Math.max(0, e.blocked - dt); e.bladeCooldown -= dt; e.reveal -= dt;
   if (e.stunnedUntil > game.time) return;
   if (e.kind === 'scout') { updateScout(e, dt, d); return; }
+  if (e.kind === 'kamikaze') { legionUpdateKamikaze(e, dt, d); return; }
   if (e.kind === 'medic') { updateMedic(e, stats, dt); return; }
   if (e.fuse > 0) {
     e.fuse -= dt; e.facing = angleTo(e, p);
@@ -3033,6 +3330,7 @@ function updateEnemy(e, dt) {
     if (e.state === 'alert' || hunting(e)) { const spot = e.lastSeen ?? p; startSearch(e, spot.x, spot.y); }
   }
   if (stealthUpdateEnemy(e, dt, d, visible)) return;
+  if (legionUpdateEnemy(e, dt, d, visible, speed)) return;
   if (e.cover) { /* sniper relocating: moved by updateSniper */ }
   else if (e.state === 'wander') {
     e.wanderTime -= dt;
@@ -3247,6 +3545,7 @@ function update(dt) {
   }
   if (inTerrain(p, game.bushes)) p.bushTime = game.time;
   stealthUpdate(dt);
+  legionUpdate(dt);
   environmentUpdate(dt);
   if (game.mode !== 'playing') return;
   for (const r of game.walls) if (r.hit) r.hit = Math.max(0, r.hit - dt);
@@ -3256,7 +3555,7 @@ function update(dt) {
   if (p.reload > 0 && (p.reload -= dt) <= 0) { p.mag[p.reloadGun] = gunStats(p.reloadGun).mag; updateHUD(); }
   const hidden = isHidden(), maxShield = gearStats().maxShield;
   if (hidden) game.stats.hiddenTime += dt;
-  if (p.shield < maxShield && hidden && !p.shieldBroken && game.time - p.lastHurt >= CONFIG.player.shieldRegenDelay) p.shield = Math.min(maxShield, p.shield + CONFIG.player.shieldRegenRate * dt);
+  if (p.shield < maxShield && hidden && !p.shieldBroken && !legionJammed(p) && game.time - p.lastHurt >= CONFIG.player.shieldRegenDelay) p.shield = Math.min(maxShield, p.shield + CONFIG.player.shieldRegenRate * dt);
   const camera = getCamera();
   if (game.mouse.active) p.facing = Math.atan2(game.mouse.y + camera.y - p.y, game.mouse.x + camera.x - p.x);
   if (game.mouse.down && p.cooldown <= 0) shoot();
@@ -3617,6 +3916,7 @@ function drawPointers(camera, w, h) {
 function drawEnemy(e) {
   const stats = CONFIG.enemies[e.kind], hidden = inTerrain(e, game.bushes), cloaked = isCloaked(e);
   if (e.kind === 'scout') { drawScout(e, stats); return; }
+  if (e.kind === 'kamikaze') return; // drawn by legionDrawEnemy
   if (e.kind === 'medic') {
     const pulse = .05 + .035 * Math.sin(game.time * 4);
     ctx.fillStyle = `rgba(131,214,160,${pulse})`; ctx.beginPath(); ctx.arc(e.x, e.y, stats.healRadius, 0, Math.PI * 2); ctx.fill();
@@ -3785,7 +4085,8 @@ function draw() {
   drawObjectives();
   drawMission();
   drawGadgets();
-  for (const e of game.enemies) { drawEnemy(e); stealthDrawEnemy(e); }
+  legionDrawWorld();
+  for (const e of game.enemies) { drawEnemy(e); stealthDrawEnemy(e); legionDrawEnemy(e); }
   if (game.player) drawPlayer(game.player);
   drawProjectiles();
   for (const part of game.particles) { ctx.globalAlpha = part.life / part.maxLife; ctx.fillStyle = part.color; ctx.fillRect(part.x, part.y, 3, 3); } ctx.globalAlpha = 1;
@@ -3879,7 +4180,8 @@ window.addEventListener('keydown', event => {
   else if (game.mode === 'perk' && !event.repeat && key === 'r') rerollPerks();
   else if (game.mode === 'perk' && !event.repeat && key === 'x') armPerkBanish();
   else if (game.mode === 'perk' && !event.repeat && key === 's') skipPerks();
-  else if (CHOICE_MODES.includes(game.mode) && !event.repeat && key >= '1' && key <= '9') choose(Number(key) - 1);
+  else if (game.mode === 'route' && !event.repeat && CONFIG.operations.routeKeys.includes(key)) choose(CONFIG.operations.routeKeys.indexOf(key));
+  else if (CHOICE_MODES.includes(game.mode) && game.mode !== 'route' && !event.repeat && key >= '1' && key <= '9') choose(Number(key) - 1);
   else if (game.mode !== 'playing' || event.repeat) game.keys.add(key);
   else if (key >= '1' && key <= String(GUN_KEYS.length)) equip(GUN_KEYS[Number(key) - 1]);
   else if (key === 'q') cycleWeapon();
