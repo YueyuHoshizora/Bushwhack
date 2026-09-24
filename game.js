@@ -129,6 +129,10 @@ const CONFIG = Object.freeze({
       { kind: 'juggernaut', from: 22, weight: 0.3, perWave: 0.05, max: 0.7 }
     ]
   },
+  // Final chapter pressure (all difficulties, not training): from wave `from`, each wave adds one step (wave − from + 1). Per step:
+  // regular-enemy HP × (1 + hp) (bosses excluded), enemy damage × (1 + damage), enemy speed × (1 + speed), elite chance + elite,
+  // wave size × (1 + count) and spawn interval × (1 − spawn), applied after the normal floor.
+  endgame: { from: 21, hp: 0.07, damage: 0.06, speed: 0.02, elite: 0.03, count: 0.06, spawn: 0.04 },
   chests: { minimum: 2, maximum: 4, initial: 3, radius: 23, hpBase: 23, hpPerWave: 3, replenishSeconds: 5, spawnDistance: 130 },
   loot: { coinEnemy: [3, 6], coinChest: [8, 13], scrapEnemyChance: 0.38, scrapChest: [1, 2], healChestChance: 0.28, healAmount: 18, pickupLifetime: 30 },
   upgrades: {
@@ -207,7 +211,23 @@ const CONFIG = Object.freeze({
       purist: { icon: '⊗', rarity: 'cursed', max: 1, damage: 0.35 },
       sprinter: { icon: '➟', rarity: 'cursed', max: 1, speed: 0.25, hpCut: 0.3 },
       // Kills made while standing in grass heal `heal`; outside grass the player loses `drain` HP/s (never below 1 HP).
-      thornbound: { icon: '❦', rarity: 'cursed', max: 1, heal: 4, drain: 1.5 }
+      thornbound: { icon: '❦', rarity: 'cursed', max: 1, heal: 4, drain: 1.5 },
+      // Damage taken × (1 − reduction) per stack.
+      plating: { icon: '⛊', rarity: 'common', max: 3, reduction: 0.06 },
+      fleet: { icon: '➹', rarity: 'common', max: 2, speed: 0.06 },
+      longshot: { icon: '⟶', rarity: 'common', max: 2, range: 0.12 },
+      // A kill grants +speed move speed for seconds × stacks.
+      adrenaline: { icon: '⚡', rarity: 'rare', max: 2, speed: 0.2, seconds: 1.5 },
+      // Gunshots deal +damage per stack to enemies at or below threshold of max HP.
+      executioner: { icon: '⚚', rarity: 'rare', max: 2, threshold: 0.35, damage: 0.3 },
+      // Gunshots deal +damage per stack to bosses and elites.
+      headhunter: { icon: '♔', rarity: 'rare', max: 2, damage: 0.2 },
+      // At or below threshold of max HP: gun damage +damage and fire rate +rate.
+      lastStand: { icon: '⚑', rarity: 'legendary', max: 1, threshold: 0.35, damage: 0.4, rate: 0.25 },
+      // A gunshot that leaves a non-boss enemy at or below threshold of max HP finishes it.
+      reaper: { icon: '☠', rarity: 'evolved', max: 1, needs: ['executioner', 'headhunter'], threshold: 0.15 },
+      // Damage taken × (1 − reduction); every cleared wave restores `restore` of max HP.
+      bastion: { icon: '⛫', rarity: 'evolved', max: 1, needs: ['plating', 'tough'], reduction: 0.12, restore: 0.25 }
     }
   },
   // Gun evolution recipes are checked against owned weapons, maxed shared upgrades/attachments and relevant run perks.
@@ -848,23 +868,25 @@ const classInfo = () => CONFIG.classes[game.cls];
 // Tightest view limit among the map variant, the wave's route and vision mutators (eclipse, night raid); Infinity = unlimited.
 const visionLimit = () => Math.min(CONFIG.variants[game.variant].vision ?? Infinity, route().vision ?? Infinity, ...game.mutators.map(key => CONFIG.mutators[key].vision ?? Infinity));
 const waveScale = () => { const E = CONFIG.enemies, late = Math.max(0, game.wave - E.lateFrom); return 1 + (game.wave - 1) * E.healthPerWave + E.lateStep * late * (late + 1) / 2; };
-const enemyDamage = stats => Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave) * difficulty().damage);
+// Final-chapter pressure steps: 0 before endgame.from and in training.
+const endgameStep = (wave = game.wave) => game.training ? 0 : Math.max(0, wave - CONFIG.endgame.from + 1);
+const enemyDamage = stats => Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave) * difficulty().damage * (1 + endgameStep() * CONFIG.endgame.damage));
 const goldAmount = n => Math.max(1, Math.round(n * difficulty().gold * (1 + perk('greed') * P.greed.gold + perk('hoarder') * P.hoarder.gold + perk('bloodPrice') * P.bloodPrice.gold + (route().gold ?? 0))));
 function scrapAmount(n) {
   const v = n * (1 + perk('scavenger') * P.scavenger.scrap + perk('hoarder') * P.hoarder.scrap + (classInfo().scrap ?? 0) + (route().scrap ?? 0));
   return Math.floor(v) + (Math.random() < v % 1 ? 1 : 0);
 }
 function makeEnemy(kind, pos, { affix = null, noLoot = false, hpScale = 1, radius } = {}) {
-  const stats = CONFIG.enemies[kind], E = CONFIG.elites, scale = waveScale() * difficulty().hp * hpScale * (1 + (route().hp ?? 0)) * (mutator('brittle') ? CONFIG.mutators.brittle.enemyHp : 1);
+  const stats = CONFIG.enemies[kind], E = CONFIG.elites, late = endgameStep(), scale = waveScale() * difficulty().hp * hpScale * (1 + (route().hp ?? 0)) * (mutator('brittle') ? CONFIG.mutators.brittle.enemyHp : 1) * (stats.boss ? 1 : 1 + late * CONFIG.endgame.hp);
   const hp = Math.max(1, Math.round(stats.hp * scale * (affix ? E.hp : 1))), shieldHp = Math.round((stats.shieldHp || 0) * scale), pressure = clamp(game.waveAlert / CONFIG.alert.max, 0, 1);
-  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * (affix === 'swift' ? E.affixes.swift.speed : 1), sightScale: (1 + pressure * CONFIG.alert.sightBonus) * (1 + (route().sight ?? 0)), patrolScale: 1 + pressure * CONFIG.alert.patrolBonus, reconScale: 1 + pressure * CONFIG.alert.reconBonus, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, cooldown: rand(0, .6), special: rand(0, 1), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0, lastSeen: null, goal: null, sweep: null, searchTime: 0, arrived: false, healTimer: stats.healEvery ?? 0 };
+  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * (affix === 'swift' ? E.affixes.swift.speed : 1) * (1 + late * CONFIG.endgame.speed), sightScale: (1 + pressure * CONFIG.alert.sightBonus) * (1 + (route().sight ?? 0)), patrolScale: 1 + pressure * CONFIG.alert.patrolBonus, reconScale: 1 + pressure * CONFIG.alert.reconBonus, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, cooldown: rand(0, .6), special: rand(0, 1), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0, lastSeen: null, goal: null, sweep: null, searchTime: 0, arrived: false, healTimer: stats.healEvery ?? 0 };
   game.enemies.push(e); return e;
 }
 function rollAffix() {
   const E = CONFIG.elites;
   if (game.operation?.type === 'elite') return pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1]));
   const late = Math.min(E.lateMax, Math.max(0, game.wave - E.lateFrom) * E.latePerWave);
-  const chance = Math.min(E.max + late, E.base + (game.wave - E.from) * E.perWave) + difficulty().elite + (route().elite ?? 0) + (mutator('elites') ? CONFIG.mutators.elites.elite : 0);
+  const chance = Math.min(E.max + late, E.base + (game.wave - E.from) * E.perWave) + difficulty().elite + (route().elite ?? 0) + (mutator('elites') ? CONFIG.mutators.elites.elite : 0) + endgameStep() * CONFIG.endgame.elite;
   return game.rng.roster() < chance ? pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1])) : null;
 }
 function spawnEnemy() {
@@ -927,7 +949,7 @@ function waveCount(wave, routeKey, theme) {
   if (game.training) return 0;
   if ((game.nextOperation?.wave === wave && game.nextOperation.type === 'supply') || (game.operation?.wave === wave && game.operation.type === 'supply')) return 0;
   const count = 1 + (CONFIG.routes.list[routeKey]?.count ?? 0) + (mutator('ironSwarm') && !game.daily ? CONFIG.mutators.ironSwarm.count : 0);
-  return Math.round(waveSize(wave) * difficulty().count * count * (isBossWave(wave) ? CONFIG.boss.regularShare : 1) * (theme ? CONFIG.themes.count : 1));
+  return Math.round(waveSize(wave) * difficulty().count * count * (isBossWave(wave) ? CONFIG.boss.regularShare : 1) * (theme ? CONFIG.themes.count : 1) * (1 + endgameStep(wave) * CONFIG.endgame.count));
 }
 // Harsh only: a non-boss wave from themes.from rolls (theme stream) one theme open by that wave.
 function rollTheme(wave) {
@@ -949,7 +971,8 @@ function startWave() {
   game.chapter.enemies += game.waveTotal; game.chapter.waves++;
   if (game.event && !(game.event.started && !game.event.done)) game.event = null;
   const fresh = CONFIG.waves.roster.filter(r => r.from === game.wave && r.from > 1).map(r => t(`enemy.${r.kind}`)).join('、');
-  notify(game.training ? t('toast.training', { name: t(`enemy.${game.training}`) }) : game.theme ? t('toast.theme', { wave: game.wave, name: t(`theme.${game.theme}`) }) : fresh ? t('toast.newEnemy', { wave: game.wave, name: fresh }) : t('toast.wave', { wave: game.wave }));
+  const toast = game.training ? t('toast.training', { name: t(`enemy.${game.training}`) }) : game.theme ? t('toast.theme', { wave: game.wave, name: t(`theme.${game.theme}`) }) : fresh ? t('toast.newEnemy', { wave: game.wave, name: fresh }) : t('toast.wave', { wave: game.wave });
+  notify(endgameStep() === 1 ? `${toast} · ${t('toast.endgame')}` : toast);
   sound.play('wave');
   if (!game.training) rollChallenge();
   if (boss) { spawnBoss(); startMission(); } else { if (!game.event) rollEvent(); rollMarket(); }
@@ -1261,7 +1284,7 @@ function startGame(daily, { training = null, seedWeek = null } = {}) {
   game.boss = null; game.event = null; game.challenge = null; game.merchant = null; game.perks = {}; game.perkOffer = null; game.route = null; game.nextRoute = null; game.seenAffixes = new Set(); game.newAchievements = [];
   game.mission = null; game.missionPenalty = 0; game.chapter = null; game.theme = null; game.nextTheme = null; game.seenCaptain = false; game.seenOverheat = false; game.perkBonus = 0;
   game.stats = { damage: {}, crossbowKills: 0, silentWaves: 0, ambushKills: 0, takedowns: 0, taken: 0, bosses: 0, bossKinds: new Set(), challenges: 0, purchases: 0, shotWave: null, extracted: false, perks: [], hurtBy: {}, log: [], lastHit: null, detections: 0, hiddenTime: 0, hitRange: 0, hits: 0, chapters: [] };
-  game.keys.clear(); game.mouse.down = false; game.chestTimer = 0; game.flash = 0;
+  game.keys.clear(); game.mouse.down = false; game.autoFire = false; game.chestTimer = 0; game.flash = 0;
   const levels = Object.fromEntries([...Object.keys(CONFIG.upgrades), ...Object.keys(CONFIG.gear), ...Object.keys(CONFIG.autoWeapons), ...Object.keys(CONFIG.mods)].map(key => [key, 0]));
   const autoCooldowns = Object.fromEntries(Object.keys(CONFIG.autoWeapons).map(key => [key, 0])), hp = CONFIG.player.hp + (classInfo().hp ?? 0);
   const p = game.player = { ...worldCenter, radius: CONFIG.player.radius, hp, maxHp: hp, shield: 0, lastHurt: 0, gold: 0, scrap: 0, levels, weapon: 'rifle', owned: new Set(['rifle']), autoCooldowns, cooldown: 0, invulnerable: 0, revealedUntil: 0, bushTime: -Infinity, facing: 0, items: { ...T.start }, throwKind: Object.keys(T.items)[0], bolts: CONFIG.weapons.crossbow.ammo, skillCooldown: 0, takedownCooldown: 0, dash: null, bulwark: 0, focus: 0, hunterFocusIdle: 0, hunterFocusReady: false, shadeCircuitProgress: 0, heat: 0, overheat: 0, mag: {}, reload: 0, shieldBroken: false };
@@ -1292,20 +1315,22 @@ function seedChallengeMutators(week) {
 }
 function notify(text) { UI.toast.textContent = text; UI.toast.classList.add('show'); game.toastUntil = performance.now() + 1900; }
 // Marksman: class range bonus, and Focus adds damage and removes jitter while it lasts. `mag` is the magazine size under the magazine
-// modifier (0 = no magazine).
+// modifier (0 = no magazine). Last Stand adds damage and fire rate while HP is at or below its threshold.
 function gunStats(key = game.player.weapon) {
   const p = game.player, l = p.levels, g = CONFIG.gun, w = CONFIG.weapons[key], M = CONFIG.mods, focus = p.focus > 0 ? CONFIG.classes.marksman.skill.damage : 0;
+  const stand = perk('lastStand') && p.hp <= p.maxHp * P.lastStand.threshold ? 1 : 0;
   return buildGunStats(key, {
-    ...w, damage: Math.round(w.damage * (1 + l.damage * g.damageStep) * (1 + perk('glassCannon') * P.glassCannon.damage + perk('purist') * P.purist.damage) * (1 + focus)),
-    shotsPerSecond: w.shotsPerSecond * (1 + l.rate * g.rateStep) * (1 + perk('trigger') * P.trigger.rate + perk('frenzy') * P.frenzy.rate),
-    pellets: w.pellets + l.spread, range: Math.round(w.range * (1 + l.range * g.rangeStep + (classInfo().range ?? 0))), pierce: w.pierce + l.piercing * M.piercing.pierce + (focus && !game.daily && game.cls === 'marksman' && masteryLevel('marksman') >= CONFIG.mastery.skillLevel ? CONFIG.mastery.marksmanFocusPierce : 0),
+    ...w, damage: Math.round(w.damage * (1 + l.damage * g.damageStep) * (1 + perk('glassCannon') * P.glassCannon.damage + perk('purist') * P.purist.damage + stand * P.lastStand.damage) * (1 + focus)),
+    shotsPerSecond: w.shotsPerSecond * (1 + l.rate * g.rateStep) * (1 + perk('trigger') * P.trigger.rate + perk('frenzy') * P.frenzy.rate + stand * P.lastStand.rate),
+    pellets: w.pellets + l.spread, range: Math.round(w.range * (1 + l.range * g.rangeStep + (classInfo().range ?? 0) + perk('longshot') * P.longshot.range)), pierce: w.pierce + l.piercing * M.piercing.pierce + (focus && !game.daily && game.cls === 'marksman' && masteryLevel('marksman') >= CONFIG.mastery.skillLevel ? CONFIG.mastery.marksmanFocusPierce : 0),
     bounces: l.ricochet * M.ricochet.bounces, noise: w.noise * (1 - l.suppressor * M.suppressor.noise), jitter: focus ? 0 : w.jitter,
     mag: mutator('magazine') && !w.ammo ? Math.max(1, Math.round(w.shotsPerSecond * CONFIG.mutators.magazine.seconds)) : 0
   });
 }
+// Damage reduction adds helmet levels and the Plating / Bastion perks; speed adds boots, class, perks and a running Adrenaline rush.
 function gearStats() {
-  const l = game.player.levels, g = CONFIG.gear;
-  return { reduction: l.helmet * g.helmet.reduction, maxShield: l.shield * g.shield.capacity, speed: 1 + l.boots * g.boots.speed + (classInfo().speed ?? 0) + perk('sprinter') * P.sprinter.speed };
+  const p = game.player, l = p.levels, g = CONFIG.gear, rush = game.time < (p.adrenalineUntil ?? 0) ? P.adrenaline.speed : 0;
+  return { reduction: l.helmet * g.helmet.reduction + perk('plating') * P.plating.reduction + perk('bastion') * P.bastion.reduction, maxShield: l.shield * g.shield.capacity, speed: 1 + l.boots * g.boots.speed + (classInfo().speed ?? 0) + perk('sprinter') * P.sprinter.speed + perk('fleet') * P.fleet.speed + rush };
 }
 function itemCost(item, level) {
   return item.goldStep === undefined ? { gold: item.gold, scrap: item.scrap } : { gold: item.gold + level * item.goldStep, scrap: item.scrap + level * item.scrapStep };
@@ -1621,7 +1646,7 @@ function openChoice(mode) {
 }
 function perkVars(key) {
   const v = P[key], pct = n => Math.round((n ?? 0) * 100);
-  return { pct: pct(key === 'hunterFocus' ? v.damage : key === 'secondWind' ? v.hp : v.bonus ?? v.chance ?? v.scrap ?? v.gold ?? v.rate ?? v.pickup), heal: v.heal, hp: v.hp, seconds: v.seconds, regen: v.regen, takedown: pct(v.takedown), chance: pct(v.chance), scrap: pct(v.scrap), gold: pct(v.gold), damage: pct(v.damage), hpCut: pct(v.hpCut), taken: pct(v.taken), reveal: pct(v.reveal), count: v.takedowns, speed: pct(v.speed), drain: v.drain };
+  return { pct: pct(key === 'hunterFocus' ? v.damage : key === 'secondWind' ? v.hp : v.bonus ?? v.chance ?? v.scrap ?? v.gold ?? v.rate ?? v.pickup), heal: v.heal, hp: v.hp, seconds: v.seconds, regen: v.regen, takedown: pct(v.takedown), chance: pct(v.chance), scrap: pct(v.scrap), gold: pct(v.gold), damage: pct(v.damage), hpCut: pct(v.hpCut), taken: pct(v.taken), reveal: pct(v.reveal), count: v.takedowns, speed: pct(v.speed), drain: v.drain, reduction: pct(v.reduction), range: pct(v.range), rate: pct(v.rate), threshold: pct(v.threshold), restore: pct(v.restore) };
 }
 function routeVars(key) {
   const r = CONFIG.routes.list[key], pct = n => Math.round((n ?? 0) * 100);
@@ -2024,6 +2049,7 @@ function updateHUD() {
   $('waveText').textContent = String(game.wave).padStart(2, '0');
   const tags = [t(game.nextWave ? 'hud.intermission' : 'hud.combat'), !game.daily && threatTotal() > 0 && t('hud.threat', { points: threatTotal() }), game.route && t(`route.${game.route}.title`), game.variant !== 'standard' && t(`variant.${game.variant}`), game.daily ? t('hud.daily') : game.difficulty !== 'normal' && t(`difficulty.${game.difficulty}`)].filter(Boolean);
   if (game.operation) tags.push(t(`operation.${game.operation.type}`));
+  if (endgameStep()) tags.push(t('hud.endgame', { level: endgameStep() }));
   $('wavePill').textContent = `WAVE ${String(game.wave).padStart(2, '0')} / ${tags.join(' · ')}`;
   $('killsText').textContent = game.kills; $('goldText').textContent = p.gold; $('scrapText').textContent = p.scrap;
   $('damageStat').textContent = gun.damage; $('rateStat').textContent = `${gun.shotsPerSecond.toFixed(1)}/s`;
@@ -2031,7 +2057,7 @@ function updateHUD() {
   $('armorStat').textContent = `${Math.round(gear.reduction * 100)}%`; $('speedStat').textContent = `${Math.round(gear.speed * 100)}%`;
   $('weaponName').textContent = t(`guns.${p.weapon}.title`);
   const mag = gun.mag ? (p.reload > 0 ? t('hud.reloading') : t('hud.mag', { left: p.mag[p.weapon] ?? gun.mag, size: gun.mag })) : '';
-  $('weaponTier').textContent = t('hud.weaponTier', { owned: p.owned.size, total: Object.keys(CONFIG.weapons).length, level: total }) + (p.owned.has('crossbow') ? t('hud.bolts', { bolts: p.bolts, max: CONFIG.weapons.crossbow.ammo }) : '') + mag;
+  $('weaponTier').textContent = t('hud.weaponTier', { owned: p.owned.size, total: Object.keys(CONFIG.weapons).length, level: total }) + (p.owned.has('crossbow') ? t('hud.bolts', { bolts: p.bolts, max: CONFIG.weapons.crossbow.ammo }) : '') + mag + (game.autoFire ? t('hud.autoFire') : '');
   const buildProgress = buildHudText();
   $('weaponTier').textContent += buildProgress;
   $('weaponTier').title = buildProgress;
@@ -2353,6 +2379,11 @@ function reload() {
   if (!gun.mag || p.reload > 0 || (p.mag[p.weapon] ?? gun.mag) >= gun.mag) return;
   p.reload = CONFIG.mutators.magazine.reload; p.reloadGun = p.weapon; sound.play('toss'); updateHUD();
 }
+// Auto-fire (V, per run, off at start) keeps the equipped gun firing toward the aim as if the button were held.
+function toggleAutoFire() {
+  game.autoFire = !game.autoFire;
+  notify(t(game.autoFire ? 'toast.autoFireOn' : 'toast.autoFireOff')); updateHUD();
+}
 // Shots fired while hidden are ambush shots: they get the Ambush/Predator bonus and count toward ambush kills. Every shot makes noise
 // except silent guns (the crossbow), which also keep the player hidden but spend a bolt per shot.
 function shoot() {
@@ -2624,6 +2655,7 @@ function enemyDeath(enemy, ambush, source) {
   if (ambush) { game.stats.ambushKills++; progressChallenge('ambush'); if (perk('phantom')) p.revealedUntil = game.time; }
   const heal = perk('vampire') * P.vampire.heal + perk('bloodstorm') * P.bloodstorm.heal + (inTerrain(p, game.bushes) ? perk('thornbound') * P.thornbound.heal : 0);
   if (heal) p.hp = Math.min(p.maxHp, p.hp + heal);
+  if (perk('adrenaline')) p.adrenalineUntil = game.time + perk('adrenaline') * P.adrenaline.seconds;
   if (enemy.affix === 'splitter') {
     const s = CONFIG.elites.affixes.splitter;
     for (let i = 0; i < s.count; i++) spawnNear(enemy.kind, enemy, enemy.radius, { hpScale: s.hp, radius: s.radius });
@@ -2664,9 +2696,13 @@ function damageEnemy(e, b) {
     else { burst(e.x + Math.cos(e.facing) * 20, e.y + Math.sin(e.facing) * 20, '#bfe3f5', 18); sound.play('shieldBreak', e); }
     return;
   }
-  if (CONFIG.weapons[b.source]) { game.stats.hitRange += distance(game.player, e); game.stats.hits++; }
+  const gun = !!CONFIG.weapons[b.source];
+  if (gun) { game.stats.hitRange += distance(game.player, e); game.stats.hits++; }
   if (legionReflect(e, b)) return;
-  hitEnemyBody(e, b.damage * legionArmor(e, b), b.source, b.ambush);
+  // Gunshots: Executioner against weakened targets, Headhunter against bosses and elites; Reaper finishes weakened regulars.
+  const bonus = gun ? 1 + (e.hp <= e.maxHp * P.executioner.threshold ? perk('executioner') * P.executioner.damage : 0) + (stats.boss || e.affix ? perk('headhunter') * P.headhunter.damage : 0) : 1;
+  hitEnemyBody(e, b.damage * legionArmor(e, b) * bonus, b.source, b.ambush);
+  if (gun && perk('reaper') && !stats.boss && e.hp > 0 && e.hp <= e.maxHp * P.reaper.threshold) hitEnemyBody(e, Infinity, b.source, b.ambush);
 }
 // Direct body damage: used by bullets past the shield and by blades, missiles and arcs, which ignore frontal shields.
 // `source` feeds the end-of-run damage breakdown; armored elites shrug off part of every hit.
@@ -3619,7 +3655,7 @@ function update(dt) {
   if (p.shield < maxShield && hidden && !p.shieldBroken && !legionJammed(p) && game.time - p.lastHurt >= CONFIG.player.shieldRegenDelay) p.shield = Math.min(maxShield, p.shield + CONFIG.player.shieldRegenRate * dt);
   const camera = getCamera();
   if (game.mouse.active) p.facing = Math.atan2(game.mouse.y + camera.y - p.y, game.mouse.x + camera.x - p.x);
-  if (game.mouse.down && p.cooldown <= 0) shoot();
+  if ((game.mouse.down || game.autoFire) && p.cooldown <= 0) shoot();
   for (const e of [...game.enemies]) updateEnemy(e, dt);
   updateAutoWeapons(dt);
   updateBullets(dt);
@@ -3653,7 +3689,7 @@ function update(dt) {
     if (game.spawnTimer <= 0) {
       const w = CONFIG.waves, batch = Math.min(game.waveRemaining, w.maxBatch, 1 + Math.floor((game.wave - 1) / w.batchEvery), w.maxAlive - game.enemies.length);
       for (let i = 0; i < batch; i++) if (spawnEnemy()) game.waveRemaining--;
-      game.spawnTimer = Math.max(w.minSpawnInterval, w.spawnInterval - (game.wave - 1) * w.spawnIntervalStep);
+      game.spawnTimer = Math.max(w.minSpawnInterval, w.spawnInterval - (game.wave - 1) * w.spawnIntervalStep) * (1 - endgameStep() * CONFIG.endgame.spawn);
     }
   } else if (!game.enemies.length && game.supplyReady !== false) {
     if (!game.nextWave) {
@@ -3661,6 +3697,7 @@ function update(dt) {
       game.alert = Math.max(0, game.alert - CONFIG.alert.waveDecay - (game.waveSilent ? CONFIG.alert.silentBonus : 0));
       game.nextWave = CONFIG.waves.intermission; notify(t('toast.cleared')); addScore(CONFIG.score.waveBonus * game.wave);
       buildWaveClear();
+      if (perk('bastion')) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * P.bastion.restore);
       if (challengeOpen(game.challenge?.type) && !challengeGoal()) completeChallenge();
       p.bolts = CONFIG.weapons.crossbow.ammo;
       const cleared = route();
@@ -4252,6 +4289,7 @@ window.addEventListener('keydown', event => {
   else if (key === 'g') throwItem();
   else if (key === 't') cycleThrowable();
   else if (key === 'e') openMarket();
+  else if (key === 'v') toggleAutoFire();
   else if (key === 'r') reload();
   else game.keys.add(key);
 });
