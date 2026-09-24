@@ -1022,17 +1022,23 @@ function marketGood(kind, random) {
   }
   return { kind };
 }
-// Current price of a good, or null once it can no longer be bought (sold, maxed level, perk no longer open).
+// Current price of a good, or null once it can no longer be bought (sold, maxed level).
 function offerCost(offer) {
   const G = CONFIG.market.goods[offer.kind];
   if (offer.sold) return null;
-  if (offer.kind === 'perk' && !perkAvailable(offer.key, P[offer.key])) return null;
   const threatPrice = game.daily || !mutator('expensiveMarket') ? 1 : 1 + CONFIG.mutators.expensiveMarket.price;
   if (offer.kind !== 'discount') return { gold: Math.round(G.gold * threatPrice), scrap: G.scrap };
   const item = SHOP_TABS[offer.group][offer.key], level = game.player.levels[offer.key];
   if (level >= item.max) return null;
   const cost = itemCost(item, level);
   return { gold: Math.round(cost.gold * G.cut * threatPrice), scrap: Math.round(cost.scrap * G.cut) };
+}
+// Unsold perk goods leave the stall once the perk is no longer open (maxed or banished); an emptied stall packs up.
+function pruneMarket() {
+  const m = game.merchant;
+  if (!m) return;
+  m.offers = m.offers.filter(offer => offer.kind !== 'perk' || offer.sold || perkAvailable(offer.key));
+  if (!m.offers.length) game.merchant = null;
 }
 function openMarket() {
   const m = game.merchant;
@@ -1581,7 +1587,7 @@ function banishPerk(index) {
   if (game.mode !== 'perk' || !game.perkBanishing || (game.perkBans?.size ?? 0) >= CONFIG.perks.actions.banishMax) return;
   const key = game.perkOffer?.[index];
   if (!key) return;
-  game.perkBans ??= new Set(); game.perkBans.add(key); game.perkOffer.splice(index, 1); game.perkBanishing = false;
+  game.perkBans ??= new Set(); game.perkBans.add(key); game.perkOffer.splice(index, 1); game.perkBanishing = false; pruneMarket();
   sound.play('buy'); notify(t('perk.action.banished', { name: t(`perk.${key}.title`), count: game.perkBans.size, max: CONFIG.perks.actions.banishMax }));
   renderChoice();
 }
@@ -1681,6 +1687,7 @@ function grantPerk(key) {
   if (key === 'tough') { p.maxHp += P.tough.hp; p.hp += P.tough.hp; }
   if (key === 'glassCannon' || key === 'sprinter') { p.maxHp = Math.max(1, Math.round(p.maxHp * (1 - P[key].hpCut))); p.hp = Math.min(p.hp, p.maxHp); }
   if (key === 'shadeCircuit') p.shadeCircuitProgress = 0;
+  pruneMarket();
   if (key === 'hunterFocus') { p.hunterFocusIdle = 0; p.hunterFocusReady = false; }
   burst(p.x, p.y, '#e9e597', 17); notify(t('toast.perk', { name: t(`perk.${key}.title`) })); updateHUD();
 }
