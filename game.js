@@ -163,10 +163,10 @@ const CONFIG = Object.freeze({
   },
   // Silent melee kill (F) on a non-boss enemy within range that is unaware (wandering/searching) or facing away (beyond backArc rad).
   takedown: { range: 46, backArc: 1.9, cooldown: 0.5 },
-  // Classes picked on the start screen: a passive plus an active skill on Space (cooldown s). Mine damage scales with the wave.
+  // Classes picked on the start screen: a passive plus an active skill on Space (cooldown s). Mine and roll damage scale with the wave.
   // `unlock` names the achievement that opens a class (it then stays selectable in every mode).
   classes: {
-    ranger: { icon: '➶', speed: 0.1, skill: { cooldown: 4, distance: 170, seconds: 0.18 } },
+    ranger: { icon: '➶', speed: 0.1, skill: { cooldown: 4, distance: 170, seconds: 0.18, damage: 35 } },
     engineer: { icon: '⚒', scrap: 0.25, skill: { cooldown: 7, max: 3, arm: 0.6, trigger: 34, blast: 85, damage: 75 } },
     heavy: { icon: '⛨', hp: 30, skill: { cooldown: 12, seconds: 3.5, reduction: 0.6 } },
     // Focus: for `seconds`, gun damage +damage and no random jitter.
@@ -3507,9 +3507,12 @@ function useSkill() {
   if (p.skillCooldown > 0) return;
   const level = game.daily ? 0 : masteryLevel(game.cls);
   if (game.cls === 'ranger') {
+    // Decide ambush before the mastery roll-stealth kicks in, so only rolls started from hiding count as ambushes.
+    const ambush = isHidden();
     let { dx, dy } = moveInput();
     if (!dx && !dy) { dx = Math.cos(p.facing); dy = Math.sin(p.facing); }
-    p.dash = { time: s.seconds, vx: dx * s.distance / s.seconds, vy: dy * s.distance / s.seconds }; p.invulnerable = Math.max(p.invulnerable, s.seconds);
+    p.dash = { time: s.seconds, vx: dx * s.distance / s.seconds, vy: dy * s.distance / s.seconds, damage: Math.round(s.damage * waveScale()), ambush, hits: new Set() };
+    p.invulnerable = Math.max(p.invulnerable, s.seconds);
     if (level >= CONFIG.mastery.skillLevel) p.masteryStealthUntil = game.time + CONFIG.mastery.dodgeStealth;
   } else if (game.cls === 'engineer') {
     if (game.gadgets.filter(g => g.kind === 'mine').length >= s.max) { notify(t('toast.mineMax', { max: s.max })); return; }
@@ -3580,7 +3583,16 @@ function update(dt) {
   }
   p.skillCooldown -= dt; p.takedownCooldown -= dt; p.bulwark -= dt; p.focus -= dt;
   if ((game.comboTimer -= dt) <= 0) game.combo = 0;
-  if (p.dash) { move(p, p.dash.vx * dt, p.dash.vy * dt); if ((p.dash.time -= dt) <= 0) p.dash = null; }
+  if (p.dash) {
+    // The roll silently strikes each enemy along this frame's path once (bullet-like, so shields and mirrors still apply).
+    const d = p.dash, x = p.x, y = p.y;
+    move(p, d.vx * dt, d.vy * dt);
+    for (const e of [...game.enemies]) if (e.hp > 0 && !d.hits.has(e) && segmentCircle(x, y, p.x, p.y, e, e.radius + p.radius)) {
+      d.hits.add(e);
+      damageEnemy(e, { x, y, vx: d.vx, vy: d.vy, range: classInfo().skill.distance, damage: d.damage, source: 'roll', ambush: d.ambush });
+    }
+    if ((d.time -= dt) <= 0) p.dash = null;
+  }
   else {
     const { dx, dy } = moveInput(), speed = CONFIG.player.speed * gearStats().speed * stealthMoveFactor() * (inTerrain(p, game.ponds) ? CONFIG.player.waterMultiplier : 1);
     if (dx || dy) move(p, dx * speed * dt, dy * speed * dt);
