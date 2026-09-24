@@ -480,6 +480,35 @@ const CONFIG = Object.freeze({
   // Training range: fight one boss already met at wave `wave` (no regular enemies) with gold/scrap to spend first. No records; a win pays
   // `xp` mastery, at most dailyXp per UTC day.
   training: { wave: 10, gold: 160, scrap: 14, xp: 30, dailyXp: 90 },
+  // Special maps: typing a map's `code` as the seed starts it at wave `wave` with its own difficulty, threat modifiers and weather
+  // (kept through every chapter). layout: walls / woodWalls counts, bushes / ponds scale the variant's clusters, barrels and
+  // searchlights counts, `pattern` names fixed stone walls ([x, y, w, h]) placed before the random ones. enemy: hp, damage, speed,
+  // count and sight multiply; spawn multiplies the spawn interval; elite adds to the elite chance. affixes limits elite affixes, roster
+  // replaces the spawn roster (equal weights, no wave themes) and bossEvery sets the boss interval. player: hp multiplies max HP,
+  // vision limits the view. start: extra gold and scrap plus `perks` perk picks before the first operation (the crossbow comes free).
+  // Special runs keep no records, chapter grades, threat records or clears, and never earn wave, quiet-wave or clear achievements;
+  // mastery XP counts only the waves actually fought.
+  specialMaps: {
+    wave: 6,
+    patterns: {
+      fortress: [[580, 360, 245, 34], [975, 360, 245, 34], [580, 806, 245, 34], [975, 806, 245, 34], [580, 394, 34, 131], [580, 675, 34, 131], [1186, 394, 34, 131], [1186, 675, 34, 131]],
+      lanes: [[120, 330, 600, 34], [1080, 330, 600, 34], [120, 836, 600, 34], [1080, 836, 600, 34]],
+      pillars: [[270, 220, 60, 60], [570, 220, 60, 60], [870, 220, 60, 60], [1170, 220, 60, 60], [1470, 220, 60, 60], [270, 570, 60, 60], [570, 570, 60, 60], [1170, 570, 60, 60], [1470, 570, 60, 60], [270, 920, 60, 60], [570, 920, 60, 60], [870, 920, 60, 60], [1170, 920, 60, 60], [1470, 920, 60, 60]],
+      cross: [[120, 583, 560, 34], [1120, 583, 560, 34], [883, 60, 34, 300], [883, 840, 34, 300]]
+    },
+    list: {
+      fortress: { code: 'SP-FORTRESS', icon: '▣', difficulty: 'hard', variant: 'standard', mutators: [], layout: { pattern: 'fortress', walls: 6, woodWalls: 8, barrels: 9 }, enemy: { hp: 1.6, speed: 0.85, count: 0.8, elite: 0.1 }, affixes: ['armored'], roster: ['shield', 'juggernaut', 'mirror', 'grenadier', 'medic', 'melee'], player: {}, start: { gold: 220, scrap: 18, perks: 3 } },
+      swarm: { code: 'SP-SWARM', icon: '⋙', difficulty: 'normal', variant: 'rain', mutators: [], layout: { walls: 4, woodWalls: 2, bushes: 0.6 }, enemy: { hp: 0.55, speed: 1.15, count: 2.4, spawn: 0.45 }, roster: ['swarm', 'runner', 'hound', 'kamikaze', 'melee'], player: {}, start: { gold: 200, scrap: 16, perks: 3 } },
+      night: { code: 'SP-NIGHT', icon: '☾', difficulty: 'hard', variant: 'night', mutators: ['blindSpot'], layout: { bushes: 1.3, searchlights: 6 }, enemy: { damage: 1.3, sight: 1.15 }, roster: ['stalker', 'hound', 'scout', 'sharpshooter', 'flare', 'kamikaze'], player: { vision: 190 }, start: { gold: 200, scrap: 16, perks: 3 } },
+      inferno: { code: 'SP-INFERNO', icon: '♨', difficulty: 'hard', variant: 'scorched', mutators: ['scorchedEarth'], layout: { woodWalls: 9, bushes: 0.5, barrels: 16 }, enemy: { damage: 1.4, count: 1.1 }, roster: ['flamer', 'bomber', 'grenadier', 'kamikaze', 'runner'], player: {}, start: { gold: 220, scrap: 18, perks: 3 } },
+      alley: { code: 'SP-ALLEY', icon: '⟶', difficulty: 'hard', variant: 'standard', mutators: [], layout: { pattern: 'lanes', walls: 4, woodWalls: 4, bushes: 0.55 }, enemy: { hp: 0.85, damage: 1.5, sight: 1.35 }, roster: ['sharpshooter', 'ranged', 'flare', 'mirror', 'grenadier'], player: {}, start: { gold: 240, scrap: 18, perks: 3 } },
+      titans: { code: 'SP-TITANS', icon: '♛', difficulty: 'hard', variant: 'rain', mutators: [], layout: { pattern: 'cross', walls: 5 }, enemy: { count: 0.6 }, bossEvery: 2, player: {}, start: { gold: 260, scrap: 22, perks: 4 } },
+      elite: { code: 'SP-ELITE', icon: '♔', difficulty: 'hard', variant: 'standard', mutators: [], layout: { pattern: 'pillars', walls: 3 }, enemy: { count: 0.75, elite: 0.7 }, player: {}, start: { gold: 240, scrap: 20, perks: 3 } },
+      glass: { code: 'SP-GLASS', icon: '✧', difficulty: 'normal', variant: 'standard', mutators: ['brittle', 'magazine'], layout: { bushes: 0.8 }, enemy: { speed: 1.1, count: 1.5 }, player: { hp: 0.5 }, start: { gold: 180, scrap: 14, perks: 4 } },
+      maze: { code: 'SP-MAZE', icon: '⌗', difficulty: 'hard', variant: 'rain', mutators: ['blindSpot'], layout: { walls: 24, woodWalls: 10, bushes: 1.4 }, enemy: { speed: 1.1 }, roster: ['stalker', 'hound', 'trapper', 'melee', 'runner', 'bomber'], player: { vision: 300 }, start: { gold: 200, scrap: 16, perks: 3 } },
+      hellgate: { code: 'SP-HELLGATE', icon: '☠', difficulty: 'hell', variant: 'scorched', mutators: ['noDecay', 'expensiveMarket'], layout: { walls: 16, woodWalls: 8 }, enemy: { hp: 1.3, damage: 1.25, count: 1.3, elite: 0.15 }, bossEvery: 4, player: {}, start: { gold: 280, scrap: 24, perks: 4 } }
+    }
+  },
   // After-action report: the damage log keeps the last `window` s before the end and lists up to `entries` hits; preview names `kinds` foes.
   report: { window: 5, entries: 4 },
   preview: { kinds: 3 },
@@ -769,8 +798,9 @@ function connected(walls) {
   }
   return tail === blocked.length - blocked.reduce((sum, value) => sum + value, 0);
 }
-// Map layout comes from a seeded stream so a daily challenge produces the same field for everyone.
-function generateMap(random, variant, bushScale = 1) {
+// Map layout comes from a seeded stream so a daily challenge produces the same field for everyone. A special map's layout overrides
+// the counts and adds its fixed pattern walls first (they draw nothing from the stream, so ordinary seeds keep their maps).
+function generateMap(random, variant, bushScale = 1, layout = {}) {
   const w = CONFIG.world, v = CONFIG.variants[variant], r = (a, b) => between(random, a, b);
   game.walls = []; game.ponds = []; game.bushes = []; game.barrels = []; game.lights = [];
   const items = [];
@@ -822,12 +852,13 @@ function generateMap(random, variant, bushScale = 1) {
       game.lights.push({ x, y, radius: L.radius, hp: L.hp, hit: 0, alarm: 0, base: Math.atan2(worldCenter.y - y, worldCenter.x - x) + r(-.6, .6), phase: r(0, Math.PI * 2), light: true }); break;
     }
   }
-  addWalls(w.walls, false);
-  addWalls(w.woodWalls, true);
-  addClusters('ponds', { ...w.ponds, clusters: Math.round(w.ponds.clusters * v.ponds) });
-  addClusters('bushes', { ...w.bushes, clusters: Math.round(w.bushes.clusters * v.bushes * bushScale) });
-  addBarrels(v.barrels);
-  addLights(v.searchlights ?? 0);
+  for (const [x, y, width, height] of CONFIG.specialMaps.patterns[layout.pattern] ?? []) { const rect = { x, y, w: width, h: height }; game.walls.push(rect); items.push(rect); }
+  addWalls(layout.walls ?? w.walls, false);
+  addWalls(layout.woodWalls ?? w.woodWalls, true);
+  addClusters('ponds', { ...w.ponds, clusters: Math.round(w.ponds.clusters * v.ponds * (layout.ponds ?? 1)) });
+  addClusters('bushes', { ...w.bushes, clusters: Math.round(w.bushes.clusters * v.bushes * bushScale * (layout.bushes ?? 1)) });
+  addBarrels(layout.barrels ?? v.barrels);
+  addLights(layout.searchlights ?? v.searchlights ?? 0);
 }
 function freeSpot(radius, minDistance, avoidTerrain = false, maxDistance = Infinity) {
   for (let attempt = 0; attempt < CONFIG.world.spawnAttempts; attempt++) {
@@ -845,9 +876,11 @@ function spawnChest() {
   if (pos) game.chests.push({ ...pos, radius: CONFIG.chests.radius, hp: CONFIG.chests.hpBase + CONFIG.chests.hpPerWave * (game.wave - 1), maxHp: CONFIG.chests.hpBase + CONFIG.chests.hpPerWave * (game.wave - 1), hit: 0 });
 }
 // Roster, elite affix and event rolls use the run's seeded roster stream. A themed wave (harsh only) draws `share` of its spawns from
-// the theme's kinds.
+// the theme's kinds; a special map's roster replaces both with equal weights.
 function pickEnemyKind() {
   if (game.event?.type === 'stalkers') return 'stalker';
+  const roster = specialMap()?.roster;
+  if (roster) return pickWeighted(game.rng.roster, roster.map(kind => [kind, 1]));
   const theme = CONFIG.themes.list[game.theme];
   if (theme && game.rng.roster() < CONFIG.themes.share) return theme.kinds[Math.floor(game.rng.roster() * theme.kinds.length)];
   return pickWeighted(game.rng.roster, rosterWeights(game.wave));
@@ -865,29 +898,37 @@ const mutator = key => game.mutators.includes(key);
 const threatTotal = () => game.daily ? 0 : selectedThreat(game.mutators);
 const route = () => CONFIG.routes.list[game.route] ?? {};
 const classInfo = () => CONFIG.classes[game.cls];
-// Tightest view limit among the map variant, the wave's route and vision mutators (eclipse, night raid); Infinity = unlimited.
-const visionLimit = () => Math.min(CONFIG.variants[game.variant].vision ?? Infinity, route().vision ?? Infinity, ...game.mutators.map(key => CONFIG.mutators[key].vision ?? Infinity));
+// Special map of the run (null outside one), a map found by its seed code, its enemy modifiers (1 or `fallback` when unset) and the
+// first wave of the run.
+const specialMap = () => CONFIG.specialMaps.list[game.special] ?? null;
+const specialFor = seed => Object.keys(CONFIG.specialMaps.list).find(key => CONFIG.specialMaps.list[key].code === seed) ?? null;
+const specialMod = (key, fallback = 1) => specialMap()?.enemy?.[key] ?? fallback;
+const firstWave = () => game.special ? CONFIG.specialMaps.wave : 1;
+const bossInterval = () => specialMap()?.bossEvery ?? (mutator('earlyBoss') ? CONFIG.threat.bossEvery : CONFIG.boss.every);
+// Tightest view limit among the map variant, the wave's route, vision mutators (eclipse, night raid) and the special map; Infinity = unlimited.
+const visionLimit = () => Math.min(CONFIG.variants[game.variant].vision ?? Infinity, route().vision ?? Infinity, specialMap()?.player.vision ?? Infinity, ...game.mutators.map(key => CONFIG.mutators[key].vision ?? Infinity));
 const waveScale = () => { const E = CONFIG.enemies, late = Math.max(0, game.wave - E.lateFrom); return 1 + (game.wave - 1) * E.healthPerWave + E.lateStep * late * (late + 1) / 2; };
 // Final-chapter pressure steps: 0 before endgame.from and in training.
 const endgameStep = (wave = game.wave) => game.training ? 0 : Math.max(0, wave - CONFIG.endgame.from + 1);
-const enemyDamage = stats => Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave) * difficulty().damage * (1 + endgameStep() * CONFIG.endgame.damage));
+const enemyDamage = stats => Math.ceil(stats.damage * (1 + (game.wave - 1) * CONFIG.enemies.damagePerWave) * difficulty().damage * specialMod('damage') * (1 + endgameStep() * CONFIG.endgame.damage));
 const goldAmount = n => Math.max(1, Math.round(n * difficulty().gold * (1 + perk('greed') * P.greed.gold + perk('hoarder') * P.hoarder.gold + perk('bloodPrice') * P.bloodPrice.gold + (route().gold ?? 0))));
 function scrapAmount(n) {
   const v = n * (1 + perk('scavenger') * P.scavenger.scrap + perk('hoarder') * P.hoarder.scrap + (classInfo().scrap ?? 0) + (route().scrap ?? 0));
   return Math.floor(v) + (Math.random() < v % 1 ? 1 : 0);
 }
 function makeEnemy(kind, pos, { affix = null, noLoot = false, hpScale = 1, radius } = {}) {
-  const stats = CONFIG.enemies[kind], E = CONFIG.elites, late = endgameStep(), scale = waveScale() * difficulty().hp * hpScale * (1 + (route().hp ?? 0)) * (mutator('brittle') ? CONFIG.mutators.brittle.enemyHp : 1) * (stats.boss ? 1 : 1 + late * CONFIG.endgame.hp);
+  const stats = CONFIG.enemies[kind], E = CONFIG.elites, late = endgameStep(), scale = waveScale() * difficulty().hp * specialMod('hp') * hpScale * (1 + (route().hp ?? 0)) * (mutator('brittle') ? CONFIG.mutators.brittle.enemyHp : 1) * (stats.boss ? 1 : 1 + late * CONFIG.endgame.hp);
   const hp = Math.max(1, Math.round(stats.hp * scale * (affix ? E.hp : 1))), shieldHp = Math.round((stats.shieldHp || 0) * scale), pressure = clamp(game.waveAlert / CONFIG.alert.max, 0, 1);
-  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * (affix === 'swift' ? E.affixes.swift.speed : 1) * (1 + late * CONFIG.endgame.speed), sightScale: (1 + pressure * CONFIG.alert.sightBonus) * (1 + (route().sight ?? 0)), patrolScale: 1 + pressure * CONFIG.alert.patrolBonus, reconScale: 1 + pressure * CONFIG.alert.reconBonus, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, cooldown: rand(0, .6), special: rand(0, 1), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0, lastSeen: null, goal: null, sweep: null, searchTime: 0, arrived: false, healTimer: stats.healEvery ?? 0 };
+  const e = { ...pos, kind, affix, noLoot, radius: radius ?? stats.radius, hp, maxHp: hp, shieldHp, maxShield: shieldHp, speed: difficulty().speed * specialMod('speed') * (affix === 'swift' ? E.affixes.swift.speed : 1) * (1 + late * CONFIG.endgame.speed), sightScale: (1 + pressure * CONFIG.alert.sightBonus) * (1 + (route().sight ?? 0)) * specialMod('sight'), patrolScale: 1 + pressure * CONFIG.alert.patrolBonus, reconScale: 1 + pressure * CONFIG.alert.reconBonus, state: 'wander', direction: rand(-Math.PI, Math.PI), facing: Math.atan2(game.player.y - pos.y, game.player.x - pos.x), seed: rand(0, Math.PI * 2), wanderTime: rand(...CONFIG.enemies.wanderInterval), alertTime: 0, cooldown: rand(0, .6), special: rand(0, 1), hit: 0, blocked: 0, bladeCooldown: 0, reveal: 0, fuse: 0, lastSeen: null, goal: null, sweep: null, searchTime: 0, arrived: false, healTimer: stats.healEvery ?? 0 };
   game.enemies.push(e); return e;
 }
+// Elite affix roll (roster stream); a special map may add to the chance and limit the affixes.
 function rollAffix() {
-  const E = CONFIG.elites;
-  if (game.operation?.type === 'elite') return pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1]));
+  const E = CONFIG.elites, affixes = (specialMap()?.affixes ?? Object.keys(E.affixes)).map(key => [key, 1]);
+  if (game.operation?.type === 'elite') return pickWeighted(game.rng.roster, affixes);
   const late = Math.min(E.lateMax, Math.max(0, game.wave - E.lateFrom) * E.latePerWave);
-  const chance = Math.min(E.max + late, E.base + (game.wave - E.from) * E.perWave) + difficulty().elite + (route().elite ?? 0) + (mutator('elites') ? CONFIG.mutators.elites.elite : 0) + endgameStep() * CONFIG.endgame.elite;
-  return game.rng.roster() < chance ? pickWeighted(game.rng.roster, Object.keys(E.affixes).map(key => [key, 1])) : null;
+  const chance = Math.min(E.max + late, E.base + (game.wave - E.from) * E.perWave) + difficulty().elite + (route().elite ?? 0) + (mutator('elites') ? CONFIG.mutators.elites.elite : 0) + endgameStep() * CONFIG.endgame.elite + specialMod('elite', 0);
+  return game.rng.roster() < chance ? pickWeighted(game.rng.roster, affixes) : null;
 }
 function spawnEnemy() {
   const guided = game.wave === 1 && game.waveRemaining === game.waveTotal;
@@ -922,8 +963,7 @@ function spawnNear(kind, from, reach, options) {
 // Boss waves rotate through boss.order; a fresh boss starts searching the player's position. Training fights the chosen boss.
 function bossKind(wave) {
   if (game.training) return game.training;
-  const interval = mutator('earlyBoss') ? CONFIG.threat.bossEvery : CONFIG.boss.every;
-  return wave === CONFIG.finale.wave ? 'commander' : CONFIG.boss.order[(Math.floor(wave / interval) - 1) % CONFIG.boss.order.length];
+  return wave === CONFIG.finale.wave ? 'commander' : CONFIG.boss.order[(Math.floor(wave / bossInterval()) - 1) % CONFIG.boss.order.length];
 }
 function spawnBoss() {
   const B = CONFIG.boss, kind = bossKind(game.wave), radius = CONFIG.enemies[kind].radius;
@@ -943,18 +983,18 @@ function waveSize(wave) {
   const w = CONFIG.waves;
   return Math.min(w.maxCount, w.baseCount + wave * w.growth + Math.max(0, wave - w.lateFrom) * w.lateGrowth);
 }
-const isBossWave = (wave = game.wave) => !!game.training || wave === CONFIG.finale.wave || wave % (mutator('earlyBoss') ? CONFIG.threat.bossEvery : CONFIG.boss.every) === 0;
+const isBossWave = (wave = game.wave) => !!game.training || wave === CONFIG.finale.wave || wave % bossInterval() === 0;
 // Regular enemies of a wave under a route and theme (boss waves bring a share; training brings none).
 function waveCount(wave, routeKey, theme) {
   if (game.training) return 0;
   if ((game.nextOperation?.wave === wave && game.nextOperation.type === 'supply') || (game.operation?.wave === wave && game.operation.type === 'supply')) return 0;
   const count = 1 + (CONFIG.routes.list[routeKey]?.count ?? 0) + (mutator('ironSwarm') && !game.daily ? CONFIG.mutators.ironSwarm.count : 0);
-  return Math.round(waveSize(wave) * difficulty().count * count * (isBossWave(wave) ? CONFIG.boss.regularShare : 1) * (theme ? CONFIG.themes.count : 1) * (1 + endgameStep(wave) * CONFIG.endgame.count));
+  return Math.round(waveSize(wave) * difficulty().count * specialMod('count') * count * (isBossWave(wave) ? CONFIG.boss.regularShare : 1) * (theme ? CONFIG.themes.count : 1) * (1 + endgameStep(wave) * CONFIG.endgame.count));
 }
-// Harsh only: a non-boss wave from themes.from rolls (theme stream) one theme open by that wave.
+// Harsh only: a non-boss wave from themes.from rolls (theme stream) one theme open by that wave; never on a special map's own roster.
 function rollTheme(wave) {
   const T = CONFIG.themes;
-  if (!harsh() || game.training || wave < T.from || isBossWave(wave)) return null;
+  if (!harsh() || game.training || specialMap()?.roster || wave < T.from || isBossWave(wave)) return null;
   const open = Object.keys(T.list).filter(key => wave >= T.list[key].from);
   return open[Math.floor(game.rng.theme() * open.length)];
 }
@@ -970,7 +1010,7 @@ function startWave() {
   if (!game.chapter || (game.wave - 1) % CONFIG.chapters.length === 0) game.chapter = { index: Math.ceil(game.wave / CONFIG.chapters.length), time: game.time, detections: game.stats.detections, taken: game.stats.taken, enemies: 0, waves: 0, mission: null };
   game.chapter.enemies += game.waveTotal; game.chapter.waves++;
   if (game.event && !(game.event.started && !game.event.done)) game.event = null;
-  const fresh = CONFIG.waves.roster.filter(r => r.from === game.wave && r.from > 1).map(r => t(`enemy.${r.kind}`)).join('、');
+  const fresh = specialMap()?.roster ? '' : CONFIG.waves.roster.filter(r => r.from === game.wave && r.from > 1).map(r => t(`enemy.${r.kind}`)).join('、');
   const toast = game.training ? t('toast.training', { name: t(`enemy.${game.training}`) }) : game.theme ? t('toast.theme', { wave: game.wave, name: t(`theme.${game.theme}`) }) : fresh ? t('toast.newEnemy', { wave: game.wave, name: fresh }) : t('toast.wave', { wave: game.wave });
   notify(endgameStep() === 1 ? `${toast} · ${t('toast.endgame')}` : toast);
   sound.play('wave');
@@ -1250,10 +1290,10 @@ function failMission() {
 // The boss fell: an unfinished mission fails.
 function resolveMission() { if (activeMission()) failMission(); }
 // Chapter close (every chapters.length waves, and the finale): grade the chapter's time, detections, damage and mission, count badges
-// and keep the best grade per difficulty. Not in daily or training runs.
+// and keep the best grade per difficulty. Not in daily, training or special-map runs.
 function closeChapter() {
   const c = game.chapter, C = CONFIG.chapters, s = game.stats, p = game.player;
-  if (!c || c.closed || game.daily || game.training || c.index > C.count) return;
+  if (!c || c.closed || game.daily || game.training || game.special || c.index > C.count) return;
   c.closed = true;
   const time = game.time - c.time, par = C.par.perEnemy * c.enemies + C.par.perWave * c.waves, detections = s.detections - c.detections, taken = s.taken - c.taken;
   const grade = [time <= par, detections <= C.detections, taken <= C.taken * p.maxHp, c.mission !== false].filter(Boolean).length;
@@ -1268,25 +1308,27 @@ function closeChapter() {
 }
 // A run is a normal game (random or typed seed, chosen difficulty/mutators, achievement rewards), today's daily challenge (date seed,
 // seeded mutator), this week's seed challenge (week seed, fixed difficulty and seeded threat modifiers) or a training fight against one
-// boss. The seed drives every seeded stream, so a typed seed replays the same map and rolls.
+// boss. The seed drives every seeded stream, so a typed seed replays the same map and rolls. A special map's code as the seed starts
+// that map at its wave with its own difficulty, modifiers, weather, layout and opening kit.
 function startGame(daily, { training = null, seedWeek = null } = {}) {
   sound.init();
-  if (!daily && !seedWeek && selectedThreat(profile.mutators) > threatCap()) { notify(t('threat.cap', { cap: threatCap() })); return; }
-  const seed = daily ? todayUTC() : seedWeek ? seedChallengeSeed(seedWeek) : training ? randomSeed() : normalizeSeed($('seedInput').value) || randomSeed(), T = CONFIG.throwables;
+  const typed = daily || seedWeek || training ? '' : normalizeSeed($('seedInput').value), specialKey = specialFor(typed), map = CONFIG.specialMaps.list[specialKey];
+  if (!daily && !seedWeek && !map && selectedThreat(profile.mutators) > threatCap()) { notify(t('threat.cap', { cap: threatCap() })); return; }
+  const seed = daily ? todayUTC() : seedWeek ? seedChallengeSeed(seedWeek) : training ? randomSeed() : typed || randomSeed(), T = CONFIG.throwables;
   $('seedInput').blur(); $('trainingOverlay').hidden = true; $('progressOverlay').hidden = true;
-  game.seed = seed; game.daily = daily ? seed : null; game.training = training; game.seedWeek = seedWeek;
-  game.difficulty = daily ? CONFIG.daily.difficulty : seedWeek ? CONFIG.seedChallenge.difficulty : profile.difficulty; game.variant = variantFor(seed);
-  game.cls = profile.cls; game.mutators = daily ? [dailyMutator(seed)] : seedWeek ? seedChallengeMutators(seedWeek) : training ? [] : [...profile.mutators]; game.threat = daily ? 0 : selectedThreat(game.mutators);
+  game.seed = seed; game.daily = daily ? seed : null; game.training = training; game.seedWeek = seedWeek; game.special = specialKey;
+  game.difficulty = daily ? CONFIG.daily.difficulty : seedWeek ? CONFIG.seedChallenge.difficulty : map ? map.difficulty : profile.difficulty; game.variant = map ? map.variant : variantFor(seed);
+  game.cls = profile.cls; game.mutators = daily ? [dailyMutator(seed)] : seedWeek ? seedChallengeMutators(seedWeek) : training ? [] : map ? [...map.mutators] : [...profile.mutators]; game.threat = daily ? 0 : selectedThreat(game.mutators);
   game.rng = { roster: seededRandom(`${seed}:roster`), perks: seededRandom(`${seed}:perks`), challenge: seededRandom(`${seed}:challenge`), market: seededRandom(`${seed}:market`), contract: seededRandom(`${seed}:contract`), theme: seededRandom(`${seed}:theme`), mission: seededRandom(`${seed}:mission`) };
-  game.mode = 'playing'; game.time = 0; game.wave = training ? CONFIG.training.wave : 1; game.kills = 0; game.earned = 0; game.score = 0; game.combo = 0; game.comboTimer = 0; game.alert = 0; game.waveAlert = 0; game.waveSilent = true;
+  game.mode = 'playing'; game.time = 0; game.wave = training ? CONFIG.training.wave : firstWave(); game.kills = 0; game.earned = 0; game.score = 0; game.combo = 0; game.comboTimer = 0; game.alert = 0; game.waveAlert = 0; game.waveSilent = true;
   game.enemies = []; game.bullets = []; game.missiles = []; game.arcs = []; game.bombs = []; game.blasts = []; game.chests = []; game.loot = []; game.particles = [];
   game.throws = []; game.gadgets = []; game.flares = []; game.pools = [];
   game.boss = null; game.event = null; game.challenge = null; game.merchant = null; game.perks = {}; game.perkOffer = null; game.route = null; game.nextRoute = null; game.seenAffixes = new Set(); game.newAchievements = [];
-  game.mission = null; game.missionPenalty = 0; game.chapter = null; game.theme = null; game.nextTheme = null; game.seenCaptain = false; game.seenOverheat = false; game.perkBonus = 0;
+  game.mission = null; game.missionPenalty = 0; game.chapter = null; game.theme = null; game.nextTheme = null; game.seenCaptain = false; game.seenOverheat = false; game.perkBonus = 0; game.opening = false; game.openingPicks = map?.start.perks ?? 0;
   game.stats = { damage: {}, crossbowKills: 0, silentWaves: 0, ambushKills: 0, takedowns: 0, taken: 0, bosses: 0, bossKinds: new Set(), challenges: 0, purchases: 0, shotWave: null, extracted: false, perks: [], hurtBy: {}, log: [], lastHit: null, detections: 0, hiddenTime: 0, hitRange: 0, hits: 0, chapters: [] };
   game.keys.clear(); game.mouse.down = false; game.autoFire = false; game.chestTimer = 0; game.flash = 0;
   const levels = Object.fromEntries([...Object.keys(CONFIG.upgrades), ...Object.keys(CONFIG.gear), ...Object.keys(CONFIG.autoWeapons), ...Object.keys(CONFIG.mods)].map(key => [key, 0]));
-  const autoCooldowns = Object.fromEntries(Object.keys(CONFIG.autoWeapons).map(key => [key, 0])), hp = CONFIG.player.hp + (classInfo().hp ?? 0);
+  const autoCooldowns = Object.fromEntries(Object.keys(CONFIG.autoWeapons).map(key => [key, 0])), hp = Math.round((CONFIG.player.hp + (classInfo().hp ?? 0)) * (map?.player.hp ?? 1));
   const p = game.player = { ...worldCenter, radius: CONFIG.player.radius, hp, maxHp: hp, shield: 0, lastHurt: 0, gold: 0, scrap: 0, levels, weapon: 'rifle', owned: new Set(['rifle']), autoCooldowns, cooldown: 0, invulnerable: 0, revealedUntil: 0, bushTime: -Infinity, facing: 0, items: { ...T.start }, throwKind: Object.keys(T.items)[0], bolts: CONFIG.weapons.crossbow.ammo, skillCooldown: 0, takedownCooldown: 0, dash: null, bulwark: 0, focus: 0, hunterFocusIdle: 0, hunterFocusReady: false, shadeCircuitProgress: 0, heat: 0, overheat: 0, mag: {}, reload: 0, shieldBroken: false };
   if (!daily) for (const [id, a] of Object.entries(CONFIG.achievements)) {
     if (!unlocked(id)) continue;
@@ -1296,15 +1338,26 @@ function startGame(daily, { training = null, seedWeek = null } = {}) {
     if (a.startGold) p.gold += a.startGold;
   }
   if (training) { p.gold += CONFIG.training.gold; p.scrap += CONFIG.training.scrap; if (!mutator('rifleOnly')) p.owned.add('crossbow'); }
+  if (map) { p.gold += map.start.gold; p.scrap += map.start.scrap; if (!mutator('rifleOnly')) p.owned.add('crossbow'); }
   game.operationPlan = null; game.operation = null; game.nextOperation = null; game.operationLane = null; game.supplyReady = true;
   stealthResetRun(); legionResetRun(); buildReset();
-  generateMap(seededRandom(`${seed}:map`), game.variant, mutator('sparse') ? CONFIG.mutators.sparse.bushes : 1);
+  generateMap(seededRandom(`${seed}:map`), game.variant, mutator('sparse') ? CONFIG.mutators.sparse.bushes : 1, map?.layout);
   stealthResetMap();
   for (let i = 0; i < Math.min(CONFIG.chests.initial, CONFIG.chests.maximum); i++) spawnChest();
   UI.start.hidden = true; UI.end.hidden = true; UI.shop.hidden = true; UI.perk.hidden = true;
   sound.music('play');
-  if (training) { startWave(); toggleShop(); } else offerOperation(game.wave);
+  if (training) { startWave(); toggleShop(); } else if (game.openingPicks) openingChoice(); else offerOperation(game.wave);
   updateHUD();
+}
+// Special-map opening: the kit's perk picks one after another (a skip also spends one), then the first operation.
+function openingChoice() {
+  game.opening = game.openingPicks > 0;
+  if (game.opening) { game.openingPicks--; if (offerPerks()) return; game.opening = false; }
+  game.openingPicks = 0; offerOperation(game.wave);
+}
+// After a perk pick or skip: continue the opening, else the next route (or back to the field).
+function afterPerkChoice() {
+  if (game.opening) openingChoice(); else if (!offerRoute()) resume();
 }
 // Weekly seed challenge: the week's seed and threat modifiers (seeded by the week, distinct picks from the pool).
 const seedChallengeSeed = week => `${CONFIG.seedChallenge.prefix}${week}`;
@@ -1638,7 +1691,7 @@ function skipPerks() {
   if (game.mode !== 'perk') return;
   const p = game.player; p.gold += CONFIG.perks.actions.skipGold;
   game.perkOffer = null; game.perkBanishing = false; sound.play('buy'); notify(t('perk.action.skipped', { gold: CONFIG.perks.actions.skipGold })); updateHUD();
-  if (!offerRoute()) resume();
+  afterPerkChoice();
 }
 function openChoice(mode) {
   game.mode = mode; game.mouse.down = false; game.keys.clear();
@@ -1722,7 +1775,7 @@ function choosePerk(index) {
   if (game.perkBanishing) { banishPerk(index); return; }
   if (!perkAvailable(key)) { game.perkOffer.splice(index, 1); renderChoice(); return; }
   game.perkOffer = null; grantPerk(key); sound.play('buy');
-  if (!offerRoute()) resume();
+  afterPerkChoice();
 }
 // The chapter map replaces isolated next-wave route rolls with visible, connected operation nodes.
 function offerRoute() {
@@ -1737,7 +1790,7 @@ function chooseRoute(index) {
   game.nextRoute = node.route;
   const first = game.operationChoosingWave === game.wave;
   resume();
-  if (first) startWave();
+  if (first) { game.route = game.nextRoute; game.nextRoute = null; startWave(); }
 }
 function operationPlan(wave) {
   const length = CONFIG.chapters.length, chapter = Math.ceil(wave / length);
@@ -1822,11 +1875,12 @@ function operationAlarm() {
   game.waveRemaining += CONFIG.operations.alarmReinforcements;
   game.waveTotal += CONFIG.operations.alarmReinforcements;
 }
+// Chapter change (not on the run's first wave): weather rotates (a special map keeps its own) and wooden cover is rebuilt.
 function changeChapterBattlefield() {
-  if (game.training || game.wave <= 1 || (game.wave - 1) % CONFIG.chapters.length) return;
+  if (game.training || game.wave <= firstWave() || (game.wave - 1) % CONFIG.chapters.length) return;
   const chapter = Math.ceil(game.wave / CONFIG.chapters.length), random = seededRandom(`${game.seed}:battlefield:${chapter}`);
-  const w = CONFIG.world;
-  game.variant = CONFIG.operations.weather[(chapter - 1) % CONFIG.operations.weather.length];
+  const w = CONFIG.world, layout = specialMap()?.layout ?? {};
+  game.variant = specialMap()?.variant ?? CONFIG.operations.weather[(chapter - 1) % CONFIG.operations.weather.length];
   // Preserve stone walls and water: the learned map stays useful; only wooden cover is rebuilt.
   game.walls = game.walls.filter(wall => !wall.wood);
   game.bullets = []; game.bombs = []; game.pools = []; game.flares = []; game.missiles = [];
@@ -1836,7 +1890,7 @@ function changeChapterBattlefield() {
     if (!mutator('scorchedEarth')) bush.burned = 0;
     bush.fire = 0; bush.fireSpread = 0;
   }
-  for (let i = 0; i < w.woodWalls; i++) {
+  for (let i = 0; i < (layout.woodWalls ?? w.woodWalls); i++) {
     for (let attempt = 0; attempt < w.placementAttempts; attempt++) {
       const width = between(random, ...w.wallWidth), height = between(random, ...w.wallHeight);
       const wall = { x: between(random, w.placementMargin, w.width - width - w.placementMargin), y: between(random, w.placementMargin, w.height - height - w.placementMargin), w: width, h: height, wood: true, hp: w.woodHp, maxHp: w.woodHp, hit: 0 };
@@ -1846,7 +1900,7 @@ function changeChapterBattlefield() {
   }
   game.lights = [];
   const L = CONFIG.searchlights;
-  for (let i = 0; i < (CONFIG.variants[game.variant].searchlights ?? 0); i++) {
+  for (let i = 0; i < (layout.searchlights ?? CONFIG.variants[game.variant].searchlights ?? 0); i++) {
     for (let attempt = 0; attempt < w.placementAttempts; attempt++) {
       const pos = { x: between(random, w.placementMargin, w.width - w.placementMargin), y: between(random, w.placementMargin, w.height - w.placementMargin) };
       if (!passable(pos.x, pos.y, L.radius) || distance(pos, worldCenter) < w.spawnClearance || [...game.bushes, ...game.ponds].some(r => circleRect(pos.x, pos.y, L.radius, r)) || game.lights.some(l => distance(l, pos) < L.spacing)) continue;
@@ -1911,9 +1965,7 @@ function renderMenu() {
     const desc = !open ? t('threat.locked', { points: m.unlock.threat }) : allowed ? t(`mutator.${key}.desc`, { ...mutatorVars(key), points: m.points, every: CONFIG.threat.bossEvery, pct: mutatorVars(key).price }) : t('threat.cap', { cap: threatCap() });
     return pickerButton(`${m.icon} ${t(`mutator.${key}`)} +${m.points}`, on, desc, () => { if (!allowed) return; profile.mutators = next; saveProfile(); renderMenu(); }, !allowed);
   }));
-  const bonus = profile.mutators.reduce((sum, key) => sum + CONFIG.mutators[key].score, 0);
-  const saved = profile.threatRecords[`${profile.difficulty}:${profile.cls}`] ?? 0;
-  $('mutatorInfo').textContent = `${t('menu.mutatorBonus', { pct: Math.round(bonus * 100) })} · ${t('menu.threat', { points: selectedThreat(profile.mutators), cap: threatCap(), record: saved })}`;
+  renderThreatLine();
   $('dailyInfo').textContent = t('menu.daily', { date: today, variant: t(`variant.${variantFor(today)}`), mutator: t(`mutator.${dailyMutator(today)}`) }) + (daily ? t('menu.dailyBest', { wave: daily.wave, score: daily.score ?? 0 }) : '') + ` · ${t('menu.streak', { count: profile.streak.count })}`;
   const contracts = weeklyContracts();
   $('weeklyHeading').textContent = t('menu.weekly', { week: profile.weekly.week });
@@ -1934,6 +1986,33 @@ function renderMenu() {
     chip.title = `${t(`achievement.${id}.desc`, achievementVars(a))}\n${t(`achievement.${id}.reward`)}`;
     return chip;
   }));
+}
+// Threat line under the modifier picker; a special-map code in the seed field shows that map's fixed setup instead (details in the
+// field's tooltip).
+function renderThreatLine() {
+  const key = specialFor(normalizeSeed($('seedInput').value)), map = CONFIG.specialMaps.list[key];
+  $('seedInput').title = key ? specialSummary(key) : '';
+  if (map) { $('mutatorInfo').textContent = t('special.menu', { icon: map.icon, name: t(`special.${key}`), difficulty: t(`difficulty.${map.difficulty}`), wave: CONFIG.specialMaps.wave }); return; }
+  const bonus = profile.mutators.reduce((sum, k) => sum + CONFIG.mutators[k].score, 0);
+  const saved = profile.threatRecords[`${profile.difficulty}:${profile.cls}`] ?? 0;
+  $('mutatorInfo').textContent = `${t('menu.mutatorBonus', { pct: Math.round(bonus * 100) })} · ${t('menu.threat', { points: selectedThreat(profile.mutators), cap: threatCap(), record: saved })}`;
+}
+// Special map description: name, flavor text and the rule list generated from CONFIG.
+function specialSummary(key) {
+  const m = CONFIG.specialMaps.list[key], e = m.enemy, pct = n => Math.round(n * 100), names = (list, prefix) => list.map(k => t(`${prefix}.${k}`)).join('、');
+  const rules = [
+    t('special.rule.base', { difficulty: t(`difficulty.${m.difficulty}`), variant: t(`variant.${m.variant}`), wave: CONFIG.specialMaps.wave }),
+    ...['hp', 'damage', 'speed', 'count', 'sight', 'spawn'].filter(k => e[k] !== undefined).map(k => t(`special.rule.${k}`, { value: e[k] })),
+    e.elite && t('special.rule.elite', { pct: pct(e.elite) }),
+    m.affixes && t('special.rule.affixes', { list: names(m.affixes, 'affix') }),
+    m.roster && t('special.rule.roster', { list: names(m.roster, 'enemy') }),
+    m.bossEvery && t('special.rule.bossEvery', { every: m.bossEvery }),
+    m.player.hp && t('special.rule.playerHp', { value: m.player.hp }),
+    m.player.vision && t('special.rule.vision', { vision: m.player.vision }),
+    m.mutators.length && t('special.rule.mutators', { list: names(m.mutators, 'mutator') }),
+    t('special.rule.start', m.start)
+  ].filter(Boolean);
+  return `${m.icon} ${t(`special.${key}`)} (${m.code})\n${t(`special.${key}.desc`)}\n${rules.join(' · ')}`;
 }
 function renderCodex() {
   const kinds = Object.keys(CONFIG.enemies).filter(key => CONFIG.enemies[key].hp);
@@ -2047,7 +2126,7 @@ function updateHUD() {
   $('shieldText').textContent = gear.maxShield ? `${Math.floor(p.shield)} / ${gear.maxShield}` : t('hud.noShield');
   $('shieldFill').style.width = `${gear.maxShield ? 100 * p.shield / gear.maxShield : 0}%`;
   $('waveText').textContent = String(game.wave).padStart(2, '0');
-  const tags = [t(game.nextWave ? 'hud.intermission' : 'hud.combat'), !game.daily && threatTotal() > 0 && t('hud.threat', { points: threatTotal() }), game.route && t(`route.${game.route}.title`), game.variant !== 'standard' && t(`variant.${game.variant}`), game.daily ? t('hud.daily') : game.difficulty !== 'normal' && t(`difficulty.${game.difficulty}`)].filter(Boolean);
+  const tags = [t(game.nextWave ? 'hud.intermission' : 'hud.combat'), game.special && `${specialMap().icon} ${t(`special.${game.special}`)}`, !game.daily && threatTotal() > 0 && t('hud.threat', { points: threatTotal() }), game.route && t(`route.${game.route}.title`), game.variant !== 'standard' && t(`variant.${game.variant}`), game.daily ? t('hud.daily') : game.difficulty !== 'normal' && t(`difficulty.${game.difficulty}`)].filter(Boolean);
   if (game.operation) tags.push(t(`operation.${game.operation.type}`));
   if (endgameStep()) tags.push(t('hud.endgame', { level: endgameStep() }));
   $('wavePill').textContent = `WAVE ${String(game.wave).padStart(2, '0')} / ${tags.join(' · ')}`;
@@ -3020,11 +3099,12 @@ function finishRun(extracted = false, cleared = false) {
     profile.seedRuns[game.seedWeek] = { score: Math.max(entry.score, game.score), wave: Math.max(entry.wave, game.wave), runs: entry.runs + 1 };
     for (const week of Object.keys(profile.seedRuns).sort().slice(0, -CONFIG.seedChallenge.history)) delete profile.seedRuns[week];
   }
+  // Special maps keep no records (they start past wave 1 under their own rules).
   const run = { wave: game.wave, kills: game.kills, time: Math.floor(game.time), score: game.score }, key = game.daily ? 'daily' : game.difficulty;
-  const best = { wave: 0, kills: 0, time: 0, score: 0, ...profile.records[key] }, fresh = Object.keys(run).filter(field => run[field] > best[field]);
+  const best = { wave: 0, kills: 0, time: 0, score: 0, ...profile.records[key] }, fresh = game.special ? [] : Object.keys(run).filter(field => run[field] > best[field]);
   for (const field of fresh) best[field] = run[field];
-  if (extracted && run.wave > (best.extractWave ?? 0)) best.extractWave = run.wave;
-  profile.records[key] = best;
+  if (extracted && !game.special && run.wave > (best.extractWave ?? 0)) best.extractWave = run.wave;
+  if (!game.special) profile.records[key] = best;
   if (game.daily && (profile.daily?.date !== game.daily || run.score > (profile.daily.score ?? 0))) profile.daily = { date: game.daily, ...run };
   if (game.daily) {
     const day = todayUTC(), previous = profile.streak.day;
@@ -3034,13 +3114,13 @@ function finishRun(extracted = false, cleared = false) {
       profile.streak.day = day;
     }
   }
-  totals.ambushKills += s.ambushKills; totals.bossKills += s.bosses; totals.takedowns += s.takedowns; totals.challenges += s.challenges; totals.purchases += s.purchases; totals.extractions += extracted ? 1 : 0; totals.clears += cleared ? 1 : 0;
+  totals.ambushKills += s.ambushKills; totals.bossKills += s.bosses; totals.takedowns += s.takedowns; totals.challenges += s.challenges; totals.purchases += s.purchases; totals.extractions += extracted ? 1 : 0; totals.clears += cleared && !game.special ? 1 : 0;
   markIntel('variants', game.variant);
   for (const kind of s.bossKinds) if (!profile.bossKinds.includes(kind)) profile.bossKinds.push(kind);
   game.newAchievements = Object.entries(CONFIG.achievements).filter(([id, a]) => !unlocked(id) && achieved(a)).map(([id]) => id);
-  const xp = game.daily ? 0 : Math.round((game.wave - 1) * CONFIG.mastery.waveXp + (extracted || cleared ? CONFIG.mastery.extractionXp : 0) + s.challenges * CONFIG.mastery.challengeXp);
+  const xp = game.daily ? 0 : Math.round((game.wave - firstWave()) * CONFIG.mastery.waveXp + (extracted || cleared ? CONFIG.mastery.extractionXp : 0) + s.challenges * CONFIG.mastery.challengeXp);
   if (xp) profile.mastery[game.cls] += xp;
-  if ((extracted || cleared) && !game.daily && game.threat) {
+  if ((extracted || cleared) && !game.daily && !game.special && game.threat) {
     const recordKey = `${game.difficulty}:${game.cls}`;
     profile.threatRecords[recordKey] = Math.max(profile.threatRecords[recordKey] ?? 0, game.threat);
   }
@@ -3073,8 +3153,10 @@ function finishTraining(masteryBefore) {
 // A failed boss mission on a harsh difficulty cancels the extraction bonus of that wave.
 const extractionBonus = () => game.missionPenalty === game.wave ? 0 : CONFIG.extraction.scoreBonus;
 const DIFFICULTY_KEYS = Object.keys(CONFIG.difficulty);
-// Run goals (wave on a difficulty or harder, quiet waves before the first manual shot, every gun owned) and cumulative goals.
+// Run goals (wave on a difficulty or harder, quiet waves before the first manual shot, every gun owned; special maps never earn the
+// wave, quiet-wave or clear goals) and cumulative goals.
 function achieved(a) {
+  if (game.special && (a.wave || a.quietWaves || a.cleared)) return false;
   if (a.cleared && !game.stats.cleared) return false;
   if (a.wave && game.wave < a.wave) return false;
   if (a.difficulty && (game.daily || DIFFICULTY_KEYS.indexOf(game.difficulty) < DIFFICULTY_KEYS.indexOf(a.difficulty))) return false;
@@ -3109,7 +3191,7 @@ function renderEnd() {
   const sources = Object.entries(s.damage).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]);
   $('endDamage').textContent = sources.length ? sources.map(([source, value]) => `${sourceName(source)} ${Math.round(value)}`).join(' · ') : t('hud.none');
   $('endPerks').textContent = s.perks.length ? s.perks.map(key => P[key].icon).join(' ') : t('hud.none');
-  $('endMode').textContent = [game.training ? t('end.training', { name: t(`enemy.${game.training}`) }) : game.daily ? `${t('hud.daily')} ${game.daily}` : t('end.seed', { seed: game.seed }), game.seedWeek && t('end.seedChallenge'), !game.daily && t(`difficulty.${game.difficulty}`), !game.daily && game.threat && t('hud.threat', { points: game.threat }), t(`class.${game.cls}`), t(`variant.${game.variant}`), ...game.mutators.map(key => t(`mutator.${key}`))].filter(Boolean).join(' · ');
+  $('endMode').textContent = [game.training ? t('end.training', { name: t(`enemy.${game.training}`) }) : game.daily ? `${t('hud.daily')} ${game.daily}` : t('end.seed', { seed: game.seed }), game.seedWeek && t('end.seedChallenge'), game.special && `${specialMap().icon} ${t(`special.${game.special}`)}`, !game.daily && t(`difficulty.${game.difficulty}`), !game.daily && game.threat && t('hud.threat', { points: game.threat }), t(`class.${game.cls}`), t(`variant.${game.variant}`), ...game.mutators.map(key => t(`mutator.${key}`))].filter(Boolean).join(' · ');
   $('endAchievements').hidden = !game.newAchievements.length;
   $('endAchievements').textContent = t('end.unlocked', { list: game.newAchievements.map(id => `${CONFIG.achievements[id].icon} ${t(`achievement.${id}.title`)}`).join('、') });
   $('endXp').textContent = game.daily ? '' : `${t('end.xp', { xp: game.summary.xp })}${game.summary.levelUp ? ` · ${t('end.masteryLevelUp', game.summary.levelUp)}` : ''}`;
@@ -3122,7 +3204,7 @@ function shareText() {
   const run = game.summary.run, outcome = game.stats.extracted ? t('share.extracted') : '';
   const vars = { wave: run.wave, kills: run.kills, score: run.score, time: formatTime(run.time), variant: t(`variant.${game.variant}`), outcome, url: game.daily ? SITE_URL : `${SITE_URL}?seed=${encodeURIComponent(game.seed)}` };
   if (game.daily) return t('share.text', { ...vars, date: game.daily, mutator: t(`mutator.${game.mutators[0]}`) });
-  return t('share.seedText', { ...vars, seed: game.seed, mode: [t(`difficulty.${game.difficulty}`), t(`variant.${game.variant}`), ...game.mutators.map(key => t(`mutator.${key}`))].join(' · ') });
+  return t('share.seedText', { ...vars, seed: game.seed, mode: [game.special && t(`special.${game.special}`), t(`difficulty.${game.difficulty}`), t(`variant.${game.variant}`), ...game.mutators.map(key => t(`mutator.${key}`))].filter(Boolean).join(' · ') });
 }
 async function copyShare() {
   const text = shareText();
@@ -3691,7 +3773,7 @@ function update(dt) {
     if (game.spawnTimer <= 0) {
       const w = CONFIG.waves, batch = Math.min(game.waveRemaining, w.maxBatch, 1 + Math.floor((game.wave - 1) / w.batchEvery), w.maxAlive - game.enemies.length);
       for (let i = 0; i < batch; i++) if (spawnEnemy()) game.waveRemaining--;
-      game.spawnTimer = Math.max(w.minSpawnInterval, w.spawnInterval - (game.wave - 1) * w.spawnIntervalStep) * (1 - endgameStep() * CONFIG.endgame.spawn);
+      game.spawnTimer = Math.max(w.minSpawnInterval, w.spawnInterval - (game.wave - 1) * w.spawnIntervalStep) * (1 - endgameStep() * CONFIG.endgame.spawn) * specialMod('spawn');
     }
   } else if (!game.enemies.length && game.supplyReady !== false) {
     if (!game.nextWave) {
@@ -3976,10 +4058,11 @@ function drawMission() {
     drawHealth(d.x, d.y - d.radius - 14, d.hp / d.maxHp, 30);
   }
 }
-// Intermission banner: the next wave's size, theme or boss and its likely enemy kinds (theme kinds, or the top roster weights).
+// Intermission banner: the next wave's size, theme or boss and its likely enemy kinds (theme kinds, a special map's roster, or the top
+// roster weights).
 function drawPreview(w) {
-  const wave = game.wave + 1, theme = game.nextTheme, boss = isBossWave(wave);
-  const kinds = theme ? CONFIG.themes.list[theme].kinds : rosterWeights(wave).sort((a, b) => b[1] - a[1]).slice(0, CONFIG.preview.kinds).map(([kind]) => kind);
+  const wave = game.wave + 1, theme = game.nextTheme, boss = isBossWave(wave), roster = specialMap()?.roster;
+  const kinds = theme ? CONFIG.themes.list[theme].kinds : roster ? roster.slice(0, CONFIG.preview.kinds) : rosterWeights(wave).sort((a, b) => b[1] - a[1]).slice(0, CONFIG.preview.kinds).map(([kind]) => kind);
   const operation = game.nextOperation?.type;
   const head = [t('preview.wave', { wave: String(wave).padStart(2, '0'), count: operation === 'supply' ? 0 : waveCount(wave, game.nextRoute, theme) }), operation && t(`operation.${operation}`), boss && t('preview.boss', { name: t(`enemy.${bossKind(wave)}`) }), operation !== 'supply' && theme && t('preview.theme', { name: t(`theme.${theme}`) })].filter(Boolean).join(' · ');
   const body = operation === 'supply' ? t('operation.supply.desc', { heal: CONFIG.operations.supplyHeal }) : t('preview.kinds', { list: kinds.map(kind => t(`enemy.${kind}`)).join('、') });
@@ -4263,6 +4346,7 @@ $('skinBtn').addEventListener('click', () => {
   profile.skin = skins[(skins.indexOf(profile.skin) + 1) % skins.length]; saveProfile(); renderMenu();
 });
 $('seedInput').addEventListener('keydown', event => { if (event.key === 'Enter') startGame(false); });
+$('seedInput').addEventListener('input', renderThreatLine);
 for (const tab of document.querySelectorAll('[data-shop-tab]')) tab.addEventListener('click', () => { game.shopTab = tab.dataset.shopTab; renderShop(); });
 const GUN_KEYS = Object.keys(CONFIG.weapons);
 for (const kind of ['music', 'sfx']) {

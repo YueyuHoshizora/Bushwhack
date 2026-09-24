@@ -1,6 +1,92 @@
 # 草叢突擊 Bushwhack
 
-純 HTML5 Canvas + 原生 JavaScript 的俯視生存射擊遊戲，支援繁體中文、English、日本語。沒有後端、帳號或必需的外部素材；執行時不需建置，只有修改頁面文字或資源時需執行一支 Node 腳本產生各語系頁面。每次出擊會產生不同的牆壁、水潭與草叢配置，並檢查可行走區連通。以桌面瀏覽器（鍵盤＋滑鼠）遊玩，不支援手機。
+[繁體中文](#繁體中文) · [English](#english) · [日本語](#日本語) · 線上遊玩／Play online／オンラインで遊ぶ：<https://bushwhack.yustellar.dev>
+
+## 繁體中文
+
+純 HTML5 Canvas + 原生 JavaScript 的俯視生存射擊遊戲，支援繁體中文、English、日本語。躲進草叢隱匿、繞到敵人背後暗殺，或用六把可進化的槍械、自動武器與投擲物正面突破；每清空一波選一個天賦，每 5 波一章並迎戰首領，第 25 波是最終行動。沒有後端、帳號或必需的外部素材；執行時不需建置，只有修改頁面文字或資源時需執行一支 Node 腳本產生各語系頁面。每次出擊會產生不同的牆壁、水潭與草叢配置，並檢查可行走區連通。以桌面瀏覽器（鍵盤＋滑鼠）遊玩，不支援手機。
+
+### 特殊地圖
+
+在開始畫面的種子欄輸入代碼（不分大小寫）後按 Enter 或「開始行動」，或開啟 `https://bushwhack.yustellar.dev/?seed=<代碼>`。輸入代碼時，威脅條件列會改為顯示地圖名稱與難度，滑鼠停在種子欄可看完整規則。
+
+- 所有特殊地圖都從**第 6 波**開始。開局先連續選 3–4 次天賦，並額外獲得金幣、零件與十字弩，之後照常走章節作戰地圖直到第 25 波。
+- 難度、天氣與威脅條件由地圖固定，不套用自選的難度與威脅條件；換章時保留地圖天氣，只重建木牆。
+- 地圖與所有抽選都固定，同一代碼每次內容相同，可與朋友比較分數。
+- 特殊地圖不更新各難度紀錄、章節評價、威脅紀錄與通關次數，也無法達成波次、無聲波次與通關類成就；熟練度只計實際打過的波次。
+
+| 種子代碼 | 地圖 | 難度・天氣 | 特色 |
+| --- | --- | --- | --- |
+| `SP-FORTRESS` | ▣ 鐵壁要塞 | 困難・標準 | 出生點被一圈留有四個缺口的石牆包圍，另有 9 個爆炸桶。敵人只有護盾兵、重裝兵、鏡盾兵、擲彈兵、醫護支援兵與突擊兵：生命 ×1.6、移速 ×0.85、數量 ×0.8。精英率 +10%，而且全部是裝甲詞綴。 |
+| `SP-SWARM` | ⋙ 蟲潮 | 普通・暴雨 | 只有 4 面石牆、2 面木牆、草叢 ×0.6 的開闊地。敵人只有蜂群、高速兵、追獵犬、自爆無人機與突擊兵：生命 ×0.55、移速 ×1.15、數量 ×2.4、補兵間隔 ×0.45。 |
+| `SP-NIGHT` | ☾ 永夜 | 困難・夜戰 | 6 座探照燈塔、草叢 ×1.3，視野只有 190 px，並套用「盲區」。敵人只有隱匿兵、追獵犬、偵察機、精準射手、照明兵與自爆無人機：傷害 ×1.3、視距 ×1.15。 |
+| `SP-INFERNO` | ♨ 焦土煉獄 | 困難・焦土 | 16 個爆炸桶、9 面木牆、草叢 ×0.5，並套用「永久焦土」。敵人只有火焰兵、爆破兵、擲彈兵、自爆無人機與高速兵：傷害 ×1.4、數量 ×1.1。 |
+| `SP-ALLEY` | ⟶ 狙擊長廊 | 困難・標準 | 上下兩道各分兩段的長牆隔出三條射擊走廊，草叢 ×0.55。敵人只有精準射手、射手、照明兵、鏡盾兵與擲彈兵：生命 ×0.85、傷害 ×1.5、視距 ×1.35。 |
+| `SP-TITANS` | ♛ 巨頭會戰 | 困難・暴雨 | 十字石牆分隔戰場。每 2 波出現一名首領，從第 6 波的蟲巢母體開始輪替；一般敵人數量 ×0.6。 |
+| `SP-ELITE` | ♔ 精英獵場 | 困難・標準 | 14 根石柱排成網格。精英率 +70%（第 6 波約 81%），敵人數量 ×0.75，困難的精英隊長因此大量出現。 |
+| `SP-GLASS` | ✧ 玻璃砲台 | 普通・標準 | 套用「脆弱戰場」（敵人生命 ×0.35、你承受的傷害 ×3）與「彈匣制」。你的生命上限 ×0.5；敵人移速 ×1.1、數量 ×1.5。 |
+| `SP-MAZE` | ⌗ 綠野迷宮 | 困難・暴雨 | 24 面石牆、10 面木牆、草叢 ×1.4，視野 300 px，並套用「盲區」。敵人只有隱匿兵、追獵犬、陷阱兵、突擊兵、高速兵與爆破兵：移速 ×1.1。 |
+| `SP-HELLGATE` | ☠ 地獄之門 | 地獄・焦土 | 16 面石牆、8 面木牆。敵人生命 ×1.3、傷害 ×1.25、數量 ×1.3，精英率 +15%，每 4 波出現首領，並套用「永不鬆懈」「黑市溢價」。 |
+
+## English
+
+Bushwhack is a top-down survival shooter built with plain HTML5 Canvas and JavaScript, playable in Traditional Chinese, English and Japanese. Hide in the grass, sneak up for silent takedowns, or break through with six evolving guns, auto weapons and throwables. Pick a perk after every cleared wave; every 5 waves close a chapter with a boss, and wave 25 is the final operation. There is no backend, no account and no download. Each run generates a new, fully connected layout of walls, ponds and grass. It is made for desktop browsers with a keyboard and mouse; phones are not supported.
+
+To play locally, run `python3 -m http.server 8000` in this folder and open `http://localhost:8000/?lang=en`. Move with WASD, aim with the mouse and hold the left button to fire. `V` toggles auto-fire, `Space` uses your class skill, `F` performs a takedown and `B` opens the armory.
+
+### Special maps
+
+Type a code into the seed field on the start screen (case does not matter) and press Enter or Deploy, or open `https://bushwhack.yustellar.dev/?seed=<code>&lang=en`. While a code is typed, the threat line shows the map name and difficulty, and hovering over the seed field shows the full rules.
+
+- Every special map starts at **wave 6**. You first make 3–4 perk picks and get extra gold, scrap and the crossbow, then follow the chapter operation map as usual up to wave 25.
+- Each map fixes its own difficulty, weather and threat modifiers; your selected difficulty and threat modifiers are not used. The map keeps its weather through chapter changes; only the wooden walls are rebuilt.
+- The map and every seeded roll are fixed, so the same code always plays the same way and scores can be compared with friends.
+- Special runs do not update difficulty records, chapter grades, threat records or clear counts, and cannot earn the wave, quiet-wave or clear achievements. Mastery XP counts only the waves you actually fought.
+
+| Seed code | Map | Difficulty · weather | Features |
+| --- | --- | --- | --- |
+| `SP-FORTRESS` | ▣ Iron Fortress | Hard · Standard | Your spawn sits inside a stone ring with four gaps, and the field has 9 barrels. Only Shield Troopers, Juggernauts, Mirror Shields, Grenadiers, Field Medics and Assault troops appear: HP ×1.6, speed ×0.85, count ×0.8. Elite chance +10%, and every elite is Armored. |
+| `SP-SWARM` | ⋙ Swarm Tide | Normal · Downpour | Open ground with only 4 stone walls, 2 wooden walls and grass ×0.6. Only Swarms, Runners, Tracker hounds, Kamikaze Drones and Assault troops appear: HP ×0.55, speed ×1.15, count ×2.4, spawn interval ×0.45. |
+| `SP-NIGHT` | ☾ Endless Night | Hard · Night | 6 searchlight towers and grass ×1.3; your view is only 190 px, and Blind spot applies. Only Stalkers, Tracker hounds, Scout Drones, Sharpshooters, Flare Gunners and Kamikaze Drones appear: damage ×1.3, sight ×1.15. |
+| `SP-INFERNO` | ♨ Inferno | Hard · Scorched | 16 barrels, 9 wooden walls and grass ×0.5, and Scorched earth applies. Only Flamers, Bombers, Grenadiers, Kamikaze Drones and Runners appear: damage ×1.4, count ×1.1. |
+| `SP-ALLEY` | ⟶ Sniper Alley | Hard · Standard | Two long walls, each split in two, cut the field into three firing lanes; grass ×0.55. Only Sharpshooters, Gunners, Flare Gunners, Mirror Shields and Grenadiers appear: HP ×0.85, damage ×1.5, sight ×1.35. |
+| `SP-TITANS` | ♛ Clash of Titans | Hard · Downpour | A stone cross divides the field. A boss arrives every 2 waves, rotating from the Hive Mother at wave 6; regular enemies ×0.6. |
+| `SP-ELITE` | ♔ Elite Hunt | Hard · Standard | 14 stone pillars in a grid. Elite chance +70% (about 81% at wave 6) and enemy count ×0.75, so Hard's elite captains show up in numbers. |
+| `SP-GLASS` | ✧ Glass Cannon | Normal · Standard | Brittle (enemy HP ×0.35, damage you take ×3) and Magazines apply. Your max HP ×0.5; enemy speed ×1.1, count ×1.5. |
+| `SP-MAZE` | ⌗ Green Labyrinth | Hard · Downpour | 24 stone walls, 10 wooden walls and grass ×1.4; your view is 300 px, and Blind spot applies. Only Stalkers, Tracker hounds, Trappers, Assault troops, Runners and Bombers appear: speed ×1.1. |
+| `SP-HELLGATE` | ☠ Gates of Hell | Hell · Scorched | 16 stone walls and 8 wooden walls. Enemy HP ×1.3, damage ×1.25, count ×1.3, elite chance +15%, and a boss every 4 waves. Never Relax and Markup apply. |
+
+## 日本語
+
+草叢突撃（Bushwhack）は、HTML5 Canvas と素の JavaScript で作られた見下ろし型のサバイバルシューティングです。繁体字中国語・英語・日本語で遊べます。草むらに潜んで背後から暗殺するか、進化する 6 丁の銃、自動兵器、投擲物で正面から突破しましょう。ウェーブを制圧するたびにパークを 1 つ選び、5 ウェーブごとの章末にはボスが待ち、ウェーブ 25 が最終作戦です。サーバー、アカウント、ダウンロードは不要です。出撃のたびに壁・池・草むらの配置が新しく生成され、歩ける範囲がつながっていることも確認されます。キーボードとマウスを使うデスクトップブラウザ向けで、スマートフォンには対応していません。
+
+ローカルで遊ぶには、このフォルダで `python3 -m http.server 8000` を実行し、`http://localhost:8000/?lang=ja` を開きます。WASD で移動、マウスで照準、左ボタン長押しで射撃します。`V` でオート射撃の切り替え、`Space` で兵種スキル、`F` で暗殺、`B` で武器庫を開きます。
+
+### 特殊マップ
+
+スタート画面のシード欄にコードを入力し（大文字・小文字は区別しません）、Enter か「出撃」を押します。`https://bushwhack.yustellar.dev/?seed=<コード>&lang=ja` を開いても始められます。コードを入力すると脅威条件の行にマップ名と難易度が表示され、シード欄にマウスを乗せると詳しいルールが見られます。
+
+- 特殊マップはすべて**ウェーブ 6** から始まります。最初にパークを 3～4 回続けて選び、追加のゴールド・スクラップとクロスボウを受け取ります。その後は通常どおり章の作戦マップを進み、ウェーブ 25 まで戦います。
+- 難易度・天候・脅威条件はマップごとに固定され、自分で選んだ難易度と脅威条件は使われません。章が変わっても天候は変わらず、木の壁だけが作り直されます。
+- マップとすべての抽選は固定なので、同じコードなら毎回同じ内容になり、友達とスコアを比べられます。
+- 特殊マップでは難易度別の記録、章の評価、脅威記録、クリア回数は更新されず、ウェーブ・無音ウェーブ・クリア系の実績も達成できません。熟練度は実際に戦ったウェーブ分だけ加算されます。
+
+| シードコード | マップ | 難易度・天候 | 特徴 |
+| --- | --- | --- | --- |
+| `SP-FORTRESS` | ▣ 鉄壁要塞 | ハード・標準 | 出撃地点は四つの切れ目がある石壁の輪の中にあり、爆発樽が 9 個あります。敵はシールド兵、重装兵、鏡盾兵、擲弾兵、衛生支援兵、突撃兵のみ：体力 ×1.6、移動速度 ×0.85、数 ×0.8。エリート率 +10% で、エリートはすべて装甲持ちです。 |
+| `SP-SWARM` | ⋙ 蟲の大群 | ノーマル・豪雨 | 石壁 4 枚、木の壁 2 枚、草むら ×0.6 の開けた戦場です。敵は群体、高速兵、追跡犬、自爆ドローン、突撃兵のみ：体力 ×0.55、移動速度 ×1.15、数 ×2.4、出現間隔 ×0.45。 |
+| `SP-NIGHT` | ☾ 永夜 | ハード・夜戦 | サーチライト塔 6 基、草むら ×1.3。視界はわずか 190 px で、「死角」が適用されます。敵は隠密兵、追跡犬、偵察機、精密射手、照明兵、自爆ドローンのみ：ダメージ ×1.3、視界 ×1.15。 |
+| `SP-INFERNO` | ♨ 焦土煉獄 | ハード・焦土 | 爆発樽 16 個、木の壁 9 枚、草むら ×0.5 で、「永久焦土」が適用されます。敵は火炎兵、爆破兵、擲弾兵、自爆ドローン、高速兵のみ：ダメージ ×1.4、数 ×1.1。 |
+| `SP-ALLEY` | ⟶ 狙撃回廊 | ハード・標準 | 二つに分かれた長い壁が上下に 2 本あり、戦場を 3 本の射撃レーンに分けます。草むら ×0.55。敵は精密射手、射手、照明兵、鏡盾兵、擲弾兵のみ：体力 ×0.85、ダメージ ×1.5、視界 ×1.35。 |
+| `SP-TITANS` | ♛ 巨頭決戦 | ハード・豪雨 | 石の十字が戦場を仕切ります。2 ウェーブごとにボスが現れ、ウェーブ 6 のハイヴマザーから順に交代します。通常の敵は ×0.6。 |
+| `SP-ELITE` | ♔ 精鋭狩り | ハード・標準 | 石柱 14 本が格子状に並びます。エリート率 +70%（ウェーブ 6 で約 81%）、敵の数 ×0.75 のため、ハードのエリート隊長が大量に現れます。 |
+| `SP-GLASS` | ✧ ガラスの砲台 | ノーマル・標準 | 「脆い戦場」（敵の体力 ×0.35、被ダメージ ×3）と「弾倉制」が適用されます。自分の最大体力 ×0.5、敵の移動速度 ×1.1、数 ×1.5。 |
+| `SP-MAZE` | ⌗ 緑の迷宮 | ハード・豪雨 | 石壁 24 枚、木の壁 10 枚、草むら ×1.4。視界 300 px で、「死角」が適用されます。敵は隠密兵、追跡犬、罠師、突撃兵、高速兵、爆破兵のみ：移動速度 ×1.1。 |
+| `SP-HELLGATE` | ☠ 地獄の門 | ヘル・焦土 | 石壁 16 枚、木の壁 8 枚。敵の体力 ×1.3、ダメージ ×1.25、数 ×1.3、エリート率 +15%、4 ウェーブごとにボス。「油断なし」「闇市の値上げ」が適用されます。 |
+
+---
+
+以下的開發、部署與版本說明以繁體中文撰寫。
 
 ## 開始遊玩
 
