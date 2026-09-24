@@ -172,7 +172,7 @@
   - 開局後依序點 ja、中文、English：頁面未重新載入（測試標記保留），軍械庫標題即時變為「武器庫」「軍械庫」「Armory」（軍械庫此時未開啟）。
   - 網址依序變為 `?lang=ja`、`?lang=zh-Hant` 與無參數；canonical 的 `href` 屬性同步為 `?lang=ja`、`?lang=zh-Hant`、`./`（相對路徑）。
 - [x] **相對路徑**：
-  - `index.html` 中所有 `href`／`src`／meta `content` 除頁尾 GitHub 原始碼連結外，沒有 `http(s)://` 或 `/` 開頭的值；`og:image` 為 `assets/og-cover.png`。
+  - `index.html` 中所有 `href`／`src`／meta `content` 除頁尾 GitHub 原始碼連結與分享圖外，沒有 `http(s)://` 或 `/` 開頭的值；`og:image`、`og:image:secure_url`、`twitter:image` 為 `https://bushwhack.yustellar.dev/assets/og-cover.png`。
   - 以另一個伺服器把儲存庫掛在子路徑 `http://localhost:8766/game/`：沒有 4xx 回應、沒有 `pageerror`，圖示解析為 `/game/favicon.ico?v=…` 等，分享網址基底 `SITE_URL` 為 `http://localhost:8766/game/`；點中文後網址為 `/game/?lang=zh-Hant`。
 - [x] **音樂／音效設定**：
   - 清除 `localStorage` 後兩個音量皆預設 100%，音樂為開啟。
@@ -183,7 +183,7 @@
   - `index.html` 以 `?v=<內容雜湊>` 引用 `style.css`、`i18n.js`、`game.js`、`favicon.ico`、`assets/favicon.svg` 與 `assets/apple-touch-icon.png`。
   - 重新執行 `node tools/build-pages.mjs` 後產生檔沒有差異。
 - [x] **OG / Twitter**：
-  - `og:url` 為 `./`，`og:image`／`twitter:image` 為 `assets/og-cover.png`（相對路徑），`twitter:card` 為 `summary_large_image`。
+  - `og:url` 為 `./`，`og:image`／`twitter:image` 為 `https://bushwhack.yustellar.dev/assets/og-cover.png`（絕對網址），`twitter:card` 為 `summary_large_image`。
   - 分享圖為 1200 × 630 PNG。
 - [x] **授權**：`LICENSE` 為 GNU AGPL 第三版全文，頁尾附授權與原始碼連結。
 
@@ -384,7 +384,7 @@
 
 ## 未驗證／已知事項
 
-- **分享預覽**：未實際在 Facebook、X 等平台抓取驗證。這些爬蟲不執行 JavaScript，任何語系網址的預覽文字都是英文；`og:image` 改為相對路徑後，是否仍能顯示預覽圖未驗證（Open Graph 規範要求絕對網址）。
+- **分享預覽**：未實際在 Facebook、X 等平台抓取驗證。這些爬蟲不執行 JavaScript，任何語系網址的預覽文字都是英文；`og:image` 已為絕對網址，但 `og:url` 仍為相對路徑，平台是否正確顯示網址未驗證。
 - **Cloudflare**：SSL 模式與快取規則未驗證（無權限）。GitHub Pages 的 `https_enforced` 目前為 `false`。
 - **效能與手感**：長時間實玩的難度手感，以及實機是否維持 60fps，未驗證。
 - **裝置支援**：只支援鍵盤與滑鼠，不宣稱支援觸控或行動裝置。

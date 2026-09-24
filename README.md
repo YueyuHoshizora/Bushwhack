@@ -136,7 +136,7 @@ v1.4：第 2 波的情報任務可選「送達撤離點」或「殲滅全部敵�
 
 ## 多語系、Sitemap 與快取版本
 
-`index.html` 與 `sitemap.xml` 由 `tools/index.template.html` 與 `i18n.js` 產生，請勿手動編輯。頁面預填英文（預設語系），其他語系由 `game.js` 依 `?lang=` 在執行期替換；`sitemap.xml` 列出 `/`、`/?lang=zh-Hant`、`/?lang=ja` 並附 `hreflang` 對應，`robots.txt` 指向該 sitemap。頁面內所有連結與資源引用（圖示、樣式、腳本、canonical、`hreflang`、`og:url`、分享圖）都是相對路徑，可部署在任何網域或子路徑；只有 `sitemap.xml` 與 `robots.txt` 依規範使用 `https://bushwhack.yustellar.dev/` 絕對網址。頁面以內容雜湊引用 `style.css?v=…`、`i18n.js?v=…`、`game.js?v=…` 與瀏覽器圖示，瀏覽器與 CDN 在檔案變更後會取得新版。修改範本、`i18n.js`、`game.js`、`style.css` 或圖示後、提交前執行：
+`index.html` 與 `sitemap.xml` 由 `tools/index.template.html` 與 `i18n.js` 產生，請勿手動編輯。頁面預填英文（預設語系），其他語系由 `game.js` 依 `?lang=` 在執行期替換；`sitemap.xml` 列出 `/`、`/?lang=zh-Hant`、`/?lang=ja` 並附 `hreflang` 對應，`robots.txt` 指向該 sitemap。頁面內的連結與資源引用（圖示、樣式、腳本、canonical、`hreflang`、`og:url`）都是相對路徑，可部署在任何網域或子路徑；只有分享圖（`og:image`／`twitter:image`）、`sitemap.xml` 與 `robots.txt` 依規範使用 `https://bushwhack.yustellar.dev/` 絕對網址（建置腳本的 `ORIGIN`）。頁面以內容雜湊引用 `style.css?v=…`、`i18n.js?v=…`、`game.js?v=…` 與瀏覽器圖示，瀏覽器與 CDN 在檔案變更後會取得新版。修改範本、`i18n.js`、`game.js`、`style.css` 或圖示後、提交前執行：
 
 ```sh
 node tools/build-pages.mjs
@@ -154,7 +154,7 @@ node tools/build-pages.mjs
 
 ## 分享預覽
 
-頁面含 Open Graph／X（Twitter）大型圖片標籤，分享封面為 `assets/og-cover.png`（1200 × 630）；可編輯 `assets/og-cover.svg` 後重新輸出 PNG。`og:url`、canonical 與 `og:image`／`twitter:image` 皆為相對路徑。Open Graph 規範要求絕對網址，部分社群平台的爬蟲可能因此無法顯示預覽圖或正確網址。遊戲內「複製戰績」的連結以目前頁面網址產生。
+頁面含 Open Graph／X（Twitter）大型圖片標籤，分享封面為 `assets/og-cover.png`（1200 × 630）；可編輯 `assets/og-cover.svg` 後重新輸出 PNG。`og:image`／`twitter:image` 依 Open Graph 規範使用絕對網址 `https://bushwhack.yustellar.dev/assets/og-cover.png`（部署到其他網域時修改 `tools/build-pages.mjs` 的 `ORIGIN` 後重新建置）；`og:url` 與 canonical 仍為相對路徑，部分社群平台的爬蟲可能因此無法取得正確網址。遊戲內「複製戰績」的連結以目前頁面網址產生。
 
 瀏覽器圖示原稿為 `assets/favicon.svg`，另輸出 `favicon.ico`（16／32／48 px）與 `assets/apple-touch-icon.png`（180 × 180）；修改圖示後重新執行 `node tools/build-pages.mjs` 更新引用雜湊。
 

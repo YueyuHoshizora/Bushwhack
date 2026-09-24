@@ -5,8 +5,9 @@
 //   attr="{{a.key}}"    attribute text; the element gets data-i18n-attr="attr:key" for runtime replacement
 //   {{s.key}}           static text in the default locale (for elements that cannot hold markup, e.g. <title>)
 //   {{asset:file}}      local asset with ?v=<content hash> so browsers and CDNs fetch new versions after changes
-// Every link in index.html is relative to the page so the site works from any host or subpath; only sitemap.xml needs
-// absolute URLs (the sitemap protocol requires them) and uses ORIGIN.
+// Every link in index.html is relative to the page so the site works from any host or subpath, except the share image:
+// Open Graph requires absolute image URLs, so og:image and twitter:image use ORIGIN, as does sitemap.xml (the sitemap
+// protocol requires absolute URLs).
 // Run after editing the template, i18n.js, game.js, style.css or the icons: `node tools/build-pages.mjs`
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -37,7 +38,7 @@ const alternates = Object.keys(locales).map(code => [code, localeLink(code)]).co
 const absolute = link => new URL(link, ORIGIN).href;
 
 const values = {
-  lang: DEFAULT_LOCALE, ogLocale: locales[DEFAULT_LOCALE].ogLocale,
+  lang: DEFAULT_LOCALE, ogLocale: locales[DEFAULT_LOCALE].ogLocale, ogImage: escape(absolute('assets/og-cover.png')),
   alternates: alternates.map(([code, url]) => `  <link rel="alternate" hreflang="${code}" href="${escape(url)}">`).join('\n'),
   ogAlternates: Object.entries(locales).filter(([code]) => code !== DEFAULT_LOCALE).map(([, l]) => `  <meta property="og:locale:alternate" content="${l.ogLocale}">`).join('\n'),
   langSwitch: Object.entries(locales).map(([code, l]) => `<a href="${localeLink(code)}" hreflang="${code}" lang="${code}" data-lang="${code}"${code === DEFAULT_LOCALE ? ' aria-current="page"' : ''}>${escape(l.label)}</a>`).join('')
