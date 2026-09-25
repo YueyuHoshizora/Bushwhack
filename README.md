@@ -162,6 +162,8 @@ node tools/build-pages.mjs
 
 頁面含 Open Graph／X（Twitter）大型圖片標籤，分享封面為 `assets/og-cover.png`（1200 × 630）；可編輯 `assets/og-cover.svg` 後重新輸出 PNG。`og:image`／`twitter:image` 依 Open Graph 規範使用絕對網址 `https://bushwhack.yustellar.dev/assets/og-cover.png`（部署到其他網域時修改 `tools/build-pages.mjs` 的 `ORIGIN` 後重新建置）；`og:url` 與 canonical 仍為相對路徑，部分社群平台的爬蟲可能因此無法取得正確網址。遊戲內「複製戰績」的連結以目前頁面網址產生。
 
+另備有英文 630 × 500 分享圖 `assets/share-en-630x500.png`，原稿為 `assets/share-en-630x500.svg`，可供需要此比例的分享版位直接使用；網站的 OG／X 圖片仍維持 1200 × 630，不會自動改用此圖。
+
 瀏覽器圖示原稿為 `assets/favicon.svg`，另輸出 `favicon.ico`（16／32／48 px）與 `assets/apple-touch-icon.png`（180 × 180）；修改圖示後重新執行 `node tools/build-pages.mjs` 更新引用雜湊。
 
 ## 授權

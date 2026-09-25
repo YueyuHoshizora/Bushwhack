@@ -392,6 +392,11 @@
 - [x] **更新不打斷舊分頁**：保持舊版頁面開啟，修改工作者範本並重新建置後呼叫 `registration.update()`；舊工作者仍為 `activated`，新工作者為 `installed`／`waiting`，兩個快取 `bushwhack-shell-cd5b765ab6fc`、`bushwhack-shell-501d42a6005d` 並存。關閉舊分頁再開新分頁，新工作者為 `activated`，只剩 `bushwhack-shell-501d42a6005d`；1280 × 720 頁面高度 720、無 `pageerror`。
 - [ ] **尚未驗證**：實際點選「安裝」後的獨立視窗、外網安裝／離線遊玩、長時間離線遊玩，以及 Cloudflare 的 SSL／快取設定；本次離線機制只在本機 Chromium 實測。
 
+### 630 × 500 英文分享圖（本機 Chromium，2026-09-25）
+
+- [x] **圖檔**：以 Chromium 開啟 `assets/share-en-630x500.svg` 並輸出 `assets/share-en-630x500.png`；`sips` 確認 PNG 為 630 × 500，實際檢視輸出可見英文標題、戰場、行動標語及網址，無裁切。
+- [x] **既有預覽維持原樣**：`node tools/build-pages.mjs` 成功，網站 OG／X 仍使用既有的 1200 × 630 分享圖；新圖供指定比例的版位另行使用，社群平台的實際抓取未驗證。
+
 ## 未驗證／已知事項
 
 - **分享預覽**：未實際在 Facebook、X 等平台抓取驗證。這些爬蟲不執行 JavaScript，任何語系網址的預覽文字都是英文；`og:image` 已為絕對網址，但 `og:url` 仍為相對路徑，平台是否正確顯示網址未驗證。

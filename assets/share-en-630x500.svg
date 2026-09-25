@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="630" height="500" viewBox="0 0 630 500" role="img" aria-labelledby="title desc">
+<title id="title">Bushwhack — Ambush, or be ambushed</title>
+<desc id="desc">English share card for the top-down survival shooter Bushwhack. A player fires from the grass into a night-time battlefield.</desc>
+<defs>
+  <linearGradient id="back" x2="1" y2="1"><stop stop-color="#101e19"/><stop offset="1" stop-color="#273d2e"/></linearGradient>
+  <linearGradient id="field" x2="0" y2="1"><stop stop-color="#334d3a"/><stop offset="1" stop-color="#192e28"/></linearGradient>
+  <radialGradient id="light"><stop stop-color="#dfea9e" stop-opacity=".35"/><stop offset="1" stop-color="#dfea9e" stop-opacity="0"/></radialGradient>
+  <pattern id="mesh" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#d7e7aa" stroke-opacity=".06"/></pattern>
+  <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0v7" stroke="#def1b5" stroke-opacity=".08" stroke-width="2"/></pattern>
+  <clipPath id="crop"><rect x="23" y="193" width="584" height="205" rx="3"/></clipPath>
+  <g id="bush"><rect x="-34" y="-24" width="68" height="48" rx="19" fill="#4f7551" stroke="#71975e" stroke-width="2"/><path d="M-27-8q9-14 19-9m15-2q10-5 19 11M-24 9q11-2 15 7m24-5q7 0 13-9" fill="none" stroke="#a4bc74" stroke-width="5" stroke-linecap="round" opacity=".85"/></g>
+  <g id="target"><circle r="17" fill="#dba58f" stroke="#f2d0a9" stroke-width="3"/><path d="M-7-6l-5-9 9 5" fill="#f4d2ad"/><rect x="5" y="-3" width="19" height="6" fill="#1b332b"/></g>
+</defs>
+<rect width="630" height="500" fill="url(#back)"/>
+<rect width="630" height="500" fill="url(#mesh)"/>
+<path d="M0 0h630v500H0z" fill="none" stroke="#8fae7b" stroke-opacity=".4" stroke-width="2"/>
+<path d="M22 22h586M22 478h586" stroke="#adc692" stroke-opacity=".43"/>
+<rect x="25" y="26" width="32" height="32" fill="#e1edaa"/>
+<path d="M41 31v22m-11-11h22m-19-8 16 16m0-16L33 50" stroke="#253b2d" stroke-width="1.6"/>
+<text x="70" y="47" fill="#b7d294" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="700" letter-spacing="3">FIELD OPS  /  001</text>
+<text x="606" y="47" text-anchor="end" fill="#b7d294" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="700" letter-spacing="2">TOP-DOWN SURVIVAL</text>
+<text x="23" y="123" fill="#e4efa9" font-family="Arial,Helvetica,sans-serif" font-size="69" font-weight="900" letter-spacing="-1">BUSHWHACK</text>
+<rect x="26" y="138" width="70" height="3" fill="#e4efa9"/>
+<text x="26" y="173" fill="#f0f3df" font-family="Arial,Helvetica,sans-serif" font-size="25" font-weight="700">Ambush, or be ambushed.</text>
+<g clip-path="url(#crop)">
+  <rect x="23" y="193" width="584" height="205" fill="url(#field)"/>
+  <rect x="23" y="193" width="584" height="205" fill="url(#mesh)"/>
+  <path d="M-20 308q115-53 213 34t225-2q116-93 248-5" fill="none" stroke="#abc198" stroke-opacity=".1" stroke-width="45"/>
+  <rect x="28" y="198" width="574" height="195" fill="none" stroke="#c7dcaa" stroke-opacity=".27"/>
+  <path d="M45 214h42m-42 0v29m543-29h-42m42 0v29M45 378h42m-42 0v-29m543 29h-42m42 0v-29" stroke="#e7efa9" stroke-opacity=".53" stroke-width="2"/>
+  <path d="M101 271l97-29 100 40 105-46 112 47M119 351l95-25 103 36 98-28" fill="none" stroke="#d5e8af" stroke-opacity=".12" stroke-width="1.5" stroke-dasharray="4 7"/>
+  <g transform="translate(95 270) rotate(-17)"><use href="#bush"/></g>
+  <g transform="translate(162 230) rotate(16)"><use href="#bush"/></g>
+  <g transform="translate(131 365) rotate(23)"><use href="#bush"/></g>
+  <g transform="translate(257 364) rotate(-13)"><use href="#bush"/></g>
+  <g transform="translate(492 370) rotate(20)"><use href="#bush"/></g>
+  <path d="M360 198h73v32h-73zM369 205h55v18h-55z" fill="#a9ac90" stroke="#d4d7ae" stroke-width="2"/><path d="M395 205v18" stroke="#74806c" stroke-width="3"/>
+  <path d="M534 225h74v39h-74z" fill="#658889" stroke="#a2c1b6" stroke-width="3"/><path d="M547 242q22 21 48 0" fill="none" stroke="#add1c3" stroke-opacity=".55" stroke-width="2"/>
+  <path d="M387 362h55v35h-55z" fill="#a2a58c" stroke="#d4d7ae" stroke-width="2"/><path d="M413 362v35" stroke="#727c68" stroke-width="3"/>
+  <circle cx="340" cy="306" r="125" fill="url(#light)"/>
+  <path d="M343 297l153-53M343 297l115 68" fill="none" stroke="#eff0ab" stroke-width="3" stroke-dasharray="11 12" stroke-linecap="round" opacity=".72"/>
+  <g transform="translate(491 246) rotate(155)"><use href="#target"/></g>
+  <g transform="translate(461 364) rotate(-133)"><use href="#target"/></g>
+  <path d="M383 281l22-13 7 4-25 16z" fill="#f2e3a6"/><path d="M414 267l12-5" stroke="#f2e3a6" stroke-width="2"/>
+  <ellipse cx="340" cy="323" rx="34" ry="11" fill="#0b1c17" opacity=".7"/>
+  <g transform="translate(340 302) rotate(-20)"><rect x="-9" y="-10" width="48" height="20" rx="3" fill="#193a2d"/><rect x="29" y="-6" width="19" height="12" fill="#e6dcaa"/><circle r="27" fill="#deeca9" stroke="#faf5ca" stroke-width="5"/><path d="M-15-19l-9-9m32-1 4-9" stroke="#a6c97a" stroke-width="5" stroke-linecap="round"/></g>
+  <circle cx="340" cy="302" r="42" fill="none" stroke="#f5e8a9" stroke-opacity=".3" stroke-width="1.5" stroke-dasharray="3 7"/>
+  <rect x="43" y="216" width="147" height="24" fill="#10241c" fill-opacity=".85"/>
+  <text x="53" y="232" fill="#dbe9a6" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="700" letter-spacing="2">SECTOR 01 / THE WILD</text>
+  <path d="M48 383h54m-27-6v12M533 383h54m-27-6v12" stroke="#e5edb0" stroke-opacity=".55"/>
+</g>
+<text x="26" y="429" fill="#d0dcc1" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="700" letter-spacing=".2">HIDE IN THE GRASS. FIGHT THROUGH THE WAVES.</text>
+<rect x="25" y="446" width="170" height="32" rx="2" fill="#e1edaa"/>
+<text x="110" y="468" text-anchor="middle" fill="#1e3529" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="900" letter-spacing="2">PLAY FREE  ↗</text>
+<text x="605" y="468" text-anchor="end" fill="#d5e4bd" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" letter-spacing=".3">bushwhack.yustellar.dev</text>
+</svg>
